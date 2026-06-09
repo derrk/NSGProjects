@@ -1,0 +1,78 @@
+import Link from 'next/link';
+import { ChevronRight, Sparkles } from 'lucide-react';
+
+export default function Hero() {
+  return (
+    <section className="relative min-h-[85vh] flex items-center justify-center overflow-hidden">
+      {/* Background */}
+      <div className="absolute inset-0 bg-gradient-to-br from-[#0a0a0f] via-[#0f0818] to-[#0a0a0f]" />
+
+      {/* Grid pattern overlay */}
+      <div
+        className="absolute inset-0 opacity-10"
+        style={{
+          backgroundImage:
+            'linear-gradient(rgba(147,51,234,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(147,51,234,0.3) 1px, transparent 1px)',
+          backgroundSize: '60px 60px',
+        }}
+      />
+
+      {/* Purple glow blobs */}
+      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-900/20 rounded-full blur-[120px]" />
+      <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-purple-700/15 rounded-full blur-[100px]" />
+
+      {/* Content */}
+      <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <div className="inline-flex items-center gap-2 bg-purple-900/30 border border-purple-700/40 rounded-full px-4 py-1.5 text-sm text-purple-300 mb-6">
+          <Sparkles className="w-3.5 h-3.5" />
+          Pokémon · One Piece · Sports Cards
+        </div>
+
+        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-white leading-tight mb-6">
+          Your Source For{' '}
+          <span className="gradient-text">
+            Pokémon, One Piece
+          </span>{' '}
+          &amp; Sports Cards
+        </h1>
+
+        <p className="text-lg sm:text-xl text-slate-400 max-w-2xl mx-auto mb-8 leading-relaxed">
+          Shop singles, sealed products, graded slabs, and collectibles from Secret Stock TCG.
+          Visit us online or find us at upcoming card shows throughout Texas.
+        </p>
+
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+          <Link
+            href="/shop"
+            className="group flex items-center gap-2 px-8 py-3.5 bg-purple-700 hover:bg-purple-600 text-white font-semibold rounded-xl transition-all glow-purple-sm hover:scale-105"
+          >
+            Shop Inventory
+            <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+          </Link>
+          <Link
+            href="/events"
+            className="flex items-center gap-2 px-8 py-3.5 bg-transparent border border-purple-700/50 hover:border-purple-500 text-slate-300 hover:text-white font-semibold rounded-xl transition-all"
+          >
+            Upcoming Events
+          </Link>
+        </div>
+
+        {/* Trust badges */}
+        <div className="flex flex-wrap items-center justify-center gap-6 mt-12 text-sm text-slate-500">
+          <span className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+            Free local pickup in Wichita Falls
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-purple-500" />
+            PSA · BGS · CGC graded slabs
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+            Collections bought &amp; traded
+          </span>
+        </div>
+      </div>
+    </section>
+  );
+}

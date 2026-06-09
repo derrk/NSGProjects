@@ -1,0 +1,1607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NSG Studios | Wichita Falls Web Design & AI Automation</title>
+  <meta name="description" content="Professional websites, ecommerce stores, AI lead management, and local SEO services for businesses in Wichita Falls, Texas and surrounding areas." />
+  <meta name="keywords" content="Wichita Falls web design, Wichita Falls website developer, small business websites Texas, ecommerce website development, AI automation services, local business websites, web design Wichita Falls TX, website maintenance services" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --purple: #7C3AED;
+      --purple-light: #9D6EF8;
+      --purple-dark: #5B21B6;
+      --dark: #1F2937;
+      --white: #FFFFFF;
+      --bg: #0B0B0B;
+      --gray-light: #E5E7EB;
+      --gray-mid: #9CA3AF;
+      --gray-dim: #374151;
+      --card-bg: #111111;
+      --border: rgba(124, 58, 237, 0.2);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--white);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── NAV ────────────────────────────────────────── */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 5%;
+      height: 68px;
+      background: rgba(11, 11, 11, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(124, 58, 237, 0.15);
+    }
+
+    .nav-logo {
+      font-size: 1.25rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: var(--white);
+      text-decoration: none;
+    }
+
+    .nav-logo span { color: var(--purple-light); }
+
+    .nav-links {
+      display: flex;
+      gap: 2rem;
+      list-style: none;
+    }
+
+    .nav-links a {
+      color: var(--gray-mid);
+      text-decoration: none;
+      font-size: 0.9rem;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+
+    .nav-links a:hover { color: var(--white); }
+
+    .nav-cta {
+      background: var(--purple);
+      color: var(--white) !important;
+      padding: 0.5rem 1.25rem;
+      border-radius: 6px;
+      font-weight: 600 !important;
+      font-size: 0.875rem !important;
+      transition: background 0.2s !important;
+    }
+
+    .nav-cta:hover { background: var(--purple-dark) !important; color: var(--white) !important; }
+
+    .hamburger {
+      display: none;
+      flex-direction: column;
+      gap: 5px;
+      cursor: pointer;
+      background: none;
+      border: none;
+      padding: 4px;
+    }
+
+    .hamburger span {
+      display: block;
+      width: 24px;
+      height: 2px;
+      background: var(--white);
+      border-radius: 2px;
+      transition: all 0.3s;
+    }
+
+    .mobile-menu {
+      display: none;
+      position: fixed;
+      top: 68px; left: 0; right: 0;
+      background: rgba(11, 11, 11, 0.97);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 1.5rem 5%;
+      z-index: 99;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .mobile-menu.open { display: flex; }
+
+    .mobile-menu a {
+      color: var(--gray-light);
+      text-decoration: none;
+      font-size: 1rem;
+      font-weight: 500;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .mobile-menu .btn-primary {
+      text-align: center;
+      border-bottom: none;
+    }
+
+    /* ── BUTTONS ────────────────────────────────────── */
+    .btn-primary {
+      display: inline-block;
+      background: var(--purple);
+      color: var(--white);
+      padding: 0.75rem 1.75rem;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.95rem;
+      text-decoration: none;
+      border: none;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.15s;
+    }
+
+    .btn-primary:hover { background: var(--purple-dark); transform: translateY(-1px); }
+
+    .btn-secondary {
+      display: inline-block;
+      background: transparent;
+      color: var(--white);
+      padding: 0.75rem 1.75rem;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.95rem;
+      text-decoration: none;
+      border: 1px solid rgba(255,255,255,0.25);
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s, transform 0.15s;
+    }
+
+    .btn-secondary:hover {
+      border-color: var(--purple-light);
+      background: rgba(124, 58, 237, 0.08);
+      transform: translateY(-1px);
+    }
+
+    /* ── SECTIONS ───────────────────────────────────── */
+    section { padding: 90px 5%; }
+
+    .section-label {
+      display: inline-block;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--purple-light);
+      margin-bottom: 0.75rem;
+    }
+
+    h2.section-title {
+      font-size: clamp(1.75rem, 3.5vw, 2.5rem);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      color: var(--white);
+      line-height: 1.2;
+    }
+
+    .section-sub {
+      color: var(--gray-mid);
+      font-size: 1.05rem;
+      max-width: 600px;
+      margin-top: 0.75rem;
+    }
+
+    .container { max-width: 1160px; margin: 0 auto; }
+
+    /* ── HERO ───────────────────────────────────────── */
+    #home {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      padding-top: 120px;
+      padding-bottom: 80px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-glow {
+      position: absolute;
+      width: 700px;
+      height: 700px;
+      background: radial-gradient(circle, rgba(124, 58, 237, 0.18) 0%, transparent 70%);
+      top: -100px;
+      right: -200px;
+      pointer-events: none;
+    }
+
+    .hero-glow-2 {
+      position: absolute;
+      width: 400px;
+      height: 400px;
+      background: radial-gradient(circle, rgba(124, 58, 237, 0.1) 0%, transparent 70%);
+      bottom: 0;
+      left: -100px;
+      pointer-events: none;
+    }
+
+    .hero-inner { max-width: 1160px; margin: 0 auto; position: relative; z-index: 1; }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: rgba(124, 58, 237, 0.12);
+      border: 1px solid rgba(124, 58, 237, 0.3);
+      padding: 0.35rem 0.9rem;
+      border-radius: 100px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--purple-light);
+      margin-bottom: 1.5rem;
+    }
+
+    .hero-badge::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      background: var(--purple-light);
+      border-radius: 50%;
+    }
+
+    h1 {
+      font-size: clamp(2.4rem, 5.5vw, 4rem);
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      line-height: 1.1;
+      color: var(--white);
+      max-width: 780px;
+      margin-bottom: 1.5rem;
+    }
+
+    h1 .highlight {
+      background: linear-gradient(135deg, var(--purple-light), #C084FC);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero-sub {
+      font-size: 1.125rem;
+      color: var(--gray-mid);
+      max-width: 580px;
+      margin-bottom: 2.5rem;
+      line-height: 1.7;
+    }
+
+    .hero-ctas { display: flex; gap: 1rem; flex-wrap: wrap; }
+
+    .hero-stats {
+      display: flex;
+      gap: 2.5rem;
+      margin-top: 3.5rem;
+      flex-wrap: wrap;
+    }
+
+    .stat-item {}
+
+    .stat-number {
+      font-size: 1.75rem;
+      font-weight: 800;
+      color: var(--white);
+      letter-spacing: -0.03em;
+    }
+
+    .stat-label {
+      font-size: 0.8rem;
+      color: var(--gray-mid);
+      font-weight: 500;
+      margin-top: 2px;
+    }
+
+    /* ── TRUST BAR ──────────────────────────────────── */
+    #trust {
+      padding: 70px 5%;
+      border-top: 1px solid rgba(255,255,255,0.05);
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      background: rgba(255,255,255,0.02);
+    }
+
+    .trust-inner {
+      max-width: 1160px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3rem;
+      align-items: center;
+    }
+
+    .trust-text h2 {
+      font-size: clamp(1.5rem, 2.5vw, 2rem);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      margin-bottom: 1rem;
+    }
+
+    .trust-text p { color: var(--gray-mid); line-height: 1.8; font-size: 1rem; }
+
+    .trust-industries {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+    }
+
+    .industry-tag {
+      background: rgba(124, 58, 237, 0.1);
+      border: 1px solid rgba(124, 58, 237, 0.2);
+      color: var(--gray-light);
+      padding: 0.35rem 0.9rem;
+      border-radius: 100px;
+      font-size: 0.82rem;
+      font-weight: 500;
+    }
+
+    /* ── SERVICES ───────────────────────────────────── */
+    #services { background: var(--bg); }
+
+    .services-header { margin-bottom: 3rem; }
+
+    .services-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1.5rem;
+      max-width: 1160px;
+      margin: 0 auto;
+    }
+
+    .service-card {
+      background: var(--card-bg);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 14px;
+      padding: 2rem;
+      transition: border-color 0.2s, transform 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .service-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--purple), transparent);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .service-card:hover { border-color: rgba(124, 58, 237, 0.35); transform: translateY(-3px); }
+    .service-card:hover::before { opacity: 1; }
+
+    .service-icon {
+      width: 44px;
+      height: 44px;
+      background: rgba(124, 58, 237, 0.15);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 1.25rem;
+      font-size: 1.25rem;
+    }
+
+    .service-card h3 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+      color: var(--white);
+    }
+
+    .service-card p {
+      font-size: 0.875rem;
+      color: var(--gray-mid);
+      margin-bottom: 1.25rem;
+      line-height: 1.6;
+    }
+
+    .service-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+
+    .service-list li {
+      font-size: 0.82rem;
+      color: var(--gray-mid);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .service-list li::before {
+      content: '';
+      width: 4px;
+      height: 4px;
+      background: var(--purple-light);
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    /* ── PRICING ────────────────────────────────────── */
+    #pricing {
+      background: linear-gradient(180deg, var(--bg) 0%, #0d0d14 100%);
+    }
+
+    .pricing-header { text-align: center; margin-bottom: 3rem; }
+    .pricing-header .section-sub { margin: 0.75rem auto 0; }
+
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+      gap: 1.5rem;
+      max-width: 1160px;
+      margin: 0 auto 1.5rem;
+    }
+
+    .pricing-card {
+      background: var(--card-bg);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 16px;
+      padding: 2rem;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .pricing-card.featured {
+      border-color: var(--purple);
+      background: linear-gradient(160deg, #0f0b1a 0%, #0d0b14 100%);
+    }
+
+    .featured-badge {
+      position: absolute;
+      top: 0; right: 0;
+      background: var(--purple);
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 0.35rem 0.85rem;
+      border-bottom-left-radius: 10px;
+    }
+
+    .pricing-card h3 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      margin-bottom: 0.25rem;
+    }
+
+    .pricing-card .tagline {
+      font-size: 0.82rem;
+      color: var(--gray-mid);
+      margin-bottom: 1.5rem;
+    }
+
+    .price-setup {
+      font-size: 2.5rem;
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      color: var(--white);
+      line-height: 1;
+    }
+
+    .price-setup span {
+      font-size: 1rem;
+      font-weight: 500;
+      color: var(--gray-mid);
+    }
+
+    .price-monthly {
+      font-size: 0.9rem;
+      color: var(--gray-mid);
+      margin-top: 0.35rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .price-monthly strong { color: var(--white); font-weight: 700; }
+
+    .pricing-divider {
+      border: none;
+      border-top: 1px solid rgba(255,255,255,0.07);
+      margin: 1.25rem 0;
+    }
+
+    .pricing-includes {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--gray-mid);
+      margin-bottom: 0.75rem;
+    }
+
+    .pricing-features {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      flex: 1;
+      margin-bottom: 1.75rem;
+    }
+
+    .pricing-features li {
+      font-size: 0.875rem;
+      color: var(--gray-light);
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    .pricing-features li::before {
+      content: '✓';
+      color: var(--purple-light);
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .pricing-card .btn-primary,
+    .pricing-card .btn-secondary {
+      text-align: center;
+      width: 100%;
+    }
+
+    .pricing-addon {
+      max-width: 1160px;
+      margin: 0 auto;
+      background: linear-gradient(135deg, rgba(124, 58, 237, 0.12), rgba(124, 58, 237, 0.05));
+      border: 1px solid rgba(124, 58, 237, 0.3);
+      border-radius: 16px;
+      padding: 2rem 2.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 2rem;
+      flex-wrap: wrap;
+    }
+
+    .addon-left h3 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      margin-bottom: 0.4rem;
+    }
+
+    .addon-left p { color: var(--gray-mid); font-size: 0.9rem; max-width: 480px; }
+
+    .addon-price {
+      text-align: right;
+      flex-shrink: 0;
+    }
+
+    .addon-price .amount {
+      font-size: 2rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      color: var(--purple-light);
+    }
+
+    .addon-price .period {
+      font-size: 0.85rem;
+      color: var(--gray-mid);
+      display: block;
+    }
+
+    /* ── WHY ────────────────────────────────────────── */
+    #why { background: rgba(255,255,255,0.015); }
+
+    .why-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1.5rem;
+      max-width: 1160px;
+      margin: 2.5rem auto 0;
+    }
+
+    .why-card {
+      background: var(--card-bg);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 12px;
+      padding: 1.75rem;
+    }
+
+    .why-icon {
+      font-size: 1.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .why-card h3 {
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 0.4rem;
+    }
+
+    .why-card p { font-size: 0.85rem; color: var(--gray-mid); line-height: 1.6; }
+
+    /* ── PROCESS ────────────────────────────────────── */
+    #process { background: var(--bg); }
+
+    .process-steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1.5rem;
+      max-width: 1160px;
+      margin: 2.5rem auto 0;
+      position: relative;
+    }
+
+    .step-card {
+      position: relative;
+      padding: 1.75rem;
+    }
+
+    .step-number {
+      font-size: 3rem;
+      font-weight: 900;
+      letter-spacing: -0.05em;
+      color: rgba(124, 58, 237, 0.15);
+      line-height: 1;
+      margin-bottom: 0.75rem;
+    }
+
+    .step-card h3 {
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 0.35rem;
+    }
+
+    .step-card p { font-size: 0.875rem; color: var(--gray-mid); }
+
+    /* ── PORTFOLIO ──────────────────────────────────── */
+    #portfolio { background: rgba(255,255,255,0.015); }
+
+    .portfolio-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 1.5rem;
+      max-width: 1160px;
+      margin: 2.5rem auto 0;
+    }
+
+    .portfolio-card {
+      background: var(--card-bg);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 14px;
+      overflow: hidden;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+
+    .portfolio-card:hover { border-color: rgba(124, 58, 237, 0.35); transform: translateY(-3px); }
+
+    .portfolio-thumb {
+      height: 200px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.5rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .portfolio-thumb .thumb-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.4);
+      position: absolute;
+      bottom: 12px;
+      left: 16px;
+    }
+
+    .portfolio-body { padding: 1.25rem 1.5rem 1.5rem; }
+
+    .portfolio-body .industry {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--purple-light);
+      margin-bottom: 0.4rem;
+    }
+
+    .portfolio-body h3 {
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 0.4rem;
+    }
+
+    .portfolio-body p { font-size: 0.85rem; color: var(--gray-mid); margin-bottom: 1rem; }
+
+    .btn-ghost {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--purple-light);
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      transition: gap 0.2s;
+    }
+
+    .btn-ghost:hover { gap: 0.6rem; }
+
+    /* ── FAQ ────────────────────────────────────────── */
+    #faq { background: var(--bg); }
+
+    .faq-container {
+      max-width: 760px;
+      margin: 2.5rem auto 0;
+    }
+
+    .faq-item {
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+    }
+
+    .faq-question {
+      width: 100%;
+      background: none;
+      border: none;
+      color: var(--white);
+      font-size: 1rem;
+      font-weight: 600;
+      font-family: 'Inter', sans-serif;
+      text-align: left;
+      padding: 1.25rem 0;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .faq-question:hover { color: var(--purple-light); }
+
+    .faq-icon {
+      font-size: 1.25rem;
+      color: var(--purple-light);
+      flex-shrink: 0;
+      transition: transform 0.2s;
+    }
+
+    .faq-item.open .faq-icon { transform: rotate(45deg); }
+
+    .faq-answer {
+      display: none;
+      padding-bottom: 1.25rem;
+      color: var(--gray-mid);
+      font-size: 0.9rem;
+      line-height: 1.7;
+    }
+
+    .faq-item.open .faq-answer { display: block; }
+
+    /* ── CONTACT ────────────────────────────────────── */
+    #contact {
+      background: linear-gradient(180deg, var(--bg) 0%, #0d0b14 100%);
+    }
+
+    .contact-inner {
+      max-width: 1160px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 1.2fr;
+      gap: 4rem;
+      align-items: start;
+    }
+
+    .contact-left h2 {
+      font-size: clamp(1.75rem, 3vw, 2.5rem);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      margin-bottom: 1rem;
+    }
+
+    .contact-left p { color: var(--gray-mid); line-height: 1.7; margin-bottom: 2rem; }
+
+    .contact-detail {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      color: var(--gray-mid);
+      font-size: 0.9rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .contact-detail span:first-child {
+      font-size: 1.1rem;
+    }
+
+    .contact-form {
+      background: var(--card-bg);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 16px;
+      padding: 2rem;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+
+    .form-group {
+      margin-bottom: 1rem;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--gray-mid);
+      margin-bottom: 0.4rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+      width: 100%;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px;
+      color: var(--white);
+      font-family: 'Inter', sans-serif;
+      font-size: 0.9rem;
+      padding: 0.7rem 1rem;
+      transition: border-color 0.2s;
+      outline: none;
+      -webkit-appearance: none;
+    }
+
+    .form-group select {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%239CA3AF' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 1rem center;
+      padding-right: 2.5rem;
+      cursor: pointer;
+    }
+
+    .form-group select option {
+      background: #1a1a2e;
+    }
+
+    .form-group input::placeholder,
+    .form-group textarea::placeholder { color: rgba(156, 163, 175, 0.5); }
+
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus {
+      border-color: var(--purple);
+    }
+
+    .form-group textarea { resize: vertical; min-height: 120px; }
+
+    .form-submit { width: 100%; padding: 0.9rem; font-size: 1rem; margin-top: 0.5rem; }
+
+    /* ── FOOTER ─────────────────────────────────────── */
+    footer {
+      background: #080808;
+      border-top: 1px solid rgba(255,255,255,0.06);
+      padding: 60px 5% 30px;
+    }
+
+    .footer-inner {
+      max-width: 1160px;
+      margin: 0 auto;
+    }
+
+    .footer-top {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr;
+      gap: 3rem;
+      margin-bottom: 3rem;
+    }
+
+    .footer-brand p {
+      color: var(--gray-mid);
+      font-size: 0.875rem;
+      margin: 0.75rem 0 1.5rem;
+      max-width: 280px;
+      line-height: 1.7;
+    }
+
+    .social-links { display: flex; gap: 0.75rem; }
+
+    .social-link {
+      width: 36px;
+      height: 36px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.875rem;
+      text-decoration: none;
+      color: var(--gray-mid);
+      transition: background 0.2s, color 0.2s;
+    }
+
+    .social-link:hover { background: var(--purple); color: var(--white); }
+
+    .footer-col h4 {
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--gray-mid);
+      margin-bottom: 1rem;
+    }
+
+    .footer-col ul { list-style: none; display: flex; flex-direction: column; gap: 0.6rem; }
+
+    .footer-col ul a {
+      color: var(--gray-mid);
+      text-decoration: none;
+      font-size: 0.875rem;
+      transition: color 0.2s;
+    }
+
+    .footer-col ul a:hover { color: var(--white); }
+
+    .footer-col address {
+      font-style: normal;
+      font-size: 0.875rem;
+      color: var(--gray-mid);
+      line-height: 1.8;
+    }
+
+    .footer-bottom {
+      border-top: 1px solid rgba(255,255,255,0.06);
+      padding-top: 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .footer-bottom p { font-size: 0.8rem; color: rgba(156, 163, 175, 0.5); }
+
+    /* ── RESPONSIVE ─────────────────────────────────── */
+    @media (max-width: 900px) {
+      .trust-inner { grid-template-columns: 1fr; }
+      .contact-inner { grid-template-columns: 1fr; gap: 2.5rem; }
+      .footer-top { grid-template-columns: 1fr 1fr; }
+      .footer-brand { grid-column: 1 / -1; }
+    }
+
+    @media (max-width: 640px) {
+      nav { padding: 0 4%; }
+      .nav-links { display: none; }
+      .hamburger { display: flex; }
+      section { padding: 70px 4%; }
+      .hero-ctas { flex-direction: column; }
+      .btn-primary, .btn-secondary { text-align: center; }
+      .form-row { grid-template-columns: 1fr; }
+      .footer-top { grid-template-columns: 1fr; }
+      .pricing-addon { flex-direction: column; }
+      .addon-price { text-align: left; }
+      .footer-bottom { flex-direction: column; text-align: center; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── NAVIGATION ─────────────────────────────────────── -->
+<nav>
+  <a href="#home" class="nav-logo">NSG<span>.</span>Studios</a>
+  <ul class="nav-links">
+    <li><a href="#home">Home</a></li>
+    <li><a href="#services">Services</a></li>
+    <li><a href="#pricing">Pricing</a></li>
+    <li><a href="#portfolio">Portfolio</a></li>
+    <li><a href="#contact">Contact</a></li>
+    <li><a href="#contact" class="nav-cta">Get Started</a></li>
+  </ul>
+  <button class="hamburger" onclick="toggleMenu()" aria-label="Toggle menu">
+    <span></span><span></span><span></span>
+  </button>
+</nav>
+
+<div class="mobile-menu" id="mobileMenu">
+  <a href="#home" onclick="closeMenu()">Home</a>
+  <a href="#services" onclick="closeMenu()">Services</a>
+  <a href="#pricing" onclick="closeMenu()">Pricing</a>
+  <a href="#portfolio" onclick="closeMenu()">Portfolio</a>
+  <a href="#contact" onclick="closeMenu()">Contact</a>
+  <a href="#contact" class="btn-primary" onclick="closeMenu()">Get Started</a>
+</div>
+
+<!-- ── HERO ───────────────────────────────────────────── -->
+<section id="home">
+  <div class="hero-glow"></div>
+  <div class="hero-glow-2"></div>
+  <div class="hero-inner">
+    <div class="hero-badge">Serving Wichita Falls & Surrounding Areas</div>
+    <h1>Professional Websites &amp; <span class="highlight">AI Automation</span> for Local Businesses</h1>
+    <p class="hero-sub">NSG Studios helps service businesses generate more leads, automate customer communication, and build a professional online presence — without the agency price tag.</p>
+    <div class="hero-ctas">
+      <a href="#contact" class="btn-primary">Get Started</a>
+      <a href="#pricing" class="btn-secondary">View Pricing</a>
+    </div>
+    <div class="hero-stats">
+      <div class="stat-item">
+        <div class="stat-number">1–2 wks</div>
+        <div class="stat-label">Average turnaround</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-number">$499</div>
+        <div class="stat-label">Websites starting at</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-number">$99/mo</div>
+        <div class="stat-label">Maintenance from</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── TRUST ──────────────────────────────────────────── -->
+<section id="trust">
+  <div class="trust-inner container">
+    <div class="trust-text">
+      <span class="section-label">Built For Small Businesses</span>
+      <h2>Made for businesses like yours</h2>
+      <p>Whether you're a contractor, dog groomer, pest control company, plumber, electrician, auto detailer, or local retailer — we build systems designed to help you get more customers and spend less time managing leads.</p>
+    </div>
+    <div class="trust-industries">
+      <span class="industry-tag">Contractors</span>
+      <span class="industry-tag">Plumbers</span>
+      <span class="industry-tag">Electricians</span>
+      <span class="industry-tag">Dog Groomers</span>
+      <span class="industry-tag">Pest Control</span>
+      <span class="industry-tag">Auto Detailers</span>
+      <span class="industry-tag">Local Retail</span>
+      <span class="industry-tag">HVAC</span>
+      <span class="industry-tag">Landscaping</span>
+      <span class="industry-tag">Cleaning Services</span>
+      <span class="industry-tag">Salons &amp; Spas</span>
+      <span class="industry-tag">Restaurants</span>
+    </div>
+  </div>
+</section>
+
+<!-- ── SERVICES ───────────────────────────────────────── -->
+<section id="services">
+  <div class="container">
+    <div class="services-header">
+      <span class="section-label">What We Do</span>
+      <h2 class="section-title">Services</h2>
+      <p class="section-sub">Everything your business needs to get online, get found, and grow.</p>
+    </div>
+    <div class="services-grid">
+
+      <div class="service-card">
+        <div class="service-icon">🖥️</div>
+        <h3>Website Design</h3>
+        <p>Professional, mobile-friendly websites built to convert visitors into customers.</p>
+        <ul class="service-list">
+          <li>Mobile optimization</li>
+          <li>Contact forms</li>
+          <li>SEO setup</li>
+          <li>Google Business integration</li>
+          <li>Fast performance</li>
+        </ul>
+      </div>
+
+      <div class="service-card">
+        <div class="service-icon">🛒</div>
+        <h3>Ecommerce Stores</h3>
+        <p>Sell products online with a modern, conversion-ready storefront.</p>
+        <ul class="service-list">
+          <li>Shopify or WooCommerce</li>
+          <li>Product setup</li>
+          <li>Payment processing</li>
+          <li>Inventory support</li>
+          <li>Mobile optimization</li>
+        </ul>
+      </div>
+
+      <div class="service-card">
+        <div class="service-icon">🤖</div>
+        <h3>AI Lead Management</h3>
+        <p>Capture and follow up with leads automatically — even when you're off the clock.</p>
+        <ul class="service-list">
+          <li>Missed call text-back</li>
+          <li>Lead capture forms</li>
+          <li>Automated follow-ups</li>
+          <li>Appointment reminders</li>
+          <li>AI chatbot options</li>
+          <li>Review request automation</li>
+        </ul>
+      </div>
+
+      <div class="service-card">
+        <div class="service-icon">📍</div>
+        <h3>Local SEO</h3>
+        <p>Improve your visibility in local search so customers can find you first.</p>
+        <ul class="service-list">
+          <li>On-page SEO</li>
+          <li>Google Business optimization</li>
+          <li>Location targeting</li>
+          <li>Technical SEO setup</li>
+        </ul>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ── PRICING ─────────────────────────────────────────── -->
+<section id="pricing">
+  <div class="pricing-header container">
+    <span class="section-label">Transparent Pricing</span>
+    <h2 class="section-title">Simple Pricing</h2>
+    <p class="section-sub">No hidden fees. No long-term contracts. Just honest pricing for real results.</p>
+  </div>
+
+  <div class="pricing-grid">
+
+    <div class="pricing-card">
+      <h3>Starter Website</h3>
+      <p class="tagline">Perfect for businesses needing a professional online presence.</p>
+      <div class="price-setup">$499 <span>setup</span></div>
+      <div class="price-monthly">then <strong>$99/month</strong></div>
+      <hr class="pricing-divider" />
+      <div class="pricing-includes">Setup includes</div>
+      <ul class="pricing-features">
+        <li>Up to 5 pages</li>
+        <li>Mobile optimization</li>
+        <li>Contact forms</li>
+        <li>Basic SEO</li>
+        <li>Google Business integration</li>
+      </ul>
+      <hr class="pricing-divider" />
+      <div class="pricing-includes">Monthly includes</div>
+      <ul class="pricing-features" style="margin-bottom:1.75rem">
+        <li>Hosting</li>
+        <li>Security updates</li>
+        <li>Backups</li>
+        <li>Minor content updates</li>
+      </ul>
+      <a href="#contact" class="btn-secondary">Get Started</a>
+    </div>
+
+    <div class="pricing-card featured">
+      <div class="featured-badge">Most Popular</div>
+      <h3>Growth Package</h3>
+      <p class="tagline">For businesses actively generating leads and bookings.</p>
+      <div class="price-setup">$999 <span>setup</span></div>
+      <div class="price-monthly">then <strong>$149/month</strong></div>
+      <hr class="pricing-divider" />
+      <div class="pricing-includes">Setup includes</div>
+      <ul class="pricing-features">
+        <li>Everything in Starter</li>
+        <li>Booking system integration</li>
+        <li>Enhanced SEO</li>
+        <li>Lead capture optimization</li>
+      </ul>
+      <hr class="pricing-divider" />
+      <div class="pricing-includes">Monthly includes</div>
+      <ul class="pricing-features" style="margin-bottom:1.75rem">
+        <li>Hosting</li>
+        <li>Updates</li>
+        <li>SEO monitoring</li>
+        <li>Monthly maintenance</li>
+      </ul>
+      <a href="#contact" class="btn-primary">Get Started</a>
+    </div>
+
+    <div class="pricing-card">
+      <h3>Ecommerce Package</h3>
+      <p class="tagline">Ideal for businesses selling products online.</p>
+      <div class="price-setup">From <span style="font-size:2rem;font-weight:800;color:var(--white);">$1,999</span></div>
+      <div class="price-monthly">then <strong>$149/month</strong></div>
+      <hr class="pricing-divider" />
+      <div class="pricing-includes">Setup includes</div>
+      <ul class="pricing-features">
+        <li>Shopify or WooCommerce</li>
+        <li>Product catalog setup</li>
+        <li>Payment processing</li>
+        <li>Shipping setup</li>
+        <li>Mobile optimization</li>
+      </ul>
+      <hr class="pricing-divider" />
+      <div class="pricing-includes">Monthly includes</div>
+      <ul class="pricing-features" style="margin-bottom:1.75rem">
+        <li>Maintenance</li>
+        <li>Product support</li>
+        <li>Hosting assistance</li>
+        <li>Security monitoring</li>
+      </ul>
+      <a href="#contact" class="btn-secondary">Get Started</a>
+    </div>
+
+  </div>
+
+  <div class="pricing-addon container">
+    <div class="addon-left">
+      <h3>AI Automation Add-On</h3>
+      <p>Automate customer communication and lead follow-up. Missed call text-back, automated responses, appointment reminders, and review generation — all handled for you.</p>
+    </div>
+    <div class="addon-price">
+      <div class="amount">$99<span style="font-size:1rem;color:var(--gray-mid);font-weight:500;">/mo</span></div>
+      <span class="period">Starting at</span>
+    </div>
+    <a href="#contact" class="btn-primary" style="flex-shrink:0">Learn More</a>
+  </div>
+</section>
+
+<!-- ── WHY ─────────────────────────────────────────────── -->
+<section id="why">
+  <div class="container">
+    <span class="section-label">Why NSG Studios</span>
+    <h2 class="section-title">Why Businesses Choose NSG Studios</h2>
+    <div class="why-grid">
+      <div class="why-card">
+        <div class="why-icon">📍</div>
+        <h3>Local</h3>
+        <p>Based in Texas and focused on helping local businesses grow. We understand your market.</p>
+      </div>
+      <div class="why-card">
+        <div class="why-icon">⚡</div>
+        <h3>Fast</h3>
+        <p>Most projects completed in days, not months. Get online and start generating leads quickly.</p>
+      </div>
+      <div class="why-card">
+        <div class="why-icon">💰</div>
+        <h3>Affordable</h3>
+        <p>Straightforward pricing with no hidden fees. Premium results without the agency markup.</p>
+      </div>
+      <div class="why-card">
+        <div class="why-icon">📈</div>
+        <h3>Growth Focused</h3>
+        <p>Every website is built with lead generation and customer acquisition as the primary goal.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── PROCESS ─────────────────────────────────────────── -->
+<section id="process">
+  <div class="container">
+    <span class="section-label">How It Works</span>
+    <h2 class="section-title">Four steps to a better online presence</h2>
+    <div class="process-steps">
+      <div class="step-card">
+        <div class="step-number">01</div>
+        <h3>Schedule a Consultation</h3>
+        <p>Tell us about your business and what you're looking to achieve online.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-number">02</div>
+        <h3>Choose a Package</h3>
+        <p>We'll recommend the right solution based on your goals and budget.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-number">03</div>
+        <h3>We Build It</h3>
+        <p>Our team designs and develops your website or automation system — fast.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-number">04</div>
+        <h3>Launch &amp; Grow</h3>
+        <p>Go live and start generating leads. We handle ongoing support and updates.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── PORTFOLIO ───────────────────────────────────────── -->
+<section id="portfolio">
+  <div class="container">
+    <span class="section-label">Our Work</span>
+    <h2 class="section-title">Recent Projects</h2>
+    <p class="section-sub">A look at what we've built for businesses in Wichita Falls and beyond.</p>
+    <div class="portfolio-grid">
+
+      <div class="portfolio-card">
+        <div class="portfolio-thumb" style="background: linear-gradient(135deg,#1a0e2e,#2d1b4e);">
+          🔧
+          <span class="thumb-label">Coming soon</span>
+        </div>
+        <div class="portfolio-body">
+          <div class="industry">Plumbing</div>
+          <h3>Lone Star Plumbing Co.</h3>
+          <p>Lead-focused website with online booking and automated follow-up system.</p>
+          <a href="#contact" class="btn-ghost">View Project →</a>
+        </div>
+      </div>
+
+      <div class="portfolio-card">
+        <div class="portfolio-thumb" style="background: linear-gradient(135deg,#0e1f2e,#1b3a4e);">
+          🐾
+          <span class="thumb-label">Coming soon</span>
+        </div>
+        <div class="portfolio-body">
+          <div class="industry">Pet Services</div>
+          <h3>Paws &amp; Play Grooming</h3>
+          <p>Booking-integrated website with appointment reminders and review automation.</p>
+          <a href="#contact" class="btn-ghost">View Project →</a>
+        </div>
+      </div>
+
+      <div class="portfolio-card">
+        <div class="portfolio-thumb" style="background: linear-gradient(135deg,#1a1a0e,#2e2e1b);">
+          🌿
+          <span class="thumb-label">Coming soon</span>
+        </div>
+        <div class="portfolio-body">
+          <div class="industry">Landscaping</div>
+          <h3>Green Acres Lawn Care</h3>
+          <p>Five-page site with local SEO and Google Business integration driving new calls.</p>
+          <a href="#contact" class="btn-ghost">View Project →</a>
+        </div>
+      </div>
+
+      <div class="portfolio-card">
+        <div class="portfolio-thumb" style="background: linear-gradient(135deg,#1f0e2e,#3a1b4e);">
+          🛒
+          <span class="thumb-label">Coming soon</span>
+        </div>
+        <div class="portfolio-body">
+          <div class="industry">Ecommerce</div>
+          <h3>Wichita Falls Candle Co.</h3>
+          <p>Shopify storefront with product catalog, payments, and mobile optimization.</p>
+          <a href="#contact" class="btn-ghost">View Project →</a>
+        </div>
+      </div>
+
+      <div class="portfolio-card">
+        <div class="portfolio-thumb" style="background: linear-gradient(135deg,#0e1a2e,#1b2e4e);">
+          ⚡
+          <span class="thumb-label">Coming soon</span>
+        </div>
+        <div class="portfolio-body">
+          <div class="industry">Electrical</div>
+          <h3>Volt Pro Electric</h3>
+          <p>Growth package site with missed call recovery and lead capture optimization.</p>
+          <a href="#contact" class="btn-ghost">View Project →</a>
+        </div>
+      </div>
+
+      <div class="portfolio-card">
+        <div class="portfolio-thumb" style="background: linear-gradient(135deg,#2e1a0e,#4e2e1b);">
+          🚗
+          <span class="thumb-label">Coming soon</span>
+        </div>
+        <div class="portfolio-body">
+          <div class="industry">Auto Detail</div>
+          <h3>Shine Detail Studio</h3>
+          <p>Modern booking site with AI chatbot and automated appointment reminders.</p>
+          <a href="#contact" class="btn-ghost">View Project →</a>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ── FAQ ─────────────────────────────────────────────── -->
+<section id="faq">
+  <div class="container">
+    <span class="section-label">FAQ</span>
+    <h2 class="section-title">Common Questions</h2>
+    <div class="faq-container">
+
+      <div class="faq-item">
+        <button class="faq-question" onclick="toggleFaq(this)">
+          How long does a website take?
+          <span class="faq-icon">+</span>
+        </button>
+        <div class="faq-answer">Most projects are completed within 1–2 weeks from the time we receive your content and have an approved design direction. Ecommerce stores may take a bit longer depending on catalog size.</div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-question" onclick="toggleFaq(this)">
+          Do you provide hosting?
+          <span class="faq-icon">+</span>
+        </button>
+        <div class="faq-answer">Yes. Hosting, security updates, backups, and minor content updates are all included in our monthly maintenance plans starting at $99/month.</div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-question" onclick="toggleFaq(this)">
+          Can you help with SEO?
+          <span class="faq-icon">+</span>
+        </button>
+        <div class="faq-answer">Yes. Every website includes foundational on-page SEO and Google Business integration. Our Growth Package includes enhanced SEO and ongoing monitoring to improve your local rankings over time.</div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-question" onclick="toggleFaq(this)">
+          Do you build ecommerce stores?
+          <span class="faq-icon">+</span>
+        </button>
+        <div class="faq-answer">Yes. We work with both Shopify and WooCommerce depending on your needs and budget. Our ecommerce packages include product setup, payment processing, shipping configuration, and mobile optimization.</div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-question" onclick="toggleFaq(this)">
+          What industries do you work with?
+          <span class="faq-icon">+</span>
+        </button>
+        <div class="faq-answer">We primarily work with service businesses, contractors, retailers, and local companies across Wichita Falls, Texas and surrounding areas — though we work with businesses anywhere.</div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-question" onclick="toggleFaq(this)">
+          Is there a long-term contract?
+          <span class="faq-icon">+</span>
+        </button>
+        <div class="faq-answer">No long-term contracts. Our monthly plans are month-to-month. We earn your business every month by delivering real results.</div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ── CONTACT ─────────────────────────────────────────── -->
+<section id="contact">
+  <div class="contact-inner">
+    <div class="contact-left">
+      <span class="section-label">Get In Touch</span>
+      <h2>Let's Build Something Great</h2>
+      <p>Ready to improve your online presence? Tell us about your business and we'll figure out the best path forward — no pressure, no jargon.</p>
+      <div class="contact-detail">
+        <span>📍</span>
+        <span>Wichita Falls, Texas</span>
+      </div>
+      <div class="contact-detail">
+        <span>📧</span>
+        <span>hello@nsgstudios.com</span>
+      </div>
+      <div class="contact-detail">
+        <span>📞</span>
+        <span>(940) 000-0000</span>
+      </div>
+    </div>
+    <div class="contact-form">
+      <form onsubmit="handleSubmit(event)">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="name">Name</label>
+            <input type="text" id="name" name="name" placeholder="Jane Smith" required />
+          </div>
+          <div class="form-group">
+            <label for="business">Business Name</label>
+            <input type="text" id="business" name="business" placeholder="Smith Plumbing" required />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" placeholder="jane@example.com" required />
+          </div>
+          <div class="form-group">
+            <label for="phone">Phone</label>
+            <input type="tel" id="phone" name="phone" placeholder="(940) 000-0000" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="service">Services Interested In</label>
+          <select id="service" name="service">
+            <option value="">Select a service...</option>
+            <option value="starter">Starter Website — $499</option>
+            <option value="growth">Growth Package — $999</option>
+            <option value="ecommerce">Ecommerce — from $1,999</option>
+            <option value="ai">AI Automation Add-On</option>
+            <option value="seo">Local SEO</option>
+            <option value="unsure">Not sure yet</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="message">Message</label>
+          <textarea id="message" name="message" placeholder="Tell us a bit about your business and what you're looking for..."></textarea>
+        </div>
+        <button type="submit" class="btn-primary form-submit">Request Consultation</button>
+      </form>
+    </div>
+  </div>
+</section>
+
+<!-- ── FOOTER ──────────────────────────────────────────── -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-top">
+      <div class="footer-brand">
+        <a href="#home" class="nav-logo">NSG<span style="color:var(--purple-light);">.</span>Studios</a>
+        <p>Websites. Automation. Growth. — Helping local businesses in Wichita Falls, Texas build a professional online presence and generate more leads.</p>
+        <div class="social-links">
+          <a href="#" class="social-link" aria-label="Facebook">f</a>
+          <a href="#" class="social-link" aria-label="Instagram">in</a>
+          <a href="#" class="social-link" aria-label="LinkedIn">li</a>
+          <a href="#" class="social-link" aria-label="X / Twitter">𝕏</a>
+        </div>
+      </div>
+      <div class="footer-col">
+        <h4>Quick Links</h4>
+        <ul>
+          <li><a href="#home">Home</a></li>
+          <li><a href="#services">Services</a></li>
+          <li><a href="#pricing">Pricing</a></li>
+          <li><a href="#portfolio">Portfolio</a></li>
+          <li><a href="#contact">Contact</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Contact</h4>
+        <address>
+          Wichita Falls, TX<br />
+          hello@nsgstudios.com<br />
+          (940) 000-0000
+        </address>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>© NSG Studios. All Rights Reserved.</p>
+      <p>Web Design · AI Automation · Wichita Falls, TX</p>
+    </div>
+  </div>
+</footer>
+
+<script>
+  function toggleMenu() {
+    document.getElementById('mobileMenu').classList.toggle('open');
+  }
+
+  function closeMenu() {
+    document.getElementById('mobileMenu').classList.remove('open');
+  }
+
+  function toggleFaq(btn) {
+    const item = btn.closest('.faq-item');
+    const isOpen = item.classList.contains('open');
+    document.querySelectorAll('.faq-item.open').forEach(el => el.classList.remove('open'));
+    if (!isOpen) item.classList.add('open');
+  }
+
+  function handleSubmit(e) {
+    e.preventDefault();
+    const btn = e.target.querySelector('.form-submit');
+    btn.textContent = 'Sent! We\'ll be in touch soon.';
+    btn.disabled = true;
+    btn.style.background = '#059669';
+  }
+
+  // Highlight active nav link on scroll
+  const sections = document.querySelectorAll('section[id]');
+  const navLinks = document.querySelectorAll('.nav-links a');
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        navLinks.forEach(a => a.classList.remove('active'));
+        const active = document.querySelector(`.nav-links a[href="#${entry.target.id}"]`);
+        if (active) active.style.color = '#fff';
+        navLinks.forEach(a => { if (a !== active) a.style.color = ''; });
+      }
+    });
+  }, { threshold: 0.4 });
+
+  sections.forEach(s => observer.observe(s));
+</script>
+</body>
+</html>
