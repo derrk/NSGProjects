@@ -3,7 +3,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
-import CartDrawer from "@/components/cart/CartDrawer";
+// CartDrawer removed for inventory-showcase version — preserved for future ecommerce build
+// import CartDrawer from "@/components/cart/CartDrawer";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -16,15 +17,15 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Secret Stock TCG | Pokémon, One Piece & Sports Cards – Wichita Falls, TX",
+  title: "Secret Stock TCG | Trading Cards in Wichita Falls, TX",
   description:
-    "Shop Pokémon, One Piece, and Sports Cards in Wichita Falls, Texas. Secret Stock TCG offers singles, sealed products, graded slabs, and vintage collectibles. Local pickup available.",
+    "Browse Pokémon, One Piece, and Sports Cards inventory from Secret Stock TCG in Wichita Falls, Texas. Raw singles, graded slabs, sealed products, and collectibles. Contact us for availability.",
   keywords:
-    "Pokémon cards Wichita Falls, sports cards Wichita Falls, trading card shop Wichita Falls, One Piece cards Texas, buy Pokémon cards Wichita Falls, card shop Wichita Falls TX",
+    "trading cards Wichita Falls, Pokémon cards Wichita Falls TX, sports cards Wichita Falls, One Piece cards Wichita Falls, buy sell trading cards Wichita Falls, card shop Wichita Falls TX, trading card inventory Wichita Falls",
   openGraph: {
-    title: "Secret Stock TCG | Trading Cards – Wichita Falls, TX",
+    title: "Secret Stock TCG | Trading Card Inventory – Wichita Falls, TX",
     description:
-      "Your source for Pokémon, One Piece & Sports Cards. Shop online or find us at card shows across Texas.",
+      "Browse featured inventory from Secret Stock TCG — Pokémon, One Piece & Sports Cards in Wichita Falls, Texas.",
     type: "website",
   },
 };
@@ -43,7 +44,7 @@ export default function RootLayout({
         <Header />
         <main className="flex-1">{children}</main>
         <Footer />
-        <CartDrawer />
+        {/* <CartDrawer /> — removed for inventory-showcase version */}
       </body>
     </html>
   );

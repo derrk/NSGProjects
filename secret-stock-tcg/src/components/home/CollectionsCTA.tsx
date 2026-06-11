@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { DollarSign, ArrowRight } from 'lucide-react';
+import { DollarSign, ArrowRight, MessageCircle } from 'lucide-react';
 
 export default function CollectionsCTA() {
   return (
@@ -13,7 +13,7 @@ export default function CollectionsCTA() {
         </h2>
         <p className="text-lg text-slate-400 max-w-xl mx-auto mb-8">
           Secret Stock TCG buys Pokémon, One Piece, sports cards, sealed products, and entire
-          collections. Get a fair offer — fast.
+          collections. Get a fair offer — fast. Serving Wichita Falls and surrounding areas.
         </p>
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
           <Link
@@ -25,9 +25,10 @@ export default function CollectionsCTA() {
           </Link>
           <Link
             href="/contact"
-            className="px-8 py-3.5 border border-gray-700 hover:border-purple-700/50 text-slate-300 hover:text-white font-semibold rounded-xl transition-all"
+            className="flex items-center gap-2 px-8 py-3.5 border border-gray-700 hover:border-purple-700/50 text-slate-300 hover:text-white font-semibold rounded-xl transition-all"
           >
-            Contact Us
+            <MessageCircle className="w-4 h-4" />
+            Message Us
           </Link>
         </div>
         <p className="mt-6 text-sm text-slate-500">
