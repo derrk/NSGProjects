@@ -1,18 +1,23 @@
 'use client';
 
-import { useParams, notFound } from 'next/navigation';
+import { useParams } from 'next/navigation';
+import { notFound } from 'next/navigation';
 import { ArrowLeft, Package, Star, Shield, MessageCircle, MapPin } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
+import { useState } from 'react';
 import { products } from '@/lib/data';
-import { GradedSlab, RawSingle, SealedProduct } from '@/lib/types';
+import { GradedSlab, RawSingle, SealedProduct, Artwork, ApparelItem } from '@/lib/types';
 
 export default function InventoryItemPage() {
   const { id } = useParams<{ id: string }>();
   const product = products.find((p) => p.id === id);
+  const [imgError, setImgError] = useState(false);
 
   if (!product) return notFound();
 
   const outOfStock = product.quantity === 0;
+  const hasRealImage = product.image && !imgError;
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
@@ -26,19 +31,32 @@ export default function InventoryItemPage() {
       <div className="grid md:grid-cols-2 gap-10">
         {/* Image */}
         <div>
-          <div className="aspect-[3/4] bg-gradient-to-br from-gray-900 to-gray-800 rounded-2xl flex items-center justify-center border border-gray-700">
-            <Package className="w-24 h-24 text-gray-600" />
+          <div className="aspect-[3/4] bg-gradient-to-br from-gray-900 to-gray-800 rounded-2xl flex items-center justify-center border border-gray-700 overflow-hidden relative">
+            {hasRealImage ? (
+              <Image
+                src={product.image}
+                alt={product.name}
+                fill
+                className="object-contain p-4"
+                sizes="(max-width: 768px) 100vw, 50vw"
+                onError={() => setImgError(true)}
+              />
+            ) : (
+              <Package className="w-24 h-24 text-gray-600" />
+            )}
           </div>
           {outOfStock && (
             <div className="mt-3 p-3 bg-gray-900 border border-gray-700 rounded-xl text-center">
-              <p className="text-sm text-slate-500">This item is currently unavailable. Contact us — similar inventory may be in stock.</p>
+              <p className="text-sm text-slate-500">
+                This item is currently unavailable. Contact us — similar inventory may be in stock.
+              </p>
             </div>
           )}
         </div>
 
         {/* Details */}
         <div>
-          {/* Category badges */}
+          {/* Category + type badges */}
           <div className="flex items-center gap-2 flex-wrap mb-3">
             <span className="text-xs px-2.5 py-1 bg-purple-900/40 text-purple-300 border border-purple-700/40 rounded-full capitalize">
               {product.category.replace('-', ' ')}
@@ -59,6 +77,16 @@ export default function InventoryItemPage() {
                 {(product as SealedProduct).productType}
               </span>
             )}
+            {product.type === 'artwork' && (
+              <span className="text-xs px-2.5 py-1 bg-pink-900/40 text-pink-300 border border-pink-700/40 rounded-full">
+                {(product as Artwork).medium}
+              </span>
+            )}
+            {product.type === 'apparel-item' && (
+              <span className="text-xs px-2.5 py-1 bg-indigo-900/40 text-indigo-300 border border-indigo-700/40 rounded-full">
+                {(product as ApparelItem).apparelType}
+              </span>
+            )}
           </div>
 
           <h1 className="text-2xl sm:text-3xl font-bold text-white mb-4">{product.name}</h1>
@@ -67,9 +95,10 @@ export default function InventoryItemPage() {
             <p className="text-slate-400 mb-6 leading-relaxed">{product.description}</p>
           )}
 
-          {/* Specs */}
+          {/* Specs table */}
           <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-4 mb-6 space-y-2.5">
-            <h3 className="text-xs text-slate-500 uppercase tracking-wider font-medium mb-3">Card Details</h3>
+            <h3 className="text-xs text-slate-500 uppercase tracking-wider font-medium mb-3">Details</h3>
+
             {product.type === 'raw-single' && (
               <>
                 <SpecRow label="Set" value={(product as RawSingle).set} />
@@ -99,6 +128,26 @@ export default function InventoryItemPage() {
                 )}
               </>
             )}
+            {product.type === 'artwork' && (
+              <>
+                <SpecRow label="Medium" value={(product as Artwork).medium} />
+                {(product as Artwork).dimensions && (
+                  <SpecRow label="Dimensions" value={(product as Artwork).dimensions!} />
+                )}
+                {(product as Artwork).artist && (
+                  <SpecRow label="Artist" value={(product as Artwork).artist!} />
+                )}
+              </>
+            )}
+            {product.type === 'apparel-item' && (
+              <>
+                <SpecRow label="Type" value={(product as ApparelItem).apparelType} />
+                <SpecRow label="Color" value={(product as ApparelItem).color} />
+                <SpecRow label="Available Sizes" value={(product as ApparelItem).sizes.join(', ')} />
+                <SpecRow label="Design" value={(product as ApparelItem).design} />
+              </>
+            )}
+
             <SpecRow
               label="Availability"
               value={outOfStock ? 'Currently Unavailable' : 'Available — Contact to Confirm'}
@@ -119,7 +168,6 @@ export default function InventoryItemPage() {
             {outOfStock ? 'Currently Unavailable' : 'Ask About This Item'}
           </Link>
 
-          {/* Secondary CTAs */}
           {!outOfStock && (
             <div className="mt-3 grid grid-cols-2 gap-3">
               <Link
@@ -137,11 +185,10 @@ export default function InventoryItemPage() {
             </div>
           )}
 
-          {/* Trust notes */}
           <div className="mt-5 grid grid-cols-2 gap-3 text-xs text-slate-500">
             <div className="flex items-center gap-1.5">
               <Shield className="w-3.5 h-3.5 text-purple-500" />
-              Authenticated inventory
+              Verified inventory
             </div>
             <div className="flex items-center gap-1.5">
               <MapPin className="w-3.5 h-3.5 text-purple-500" />

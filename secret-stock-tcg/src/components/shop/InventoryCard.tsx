@@ -1,6 +1,10 @@
+'use client';
+
 import Link from 'next/link';
+import Image from 'next/image';
+import { useState } from 'react';
 import { Package, Star, MessageCircle } from 'lucide-react';
-import { Product, RawSingle, GradedSlab, SealedProduct } from '@/lib/types';
+import { Product, RawSingle, GradedSlab, SealedProduct, Artwork, ApparelItem } from '@/lib/types';
 
 interface InventoryCardProps {
   product: Product;
@@ -26,21 +30,22 @@ function getGradeColor(grade: string): string {
   return 'text-slate-400 bg-gray-800';
 }
 
-function getCategoryLabel(category: string): string {
-  const labels: Record<string, string> = {
-    'pokemon': 'Pokémon',
-    'one-piece': 'One Piece',
-    'sports-cards': 'Sports Cards',
-    'graded-slabs': 'Graded Slabs',
-    'sealed-products': 'Sealed Products',
-    'vintage': 'Vintage',
-    'high-end': 'High End',
-  };
-  return labels[category] || category;
-}
+const categoryLabels: Record<string, string> = {
+  'pokemon': 'Pokémon',
+  'one-piece': 'One Piece',
+  'sports-cards': 'Sports Cards',
+  'graded-slabs': 'Graded Slabs',
+  'sealed-products': 'Sealed Products',
+  'art': 'Original Art',
+  'apparel': 'Apparel',
+  'vintage': 'Vintage',
+  'high-end': 'High End',
+};
 
 export default function InventoryCard({ product }: InventoryCardProps) {
+  const [imgError, setImgError] = useState(false);
   const outOfStock = product.quantity === 0;
+  const hasRealImage = product.image && product.image !== '/images/placeholder-card.png' && !imgError;
 
   return (
     <div className={`card-hover bg-[#0f0f1a] border rounded-xl overflow-hidden flex flex-col transition-colors ${
@@ -48,18 +53,36 @@ export default function InventoryCard({ product }: InventoryCardProps) {
     }`}>
       {/* Image */}
       <Link href={`/inventory/${product.id}`} className="block relative">
-        <div className="aspect-[3/4] bg-gradient-to-br from-gray-900 to-gray-800 flex items-center justify-center">
-          <Package className="w-16 h-16 text-gray-700" />
+        <div className="aspect-[3/4] bg-gradient-to-br from-gray-900 to-gray-800 flex items-center justify-center overflow-hidden">
+          {hasRealImage ? (
+            <Image
+              src={product.image}
+              alt={product.name}
+              fill
+              className="object-cover"
+              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+              onError={() => setImgError(true)}
+            />
+          ) : (
+            <Package className="w-16 h-16 text-gray-700" />
+          )}
         </div>
 
         {/* Grading company badge */}
         {product.type === 'graded-slab' && (
-          <span className="absolute top-2 left-2 bg-black/70 text-xs px-2 py-0.5 rounded-full text-slate-300 font-medium">
+          <span className="absolute top-2 left-2 bg-black/80 text-xs px-2 py-0.5 rounded-full text-slate-300 font-semibold">
             {(product as GradedSlab).gradingCompany}
           </span>
         )}
 
-        {/* Availability overlay */}
+        {/* Art medium badge */}
+        {product.type === 'artwork' && (
+          <span className="absolute top-2 left-2 bg-pink-900/80 text-xs px-2 py-0.5 rounded-full text-pink-300 font-medium">
+            Original Art
+          </span>
+        )}
+
+        {/* Unavailable overlay */}
         {outOfStock && (
           <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
             <span className="bg-gray-900/90 text-slate-400 text-xs font-semibold px-3 py-1 rounded-full border border-gray-700">
@@ -78,10 +101,10 @@ export default function InventoryCard({ product }: InventoryCardProps) {
           </h3>
         </Link>
 
-        {/* Category + type badges */}
+        {/* Badges */}
         <div className="flex flex-wrap gap-1 mb-3">
           <span className="text-xs px-2 py-0.5 rounded-full bg-purple-900/40 text-purple-300 border border-purple-800/40 font-medium">
-            {getCategoryLabel(product.category)}
+            {categoryLabels[product.category] ?? product.category}
           </span>
 
           {product.type === 'raw-single' && (
@@ -93,7 +116,7 @@ export default function InventoryCard({ product }: InventoryCardProps) {
           {product.type === 'graded-slab' && (
             <span className={`text-xs px-2 py-0.5 rounded-full font-bold flex items-center gap-0.5 ${getGradeColor((product as GradedSlab).grade)}`}>
               <Star className="w-2.5 h-2.5" />
-              Grade {(product as GradedSlab).grade}
+              {(product as GradedSlab).gradingCompany} {(product as GradedSlab).grade}
             </span>
           )}
 
@@ -102,9 +125,21 @@ export default function InventoryCard({ product }: InventoryCardProps) {
               {(product as SealedProduct).productType}
             </span>
           )}
+
+          {product.type === 'artwork' && (
+            <span className="text-xs px-2 py-0.5 rounded-full bg-pink-950 text-pink-300 font-medium">
+              {(product as Artwork).medium}
+            </span>
+          )}
+
+          {product.type === 'apparel-item' && (
+            <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-950 text-indigo-300 font-medium">
+              {(product as ApparelItem).apparelType}
+            </span>
+          )}
         </div>
 
-        {/* Short description */}
+        {/* Description */}
         {product.description && (
           <p className="text-xs text-slate-500 leading-relaxed mb-3 line-clamp-2 flex-1">
             {product.description}

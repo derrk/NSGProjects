@@ -4,14 +4,27 @@ export type ProductCategory =
   | 'sports-cards'
   | 'graded-slabs'
   | 'sealed-products'
+  | 'art'
+  | 'apparel'
   | 'vintage'
   | 'high-end';
 
-export type ProductType = 'raw-single' | 'graded-slab' | 'sealed-product';
+export type ProductType =
+  | 'raw-single'
+  | 'graded-slab'
+  | 'sealed-product'
+  | 'artwork'
+  | 'apparel-item';
 
-export type Condition = 'Mint' | 'Near Mint' | 'Lightly Played' | 'Moderately Played' | 'Heavily Played' | 'Damaged';
+export type Condition =
+  | 'Mint'
+  | 'Near Mint'
+  | 'Lightly Played'
+  | 'Moderately Played'
+  | 'Heavily Played'
+  | 'Damaged';
 
-export type GradingCompany = 'PSA' | 'BGS' | 'CGC';
+export type GradingCompany = 'PSA' | 'BGS' | 'CGC' | 'SGC';
 
 export interface BaseProduct {
   id: string;
@@ -20,12 +33,11 @@ export interface BaseProduct {
   type: ProductType;
   price: number;
   quantity: number;
-  image: string;
+  image: string;           // path relative to /public, e.g. /images/product.jpg
   featured: boolean;
   description?: string;
-  // Placeholder for future Collectr integration
   marketPrice?: number;
-  collectrId?: string;
+  collectrId?: string;     // placeholder for future Collectr integration
 }
 
 export interface RawSingle extends BaseProduct {
@@ -46,36 +58,31 @@ export interface GradedSlab extends BaseProduct {
 
 export interface SealedProduct extends BaseProduct {
   type: 'sealed-product';
-  productType: 'Booster Box' | 'ETB' | 'Collection Box' | 'Bundle' | 'Booster Pack' | 'Starter Deck';
+  productType: 'Booster Box' | 'ETB' | 'Collection Box' | 'Bundle' | 'Booster Pack' | 'Starter Deck' | 'Promo Box';
   releaseDate?: string;
 }
 
-export type Product = RawSingle | GradedSlab | SealedProduct;
+export interface Artwork extends BaseProduct {
+  type: 'artwork';
+  medium: string;       // 'Original Canvas', 'Print', etc.
+  dimensions?: string;
+  artist?: string;
+}
 
+export interface ApparelItem extends BaseProduct {
+  type: 'apparel-item';
+  apparelType: 'T-Shirt' | 'Hoodie' | 'Hat';
+  sizes: string[];
+  color: string;
+  design: string;
+}
+
+export type Product = RawSingle | GradedSlab | SealedProduct | Artwork | ApparelItem;
+
+// Cart types — preserved for future ecommerce build
 export interface CartItem {
   product: Product;
   quantity: number;
-}
-
-export interface Event {
-  id: string;
-  name: string;
-  date: string;
-  location: string;
-  city: string;
-  time: string;
-  boothInfo: string;
-  description: string;
-  type: 'card-show' | 'league-cup' | 'expo' | 'local-event';
-}
-
-export interface CollectionInquiry {
-  name: string;
-  email: string;
-  phone: string;
-  collectionType: string;
-  estimatedValue: string;
-  notes: string;
 }
 
 export interface Order {
