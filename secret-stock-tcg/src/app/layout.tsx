@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { Analytics } from "@vercel/analytics/next";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 // CartDrawer removed for inventory-showcase version — preserved for future ecommerce build
@@ -45,6 +46,7 @@ export default function RootLayout({
         <main className="flex-1">{children}</main>
         <Footer />
         {/* <CartDrawer /> — removed for inventory-showcase version */}
+        <Analytics />
       </body>
     </html>
   );
