@@ -1,267 +1,242 @@
-import { Product, Event } from './types';
+import { Product } from './types';
+
+// ─── IMAGE FILENAME GUIDE ────────────────────────────────────────────────────
+// Save your product photos to: /public/images/
+// Use the exact filenames listed next to each product below.
+// ─────────────────────────────────────────────────────────────────────────────
 
 export const products: Product[] = [
+
+  // ── SEALED PRODUCTS ────────────────────────────────────────────────────────
+
   {
-    id: 'p1',
-    name: 'Charizard ex - Obsidian Flames',
-    category: 'pokemon',
-    type: 'raw-single',
-    set: 'Obsidian Flames',
-    cardNumber: '125/197',
-    condition: 'Near Mint',
-    language: 'English',
-    price: 34.99,
-    quantity: 3,
-    image: '/images/placeholder-card.png',
-    featured: true,
-    description: 'Near Mint Charizard ex from Obsidian Flames. One of the hottest cards in the set.',
-    marketPrice: 39.99,
-  },
-  {
-    id: 'p2',
-    name: 'Pikachu VMAX - Crown Zenith',
-    category: 'pokemon',
-    type: 'raw-single',
-    set: 'Crown Zenith',
-    cardNumber: 'GG49/GG70',
-    condition: 'Near Mint',
-    language: 'English',
-    price: 24.99,
-    quantity: 5,
-    image: '/images/placeholder-card.png',
-    featured: true,
-    description: 'Near Mint Pikachu VMAX Galarian Gallery from Crown Zenith.',
-    marketPrice: 28.00,
-  },
-  {
-    id: 'p3',
-    name: 'PSA 10 Charizard - Base Set Shadowless',
-    category: 'graded-slabs',
-    type: 'graded-slab',
-    set: 'Base Set Shadowless',
-    grade: '10',
-    certNumber: '12345678',
-    gradingCompany: 'PSA',
-    price: 4999.99,
-    quantity: 1,
-    image: '/images/placeholder-slab.png',
-    featured: true,
-    description: 'PSA 10 Base Set Shadowless Charizard. The holy grail of Pokémon cards.',
-    marketPrice: 5500.00,
-  },
-  {
-    id: 'p4',
-    name: 'Scarlet & Violet Booster Box',
-    category: 'sealed-products',
-    type: 'sealed-product',
-    productType: 'Booster Box',
-    releaseDate: '2023-03-31',
-    price: 139.99,
-    quantity: 8,
-    image: '/images/placeholder-box.png',
-    featured: true,
-    description: 'Factory sealed Scarlet & Violet booster box. 36 packs per box.',
-    marketPrice: 149.99,
-  },
-  {
-    id: 'p5',
-    name: 'Monkey D. Luffy - OP01-001 Alt Art',
-    category: 'one-piece',
-    type: 'raw-single',
-    set: 'Romance Dawn',
-    cardNumber: 'OP01-001',
-    condition: 'Near Mint',
-    language: 'English',
-    price: 89.99,
-    quantity: 2,
-    image: '/images/placeholder-card.png',
-    featured: true,
-    description: 'Alternate art Luffy leader from the Romance Dawn set.',
-    marketPrice: 99.99,
-  },
-  {
-    id: 'p6',
-    name: 'Patrick Mahomes Rookie Prizm PSA 10',
-    category: 'sports-cards',
-    type: 'graded-slab',
-    set: '2017 Prizm',
-    grade: '10',
-    certNumber: '87654321',
-    gradingCompany: 'PSA',
-    price: 899.99,
-    quantity: 1,
-    image: '/images/placeholder-slab.png',
-    featured: true,
-    description: 'PSA 10 Patrick Mahomes rookie Prizm. Sharp corners, perfect centering.',
-    marketPrice: 950.00,
-  },
-  {
-    id: 'p7',
-    name: 'Paldean Fates Elite Trainer Box',
+    id: 'seal-151-etb-snorlax',
+    name: 'Pokémon 151 Elite Trainer Box — Snorlax',
     category: 'sealed-products',
     type: 'sealed-product',
     productType: 'ETB',
-    releaseDate: '2024-01-26',
-    price: 59.99,
-    quantity: 12,
-    image: '/images/placeholder-box.png',
-    featured: true,
-    description: 'Paldean Fates ETB with shiny Pokémon throughout.',
-    marketPrice: 64.99,
-  },
-  {
-    id: 'p8',
-    name: 'Umbreon VMAX Alt Art - Evolving Skies',
-    category: 'pokemon',
-    type: 'raw-single',
-    set: 'Evolving Skies',
-    cardNumber: '215/203',
-    condition: 'Near Mint',
-    language: 'English',
-    price: 149.99,
+    releaseDate: '2023-10-06',
+    price: 0,
     quantity: 1,
-    image: '/images/placeholder-card.png',
+    image: '/images/etb-151-snorlax.jpg',         // ← save as: etb-151-snorlax.jpg
     featured: true,
-    description: 'The most popular alternate art VMAX from Evolving Skies.',
-    marketPrice: 160.00,
+    description:
+      'Factory sealed Pokémon 151 Elite Trainer Box featuring Snorlax. ' +
+      'Displayed in a premium acrylic case. One of the most popular ETBs from the Scarlet & Violet era.',
   },
   {
-    id: 'p9',
-    name: 'One Piece Romance Dawn Booster Box',
-    category: 'one-piece',
-    type: 'sealed-product',
-    productType: 'Booster Box',
-    releaseDate: '2022-12-02',
-    price: 89.99,
-    quantity: 4,
-    image: '/images/placeholder-box.png',
-    featured: false,
-    description: 'Factory sealed Romance Dawn booster box. 24 packs.',
-    marketPrice: 99.99,
-  },
-  {
-    id: 'p10',
-    name: 'BGS 9.5 Mike Trout Rookie - Topps Update',
-    category: 'sports-cards',
-    type: 'graded-slab',
-    set: '2009 Topps Update',
-    grade: '9.5',
-    certNumber: '11223344',
-    gradingCompany: 'BGS',
-    price: 1299.99,
-    quantity: 1,
-    image: '/images/placeholder-slab.png',
-    featured: false,
-    description: 'BGS 9.5 Mike Trout rookie card. Quad 9.5 subgrades.',
-    marketPrice: 1400.00,
-  },
-  {
-    id: 'p11',
-    name: 'Mew ex - 151 Collection',
-    category: 'pokemon',
-    type: 'raw-single',
-    set: 'Pokemon 151',
-    cardNumber: '205/165',
-    condition: 'Near Mint',
-    language: 'English',
-    price: 44.99,
-    quantity: 6,
-    image: '/images/placeholder-card.png',
-    featured: false,
-    description: 'Mew ex Special Illustration Rare from Pokemon 151.',
-    marketPrice: 49.99,
-  },
-  {
-    id: 'p12',
-    name: 'Pokémon 151 Ultra Premium Collection',
+    id: 'seal-pokemon-day-2026',
+    name: '2026 Pokémon Day Box — 30th Anniversary',
     category: 'sealed-products',
     type: 'sealed-product',
-    productType: 'Collection Box',
-    releaseDate: '2023-10-06',
-    price: 119.99,
-    quantity: 3,
-    image: '/images/placeholder-box.png',
+    productType: 'Promo Box',
+    releaseDate: '2026-02-27',
+    price: 0,
+    quantity: 1,
+    image: '/images/pokemon-day-2026-box.jpg',    // ← save as: pokemon-day-2026-box.jpg
+    featured: true,
+    description:
+      'Limited 2026 Pokémon Day 30th Anniversary box. Includes exclusive Pikachu promo card, ' +
+      'commemorative coin, and 3 Mega Evolution: Phantasmal Flames booster packs.',
+  },
+  {
+    id: 'seal-evolving-skies-etb',
+    name: 'Evolving Skies Elite Trainer Box',
+    category: 'sealed-products',
+    type: 'sealed-product',
+    productType: 'ETB',
+    releaseDate: '2021-08-27',
+    price: 0,
+    quantity: 1,
+    image: '/images/etb-evolving-skies.jpg',      // ← save as: etb-evolving-skies.jpg
+    featured: true,
+    description:
+      'Sealed Pokémon Sword & Shield — Evolving Skies Elite Trainer Box featuring Sylveon, ' +
+      'Espeon, Glaceon, and Vaporeon. One of the most sought-after ETBs from the Sword & Shield era. ' +
+      'Stored in a premium acrylic display case.',
+  },
+
+  // ── GRADED SLABS ───────────────────────────────────────────────────────────
+
+  {
+    id: 'slab-cj-stroud-sgc9',
+    name: 'C.J. Stroud — 2023 Panini National VIP Gold Prizm RC',
+    category: 'sports-cards',
+    type: 'graded-slab',
+    set: '2023 Panini The National VIP',
+    grade: '9',
+    certNumber: '2156473',
+    gradingCompany: 'SGC',
+    price: 0,
+    quantity: 1,
+    image: '/images/slab-cj-stroud-sgc9.jpg',    // ← save as: slab-cj-stroud-sgc9.jpg
+    featured: true,
+    description:
+      'SGC MT 9 — C.J. Stroud RC2 Material Gold Prizm numbered 3/10. ' +
+      'One of only 3 copies in existence with a game-worn jersey patch window. ' +
+      'One of the most exclusive Stroud rookie cards available.',
+  },
+  {
+    id: 'slab-op-ace-psa10',
+    name: 'Portgas D. Ace — OP13-119 Manga Alt Art PSA 10',
+    category: 'one-piece',
+    type: 'graded-slab',
+    set: '2025 One Piece OP13 EN',
+    grade: '10',
+    certNumber: '150161355',
+    gradingCompany: 'PSA',
+    price: 0,
+    quantity: 1,
+    image: '/images/slab-op-ace-psa10.jpg',       // ← save as: slab-op-ace-psa10.jpg
+    featured: true,
+    description:
+      'PSA GEM MT 10 — Portgas D. Ace Manga Alternate Art from One Piece OP13 (English). ' +
+      'Card #119, Whitebeard Pirates. Stunning manga-panel art with holographic finish. ' +
+      'Perfect grade on one of the most iconic One Piece cards.',
+  },
+
+  // ── ONE PIECE RAW SINGLES ──────────────────────────────────────────────────
+
+  {
+    id: 'op-ace-raw-op13',
+    name: 'Portgas D. Ace — OP13 Character Card (Raw)',
+    category: 'one-piece',
+    type: 'raw-single',
+    set: 'One Piece OP13',
+    cardNumber: 'OP13',
+    condition: 'Near Mint',
+    language: 'English',
+    price: 0,
+    quantity: 1,
+    image: '/images/op-ace-raw-op13.jpg',         // ← save as: op-ace-raw-op13.jpg
+    featured: true,
+    description:
+      'Portgas D. Ace character card from One Piece OP13. 6000 power, Counter +1000, ' +
+      'Whitebeard Pirates. On Play / On KO ability to search for Luffy or Whitebeard Pirates. ' +
+      'Raw Near Mint copy in a toploader.',
+  },
+
+  // ── ORIGINAL ARTWORK ───────────────────────────────────────────────────────
+
+  {
+    id: 'art-mew-mewtwo',
+    name: 'Mew & Mewtwo — Original Canvas Painting',
+    category: 'art',
+    type: 'artwork',
+    medium: 'Original Canvas',
+    price: 75,
+    quantity: 1,
+    image: '/images/art-mew-mewtwo.jpg',          // ← save as: art-mew-mewtwo.jpg
+    featured: true,
+    description:
+      'Original hand-painted canvas featuring Mew and Mewtwo in a swirling cosmic energy background. ' +
+      'Striking pink and purple tones on black. A collector piece for any Pokémon fan.',
+  },
+  {
+    id: 'art-charizard',
+    name: 'Charizard — Original Canvas Painting',
+    category: 'art',
+    type: 'artwork',
+    medium: 'Original Canvas',
+    price: 45,
+    quantity: 1,
+    image: '/images/art-charizard.jpg',           // ← save as: art-charizard.jpg
+    featured: true,
+    description:
+      'Original hand-painted canvas of Charizard in a dramatic close-up roaring pose. ' +
+      'Warm orange, red, and yellow tones with bold line work.',
+  },
+  {
+    id: 'art-pancham',
+    name: 'Pancham — Original Canvas Painting',
+    category: 'art',
+    type: 'artwork',
+    medium: 'Original Canvas',
+    price: 35,
+    quantity: 1,
+    image: '/images/art-pancham.jpg',             // ← save as: art-pancham.jpg
     featured: false,
-    description: 'Pokemon 151 Ultra Premium Collection featuring Mew.',
-    marketPrice: 129.99,
+    description:
+      'Original hand-painted canvas of Pancham in a bamboo forest. ' +
+      'Cool tones with detailed bamboo background and the classic Pancham leaf pose.',
+  },
+  {
+    id: 'art-charmander',
+    name: 'Charmander — Original Canvas Painting',
+    category: 'art',
+    type: 'artwork',
+    medium: 'Original Canvas',
+    price: 25,
+    quantity: 1,
+    image: '/images/art-charmander.jpg',          // ← save as: art-charmander.jpg
+    featured: false,
+    description:
+      'Original hand-painted canvas of Charmander surrounded by fire and flame. ' +
+      'Bold red and orange color palette. A great entry-level piece for any Pokémon art collection.',
+  },
+
+  // ── APPAREL ────────────────────────────────────────────────────────────────
+
+  {
+    id: 'shirt-embroidered-tees',
+    name: 'Pokémon Embroidered T-Shirts — Multiple Designs',
+    category: 'apparel',
+    type: 'apparel-item',
+    apparelType: 'T-Shirt',
+    sizes: ['S', 'M', 'L'],
+    color: 'Blue / Gray / Yellow',
+    design: 'Embroidered Pokémon chest logo',
+    price: 0,
+    quantity: 3,
+    image: '/images/shirts-embroidered-group.jpg', // ← save as: shirts-embroidered-group.jpg
+    featured: true,
+    description:
+      'Comfort Colors heavyweight tees with embroidered Pokémon chest designs. ' +
+      'Available in blue, gray, and yellow/mustard colorways with different Pokémon embroidery on each. ' +
+      'Contact us for available designs, sizes, and pricing.',
+  },
+  {
+    id: 'shirt-gengar-black',
+    name: 'Gengar Embroidered T-Shirt — Black',
+    category: 'apparel',
+    type: 'apparel-item',
+    apparelType: 'T-Shirt',
+    sizes: ['S'],
+    color: 'Black',
+    design: 'Gengar chest embroidery — purple outline, red eyes',
+    price: 0,
+    quantity: 1,
+    image: '/images/shirt-gengar-black.jpg',      // ← save as: shirt-gengar-black.jpg
+    featured: true,
+    description:
+      'Black heavyweight tee with embroidered Gengar chest design. ' +
+      'Purple outline with red eyes — subtle and clean. Perfect for Gengar fans.',
   },
 ];
 
-export const events: Event[] = [
-  {
-    id: 'e1',
-    name: 'Collect-A-Con Dallas',
-    date: '2026-07-12',
-    location: 'Kay Bailey Hutchison Convention Center',
-    city: 'Dallas, TX',
-    time: '9:00 AM - 6:00 PM',
-    boothInfo: 'Booth #247 - Hall B',
-    description: 'One of the largest trading card conventions in Texas. Find us at Booth #247 in Hall B with our full inventory of singles, slabs, and sealed products.',
-    type: 'card-show',
-  },
-  {
-    id: 'e2',
-    name: 'Wichita Falls Card Show',
-    date: '2026-06-28',
-    location: 'MPEC - Multipurpose Events Center',
-    city: 'Wichita Falls, TX',
-    time: '10:00 AM - 4:00 PM',
-    boothInfo: 'Main Floor - Table 12',
-    description: 'Local card show right here in Wichita Falls. Shop Pokémon, sports cards, One Piece, and more. Great deals on singles and sealed products.',
-    type: 'local-event',
-  },
-  {
-    id: 'e3',
-    name: 'Regional Pokémon League Cup',
-    date: '2026-07-19',
-    location: 'Sike\'s Senter Mall',
-    city: 'Wichita Falls, TX',
-    time: '11:00 AM - 5:00 PM',
-    boothInfo: 'Vendor Area - Table 3',
-    description: 'Official Pokémon League Cup event. We\'ll be vending with singles, sealed products, and accessories perfect for competitive players.',
-    type: 'league-cup',
-  },
-  {
-    id: 'e4',
-    name: 'North Texas Sports Card Expo',
-    date: '2026-08-02',
-    location: 'Lone Star Park',
-    city: 'Grand Prairie, TX',
-    time: '9:00 AM - 5:00 PM',
-    boothInfo: 'Booth #88',
-    description: 'Major sports card expo featuring dealers from across Texas and Oklahoma. We\'ll have our full sports card inventory plus Pokémon and One Piece.',
-    type: 'expo',
-  },
-];
+// ── CATEGORIES ────────────────────────────────────────────────────────────────
 
 export const categories = [
   {
     id: 'pokemon',
     name: 'Pokémon',
-    description: 'Browse singles, sealed products, slabs, and collectibles.',
+    description: 'Singles, sealed products, slabs, and collectibles.',
     icon: '⚡',
     color: 'from-yellow-600 to-yellow-800',
   },
   {
     id: 'one-piece',
     name: 'One Piece',
-    description: 'Shop sealed products, singles, and graded cards.',
+    description: 'Raw singles, graded slabs, and sealed products.',
     icon: '⚓',
     color: 'from-red-700 to-red-900',
   },
   {
     id: 'sports-cards',
     name: 'Sports Cards',
-    description: 'Explore rookie cards, slabs, autos, and collectibles.',
+    description: 'Rookie cards, graded slabs, patches, and autos.',
     icon: '🏆',
     color: 'from-blue-700 to-blue-900',
-  },
-  {
-    id: 'graded-slabs',
-    name: 'Graded Slabs',
-    description: 'Premium graded inventory from PSA, BGS, and CGC.',
-    icon: '🏅',
-    color: 'from-purple-700 to-purple-900',
   },
   {
     id: 'sealed-products',
@@ -271,10 +246,78 @@ export const categories = [
     color: 'from-green-700 to-green-900',
   },
   {
+    id: 'art',
+    name: 'Original Art',
+    description: 'Hand-painted Pokémon canvas art by local artists.',
+    icon: '🎨',
+    color: 'from-pink-700 to-pink-900',
+  },
+  {
+    id: 'apparel',
+    name: 'Apparel',
+    description: 'Embroidered Pokémon tees and collector merch.',
+    icon: '👕',
+    color: 'from-indigo-700 to-indigo-900',
+  },
+  {
     id: 'collections-wanted',
     name: 'Collections Wanted',
     description: 'Sell your collection — we buy singles, slabs, and bulk.',
     icon: '💰',
     color: 'from-amber-700 to-amber-900',
+  },
+];
+
+// ── EVENTS ────────────────────────────────────────────────────────────────────
+// Hidden in inventory-showcase version — preserved for future use
+
+export const events = [
+  {
+    id: 'e1',
+    name: 'Collect-A-Con Dallas',
+    date: '2026-07-12',
+    location: 'Kay Bailey Hutchison Convention Center',
+    city: 'Dallas, TX',
+    time: '9:00 AM - 6:00 PM',
+    boothInfo: 'Booth #247 - Hall B',
+    description:
+      'One of the largest trading card conventions in Texas. Find us at Booth #247 in Hall B with our full inventory.',
+    type: 'card-show' as const,
+  },
+  {
+    id: 'e2',
+    name: 'Wichita Falls Card Show',
+    date: '2026-06-28',
+    location: 'MPEC - Multipurpose Events Center',
+    city: 'Wichita Falls, TX',
+    time: '10:00 AM - 4:00 PM',
+    boothInfo: 'Main Floor - Table 12',
+    description:
+      'Local card show right here in Wichita Falls. Shop Pokémon, sports cards, One Piece, and more.',
+    type: 'local-event' as const,
+  },
+  {
+    id: 'e3',
+    name: 'Regional Pokémon League Cup',
+    date: '2026-07-19',
+    location: "Sike's Senter Mall",
+    city: 'Wichita Falls, TX',
+    time: '11:00 AM - 5:00 PM',
+    boothInfo: 'Vendor Area - Table 3',
+    description:
+      "Official Pokémon League Cup event. We'll be vending with singles, sealed products, and accessories.",
+    type: 'league-cup' as const,
+  },
+  {
+    id: 'e4',
+    name: 'North Texas Sports Card Expo',
+    date: '2026-08-02',
+    location: 'Lone Star Park',
+    city: 'Grand Prairie, TX',
+    time: '9:00 AM - 5:00 PM',
+    boothInfo: 'Booth #88',
+    description:
+      'Major sports card expo featuring dealers from across Texas and Oklahoma.',
+    type: 'expo' as const,
   },
 ];

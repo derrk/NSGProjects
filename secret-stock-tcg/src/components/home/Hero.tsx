@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ChevronRight, Sparkles } from 'lucide-react';
+import { ChevronRight, MapPin } from 'lucide-react';
 
 export default function Hero() {
   return (
@@ -23,37 +23,38 @@ export default function Hero() {
 
       {/* Content */}
       <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        {/* Location badge */}
         <div className="inline-flex items-center gap-2 bg-purple-900/30 border border-purple-700/40 rounded-full px-4 py-1.5 text-sm text-purple-300 mb-6">
-          <Sparkles className="w-3.5 h-3.5" />
-          Pokémon · One Piece · Sports Cards
+          <MapPin className="w-3.5 h-3.5" />
+          Wichita Falls, TX · Serving North Texas
         </div>
 
         <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-white leading-tight mb-6">
-          Your Source For{' '}
-          <span className="gradient-text">
-            Pokémon, One Piece
-          </span>{' '}
-          &amp; Sports Cards
+          <span className="gradient-text">Pokémon, One Piece</span>{' '}
+          &amp; Sports Cards{' '}
+          <span className="block text-3xl sm:text-4xl lg:text-5xl mt-2 text-slate-300 font-bold">
+            in Wichita Falls, TX
+          </span>
         </h1>
 
         <p className="text-lg sm:text-xl text-slate-400 max-w-2xl mx-auto mb-8 leading-relaxed">
-          Shop singles, sealed products, graded slabs, and collectibles from Secret Stock TCG.
-          Visit us online or find us at upcoming card shows throughout Texas.
+          Browse featured inventory from Secret Stock TCG — including sealed products, raw singles,
+          graded slabs, sports cards, and collectibles. Contact us for current availability.
         </p>
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
           <Link
-            href="/shop"
+            href="/inventory"
             className="group flex items-center gap-2 px-8 py-3.5 bg-purple-700 hover:bg-purple-600 text-white font-semibold rounded-xl transition-all glow-purple-sm hover:scale-105"
           >
-            Shop Inventory
+            View Inventory
             <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
           </Link>
           <Link
-            href="/events"
+            href="/collections"
             className="flex items-center gap-2 px-8 py-3.5 bg-transparent border border-purple-700/50 hover:border-purple-500 text-slate-300 hover:text-white font-semibold rounded-xl transition-all"
           >
-            Upcoming Events
+            Sell Your Collection
           </Link>
         </div>
 
@@ -61,7 +62,7 @@ export default function Hero() {
         <div className="flex flex-wrap items-center justify-center gap-6 mt-12 text-sm text-slate-500">
           <span className="flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
-            Free local pickup in Wichita Falls
+            Local pickup · Wichita Falls
           </span>
           <span className="flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-purple-500" />

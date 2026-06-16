@@ -2,12 +2,12 @@
 
 import { useState } from 'react';
 import {
-  Package, Calendar, ShoppingBag, BarChart3, RefreshCw,
+  Package, Calendar, MessageCircle,
   Plus, Edit, Trash2, Check, X, Settings, Zap,
 } from 'lucide-react';
 import { products as initialProducts, events as initialEvents } from '@/lib/data';
-import { Product } from '@/lib/types';
-import { formatPrice } from '@/lib/utils';
+// formatPrice removed — prices hidden in inventory-showcase version
+// import { formatPrice } from '@/lib/utils';
 
 const comingSoonModules = [
   { icon: '🔗', name: 'Collectr Sync', desc: 'Import inventory and sync market prices from Collectr' },
@@ -19,7 +19,7 @@ const comingSoonModules = [
 ];
 
 export default function AdminPage() {
-  const [activeTab, setActiveTab] = useState<'inventory' | 'events' | 'orders'>('inventory');
+  const [activeTab, setActiveTab] = useState<'inventory' | 'events' | 'inquiries'>('inventory');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [products, setProducts] = useState(initialProducts);
 
@@ -40,7 +40,7 @@ export default function AdminPage() {
   const tabs = [
     { id: 'inventory', label: 'Inventory', icon: Package, count: products.length },
     { id: 'events', label: 'Events', icon: Calendar, count: initialEvents.length },
-    { id: 'orders', label: 'Orders', icon: ShoppingBag, count: 0 },
+    { id: 'inquiries', label: 'Inquiries', icon: MessageCircle, count: 0 },
   ] as const;
 
   return (
@@ -111,7 +111,6 @@ export default function AdminPage() {
                   <th className="text-left px-4 py-3">Product</th>
                   <th className="text-left px-4 py-3 hidden sm:table-cell">Category</th>
                   <th className="text-left px-4 py-3 hidden md:table-cell">Type</th>
-                  <th className="text-right px-4 py-3">Price</th>
                   <th className="text-center px-4 py-3">Qty</th>
                   <th className="text-center px-4 py-3">Status</th>
                   <th className="text-right px-4 py-3">Actions</th>
@@ -128,9 +127,6 @@ export default function AdminPage() {
                     </td>
                     <td className="px-4 py-3 hidden md:table-cell">
                       <span className="text-xs text-slate-500 capitalize">{product.type.replace('-', ' ')}</span>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <span className="text-sm text-white font-semibold">{formatPrice(product.price)}</span>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-center gap-1">
@@ -206,12 +202,14 @@ export default function AdminPage() {
         </div>
       )}
 
-      {/* Orders Tab */}
-      {activeTab === 'orders' && (
+      {/* Inquiries Tab */}
+      {activeTab === 'inquiries' && (
         <div className="text-center py-16 bg-[#0f0f1a] border border-gray-800 rounded-2xl">
-          <ShoppingBag className="w-16 h-16 text-gray-700 mx-auto mb-4" />
-          <p className="text-slate-400 text-lg mb-1">No orders yet</p>
-          <p className="text-sm text-slate-600">Orders will appear here once payment processing is connected.</p>
+          <MessageCircle className="w-16 h-16 text-gray-700 mx-auto mb-4" />
+          <p className="text-slate-400 text-lg mb-1">No inquiries yet</p>
+          <p className="text-sm text-slate-600">
+            Customer messages will appear here once contact form email integration is connected.
+          </p>
         </div>
       )}
 

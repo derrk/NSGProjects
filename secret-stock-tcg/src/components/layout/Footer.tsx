@@ -18,6 +18,7 @@ export default function Footer() {
             </Link>
             <p className="text-sm text-slate-400 mb-4 leading-relaxed">
               Your local source for Pokémon, One Piece, and Sports Cards in Wichita Falls, Texas.
+              Contact us for current availability.
             </p>
             <div className="flex gap-3">
               {['Instagram', 'TikTok', 'Facebook'].map((label) => (
@@ -28,16 +29,16 @@ export default function Footer() {
             </div>
           </div>
 
-          {/* Shop */}
+          {/* Inventory */}
           <div>
-            <h3 className="text-white font-semibold mb-4">Shop</h3>
+            <h3 className="text-white font-semibold mb-4">Inventory</h3>
             <ul className="space-y-2 text-sm text-slate-400">
               {[
-                { href: '/shop?category=pokemon', label: 'Pokémon Cards' },
-                { href: '/shop?category=one-piece', label: 'One Piece Cards' },
-                { href: '/shop?category=sports-cards', label: 'Sports Cards' },
-                { href: '/shop?category=graded-slabs', label: 'Graded Slabs' },
-                { href: '/shop?category=sealed-products', label: 'Sealed Products' },
+                { href: '/inventory?category=pokemon', label: 'Pokémon Cards' },
+                { href: '/inventory?category=one-piece', label: 'One Piece Cards' },
+                { href: '/inventory?category=sports-cards', label: 'Sports Cards' },
+                { href: '/inventory?category=graded-slabs', label: 'Graded Slabs' },
+                { href: '/inventory?category=sealed-products', label: 'Sealed Products' },
                 { href: '/collections', label: 'Sell Your Collection' },
               ].map((link) => (
                 <li key={link.href}>
@@ -55,9 +56,10 @@ export default function Footer() {
             <ul className="space-y-2 text-sm text-slate-400">
               {[
                 { href: '/about', label: 'About Us' },
-                { href: '/events', label: 'Upcoming Events' },
                 { href: '/contact', label: 'Contact Us' },
-                { href: '/admin', label: 'Admin Dashboard' },
+                { href: '/collections', label: 'Sell Your Collection' },
+                // Events hidden for inventory-showcase version — restore when ready
+                // { href: '/events', label: 'Upcoming Events' },
               ].map((link) => (
                 <li key={link.href}>
                   <Link href={link.href} className="hover:text-purple-400 transition-colors">
@@ -74,7 +76,7 @@ export default function Footer() {
             <ul className="space-y-3 text-sm text-slate-400">
               <li className="flex items-start gap-2">
                 <MapPin className="w-4 h-4 text-purple-400 mt-0.5 shrink-0" />
-                <span>Wichita Falls, TX<br />Available at local card shows</span>
+                <span>Wichita Falls, TX<br />Serving North Texas &amp; Southern Oklahoma</span>
               </li>
               <li className="flex items-center gap-2">
                 <Mail className="w-4 h-4 text-purple-400 shrink-0" />
@@ -87,17 +89,18 @@ export default function Footer() {
                 <span>(940) 000-0000</span>
               </li>
             </ul>
-            <div className="mt-4 p-3 bg-gray-900 rounded-lg border border-gray-800">
-              <p className="text-xs text-slate-400 font-medium mb-1">Business Hours</p>
-              <p className="text-xs text-slate-500">Online 24/7</p>
-              <p className="text-xs text-slate-500">Local pickup by appointment</p>
-            </div>
+            <Link
+              href="/contact"
+              className="mt-4 inline-block px-4 py-2 bg-purple-700 hover:bg-purple-600 text-white text-xs font-semibold rounded-lg transition-colors"
+            >
+              Message Us
+            </Link>
           </div>
         </div>
 
         <div className="border-t border-gray-800 mt-10 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
           <p className="text-xs text-slate-500">
-            © {new Date().getFullYear()} Secret Stock TCG. All rights reserved. Wichita Falls, Texas.
+            © {new Date().getFullYear()} Secret Stock TCG · Wichita Falls, Texas · Trading Cards &amp; Collectibles
           </p>
           <p className="text-xs text-slate-600">
             Serving Wichita Falls · Burkburnett · Iowa Park · Vernon · Lawton
