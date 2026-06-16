@@ -8,7 +8,7 @@ export default function FeaturedCategories() {
       <div className="flex items-end justify-between mb-8">
         <div>
           <h2 className="text-2xl sm:text-3xl font-bold text-white">Browse by Category</h2>
-          <p className="text-slate-400 mt-1">Explore trading card inventory available through Secret Stock TCG</p>
+          <p className="text-slate-400 mt-1">Explore trading card inventory available through Secret Stock TX</p>
         </div>
         <Link
           href="/inventory"

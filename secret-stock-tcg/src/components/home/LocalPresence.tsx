@@ -6,7 +6,7 @@ const steps = [
     icon: Package,
     title: 'Browse Inventory',
     description:
-      'View featured cards, sealed products, graded slabs, and collectibles from Secret Stock TCG.',
+      'View featured cards, sealed products, graded slabs, and collectibles from Secret Stock TX.',
     href: '/inventory',
     cta: 'View Inventory',
   },
@@ -35,7 +35,7 @@ export default function LocalPresence() {
       <div className="text-center mb-10">
         <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2">How It Works</h2>
         <p className="text-slate-400">
-          Secret Stock TCG serves collectors in Wichita Falls and surrounding North Texas communities.
+          Secret Stock TX serves collectors in Wichita Falls and surrounding North Texas communities.
         </p>
       </div>
 
@@ -71,7 +71,7 @@ export default function LocalPresence() {
               Trading Cards in Wichita Falls, TX &amp; Surrounding Areas
             </h3>
             <p className="text-slate-400 text-sm leading-relaxed mb-4">
-              Secret Stock TCG is your local source for Pokémon cards, One Piece cards, sports cards,
+              Secret Stock TX is your local source for Pokémon cards, One Piece cards, sports cards,
               graded slabs, and sealed products in Wichita Falls, Texas. We serve collectors throughout
               North Texas and southern Oklahoma — including Burkburnett, Iowa Park, Vernon, and Lawton.
             </p>

@@ -4,9 +4,9 @@ import { formatDate } from '@/lib/utils';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Upcoming Events | Secret Stock TCG – Wichita Falls, TX',
+  title: 'Upcoming Events | Secret Stock TX – Wichita Falls, TX',
   description:
-    'Find Secret Stock TCG at card shows and events across Texas. Pokémon, One Piece, and Sports Cards available at every event.',
+    'Find Secret Stock TX at card shows and events across Texas. Pokémon, One Piece, and Sports Cards available at every event.',
 };
 
 const typeColors: Record<string, string> = {
@@ -29,7 +29,7 @@ export default function EventsPage() {
       <div className="mb-10">
         <h1 className="text-3xl sm:text-4xl font-bold text-white mb-3">Upcoming Events</h1>
         <p className="text-slate-400 text-lg">
-          Find Secret Stock TCG at card shows and events across Texas. We bring our full
+          Find Secret Stock TX at card shows and events across Texas. We bring our full
           inventory of singles, slabs, and sealed products to every event.
         </p>
       </div>

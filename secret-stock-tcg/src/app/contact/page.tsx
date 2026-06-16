@@ -42,7 +42,7 @@ function ContactForm() {
   return (
     <form onSubmit={handleSubmit} className="bg-[#0f0f1a] border border-gray-800 rounded-2xl p-6 space-y-5">
       <div>
-        <h2 className="text-lg font-semibold text-white mb-1">Message Secret Stock TCG</h2>
+        <h2 className="text-lg font-semibold text-white mb-1">Message Secret Stock TX</h2>
         <p className="text-sm text-slate-500">Ask about inventory, arrange local pickup, or inquire about selling your collection.</p>
       </div>
 
@@ -139,8 +139,8 @@ export default function ContactPage() {
               </div>
               <div>
                 <p className="text-xs text-slate-500 mb-0.5 uppercase tracking-wider">Email</p>
-                <a href="mailto:info@secretstocktcg.com" className="text-white hover:text-purple-400 transition-colors text-sm">
-                  info@secretstocktcg.com
+                <a href="mailto:info@secretstocktx.com" className="text-white hover:text-purple-400 transition-colors text-sm">
+                  info@secretstocktx.com
                 </a>
               </div>
             </div>
@@ -150,7 +150,7 @@ export default function ContactPage() {
               </div>
               <div>
                 <p className="text-xs text-slate-500 mb-0.5 uppercase tracking-wider">Phone</p>
-                <p className="text-white text-sm">(940) 000-0000</p>
+                <a href="tel:+19724825154" className="text-white hover:text-purple-400 transition-colors text-sm">(972) 482-5154</a>
               </div>
             </div>
             <div className="flex items-start gap-3">
@@ -159,9 +159,9 @@ export default function ContactPage() {
               </div>
               <div>
                 <p className="text-xs text-slate-500 mb-0.5 uppercase tracking-wider">Location</p>
-                <p className="text-white text-sm">Wichita Falls, TX</p>
-                <p className="text-slate-500 text-xs mt-0.5">Local pickup by appointment</p>
-                <p className="text-slate-600 text-xs">Serving North Texas &amp; Southern Oklahoma</p>
+                <p className="text-white text-sm">2820 Holliday Rd</p>
+                <p className="text-white text-sm">Wichita Falls, TX 76301</p>
+                <p className="text-slate-500 text-xs mt-0.5">Serving North Texas &amp; Southern Oklahoma</p>
               </div>
             </div>
             <div className="flex items-start gap-3">
@@ -200,7 +200,7 @@ export default function ContactPage() {
             <div className="text-center">
               <MapPin className="w-8 h-8 text-gray-600 mx-auto mb-1" />
               <p className="text-xs text-slate-600">Google Maps</p>
-              <p className="text-xs text-slate-700">Wichita Falls, TX — coming soon</p>
+              <p className="text-xs text-slate-700">2820 Holliday Rd, Wichita Falls, TX 76301</p>
             </div>
           </div>
         </div>

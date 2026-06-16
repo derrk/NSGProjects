@@ -12,7 +12,7 @@ export default function CollectionsCTA() {
           Sell Your Collection
         </h2>
         <p className="text-lg text-slate-400 max-w-xl mx-auto mb-8">
-          Secret Stock TCG buys Pokémon, One Piece, sports cards, sealed products, and entire
+          Secret Stock TX buys Pokémon, One Piece, sports cards, sealed products, and entire
           collections. Get a fair offer — fast. Serving Wichita Falls and surrounding areas.
         </p>
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">

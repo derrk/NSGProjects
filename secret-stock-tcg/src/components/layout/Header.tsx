@@ -30,7 +30,7 @@ export default function Header() {
               <Zap className="w-4 h-4 text-white" />
             </div>
             <span className="font-bold text-lg tracking-tight text-white">
-              Secret Stock <span className="text-purple-400">TCG</span>
+              Secret Stock <span className="text-purple-400">TX</span>
             </span>
           </Link>
 

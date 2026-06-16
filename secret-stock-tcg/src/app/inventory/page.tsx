@@ -72,7 +72,7 @@ export default function InventoryPage() {
         <h1 className="text-3xl font-bold text-white">Current Inventory</h1>
         <p className="text-slate-400 mt-1 max-w-xl">
           Browse trading cards, sealed products, graded slabs, and collectibles available through
-          Secret Stock TCG in Wichita Falls, TX.{' '}
+          Secret Stock TX in Wichita Falls, TX.{' '}
           <span className="text-purple-400">Contact us to confirm availability.</span>
         </p>
       </div>

@@ -38,7 +38,7 @@ export default function Hero() {
         </h1>
 
         <p className="text-lg sm:text-xl text-slate-400 max-w-2xl mx-auto mb-8 leading-relaxed">
-          Browse featured inventory from Secret Stock TCG — including sealed products, raw singles,
+          Browse featured inventory from Secret Stock TX — including sealed products, raw singles,
           graded slabs, sports cards, and collectibles. Contact us for current availability.
         </p>
 

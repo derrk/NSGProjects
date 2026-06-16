@@ -53,7 +53,7 @@ export default function AdminPage() {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-white">Admin Dashboard</h1>
-            <p className="text-sm text-slate-500">Secret Stock TCG · Inventory Management</p>
+            <p className="text-sm text-slate-500">Secret Stock TX · Inventory Management</p>
           </div>
         </div>
         <button className="flex items-center gap-2 px-4 py-2 bg-purple-700 hover:bg-purple-600 text-white text-sm font-medium rounded-lg transition-colors">

@@ -3,9 +3,9 @@ import Link from 'next/link';
 import { MapPin, Heart, ShoppingBag, Users, Trophy } from 'lucide-react';
 
 export const metadata: Metadata = {
-  title: 'About Secret Stock TCG | Trading Card Shop – Wichita Falls, TX',
+  title: 'About Secret Stock TX | Trading Card Shop – Wichita Falls, TX',
   description:
-    'Learn about Secret Stock TCG, your local trading card shop in Wichita Falls, Texas. We specialize in Pokémon, One Piece, and Sports Cards.',
+    'Learn about Secret Stock TX, your local trading card shop in Wichita Falls, Texas. We specialize in Pokémon, One Piece, and Sports Cards.',
 };
 
 export default function AboutPage() {
@@ -14,7 +14,7 @@ export default function AboutPage() {
       {/* Hero */}
       <div className="text-center mb-16">
         <h1 className="text-4xl sm:text-5xl font-extrabold text-white mb-4">
-          About <span className="gradient-text">Secret Stock TCG</span>
+          About <span className="gradient-text">Secret Stock TX</span>
         </h1>
         <p className="text-xl text-slate-400 max-w-2xl mx-auto">
           A passion project turned business — serving collectors in Wichita Falls, Texas and beyond.
@@ -31,7 +31,7 @@ export default function AboutPage() {
         </div>
         <div className="prose prose-invert prose-slate max-w-none">
           <p className="text-slate-400 leading-relaxed mb-4">
-            Secret Stock TCG started the way most great card shops do — with a passion for collecting.
+            Secret Stock TX started the way most great card shops do — with a passion for collecting.
             What began as a personal collection quickly grew into something bigger: a desire to share
             the hobby with the community and provide collectors in Wichita Falls with a reliable,
             trustworthy source for quality cards.

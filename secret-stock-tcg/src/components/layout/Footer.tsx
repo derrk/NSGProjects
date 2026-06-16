@@ -13,7 +13,7 @@ export default function Footer() {
                 <Zap className="w-4 h-4 text-white" />
               </div>
               <span className="font-bold text-lg text-white">
-                Secret Stock <span className="text-purple-400">TCG</span>
+                Secret Stock <span className="text-purple-400">TX</span>
               </span>
             </Link>
             <p className="text-sm text-slate-400 mb-4 leading-relaxed">
@@ -76,17 +76,17 @@ export default function Footer() {
             <ul className="space-y-3 text-sm text-slate-400">
               <li className="flex items-start gap-2">
                 <MapPin className="w-4 h-4 text-purple-400 mt-0.5 shrink-0" />
-                <span>Wichita Falls, TX<br />Serving North Texas &amp; Southern Oklahoma</span>
+                <span>2820 Holliday Rd<br />Wichita Falls, TX 76301</span>
               </li>
               <li className="flex items-center gap-2">
                 <Mail className="w-4 h-4 text-purple-400 shrink-0" />
-                <a href="mailto:info@secretstocktcg.com" className="hover:text-purple-400 transition-colors">
-                  info@secretstocktcg.com
+                <a href="mailto:info@secretstocktx.com" className="hover:text-purple-400 transition-colors">
+                  info@secretstocktx.com
                 </a>
               </li>
               <li className="flex items-center gap-2">
                 <Phone className="w-4 h-4 text-purple-400 shrink-0" />
-                <span>(940) 000-0000</span>
+                <a href="tel:+19724825154" className="hover:text-purple-400 transition-colors">(972) 482-5154</a>
               </li>
             </ul>
             <Link
@@ -100,7 +100,7 @@ export default function Footer() {
 
         <div className="border-t border-gray-800 mt-10 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
           <p className="text-xs text-slate-500">
-            © {new Date().getFullYear()} Secret Stock TCG · Wichita Falls, Texas · Trading Cards &amp; Collectibles
+            © {new Date().getFullYear()} Secret Stock TX · Wichita Falls, Texas · Trading Cards &amp; Collectibles
           </p>
           <p className="text-xs text-slate-600">
             Serving Wichita Falls · Burkburnett · Iowa Park · Vernon · Lawton

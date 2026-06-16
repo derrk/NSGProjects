@@ -14,7 +14,7 @@ export default function FeaturedInventory() {
             <h2 className="text-2xl sm:text-3xl font-bold text-white">Featured Inventory</h2>
             <p className="text-slate-400 mt-1 max-w-xl">
               Browse examples of cards, sealed products, slabs, and collectibles available through
-              Secret Stock TCG. Contact us or visit locally for current availability.
+              Secret Stock TX. Contact us or visit locally for current availability.
             </p>
           </div>
           <Link
