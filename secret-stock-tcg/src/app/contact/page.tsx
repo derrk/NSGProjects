@@ -7,6 +7,8 @@ import { Mail, Phone, MapPin, Clock, ExternalLink, CheckCircle, MessageCircle } 
 function ContactForm() {
   const searchParams = useSearchParams();
   const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const [form, setForm] = useState({
     name: '',
     email: '',
@@ -21,10 +23,23 @@ function ContactForm() {
     if (item) setForm((f) => ({ ...f, interestedItem: item }));
   }, [searchParams]);
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    // TODO: wire to Resend API route
-    setSubmitted(true);
+    setLoading(true);
+    setError('');
+    try {
+      const res = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      });
+      if (!res.ok) throw new Error('Failed to send');
+      setSubmitted(true);
+    } catch {
+      setError('Something went wrong. Please try again or call us directly.');
+    } finally {
+      setLoading(false);
+    }
   }
 
   if (submitted) {
@@ -107,12 +122,16 @@ function ContactForm() {
         />
       </div>
 
+      {error && (
+        <p className="text-sm text-red-400 bg-red-950/40 border border-red-800/40 rounded-lg px-4 py-2">{error}</p>
+      )}
       <button
         type="submit"
-        className="w-full py-3.5 bg-purple-700 hover:bg-purple-600 text-white font-semibold rounded-xl transition-colors glow-purple-sm flex items-center justify-center gap-2"
+        disabled={loading}
+        className="w-full py-3.5 bg-purple-700 hover:bg-purple-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-colors glow-purple-sm flex items-center justify-center gap-2"
       >
         <MessageCircle className="w-4 h-4" />
-        Send Message
+        {loading ? 'Sending...' : 'Send Message'}
       </button>
     </form>
   );
@@ -180,28 +199,32 @@ export default function ContactPage() {
           <div className="bg-[#0f0f1a] border border-gray-800 rounded-2xl p-5">
             <p className="text-sm font-medium text-slate-300 mb-3">Follow Us</p>
             <div className="flex gap-3">
-              {['Instagram', 'TikTok', 'Facebook'].map((label) => (
-                <a
-                  key={label}
-                  href="#"
-                  title={label}
-                  className="w-10 h-10 bg-gray-800 rounded-lg flex items-center justify-center text-slate-400 hover:bg-purple-800 hover:text-white transition-colors"
-                  aria-label={label}
-                >
-                  <ExternalLink className="w-4 h-4" />
-                </a>
-              ))}
+              <a
+                href="https://www.instagram.com/secret_stock_tx/"
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Instagram"
+                className="w-10 h-10 bg-gray-800 rounded-lg flex items-center justify-center text-slate-400 hover:bg-purple-800 hover:text-white transition-colors"
+                aria-label="Instagram"
+              >
+                <ExternalLink className="w-4 h-4" />
+              </a>
             </div>
             <p className="text-xs text-slate-600 mt-3">DMs open on Instagram for quick questions</p>
           </div>
 
-          {/* Map placeholder */}
-          <div className="bg-[#0f0f1a] border border-gray-800 rounded-2xl overflow-hidden h-36 flex items-center justify-center">
-            <div className="text-center">
-              <MapPin className="w-8 h-8 text-gray-600 mx-auto mb-1" />
-              <p className="text-xs text-slate-600">Google Maps</p>
-              <p className="text-xs text-slate-700">2820 Holliday Rd, Wichita Falls, TX 76301</p>
-            </div>
+          {/* Google Maps embed */}
+          <div className="rounded-2xl overflow-hidden border border-gray-800 h-48">
+            <iframe
+              src="https://maps.google.com/maps?q=2820+Holliday+Rd,+Wichita+Falls,+TX+76301&output=embed&z=15"
+              width="100%"
+              height="100%"
+              style={{ border: 0 }}
+              allowFullScreen
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+              title="Secret Stock TX location"
+            />
           </div>
         </div>
 

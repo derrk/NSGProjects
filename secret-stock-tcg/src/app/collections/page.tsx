@@ -17,6 +17,8 @@ const collectionTypes = [
 
 export default function CollectionsPage() {
   const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const [form, setForm] = useState({
     name: '',
     email: '',
@@ -26,10 +28,23 @@ export default function CollectionsPage() {
     notes: '',
   });
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    // Placeholder — future integration point
-    setSubmitted(true);
+    setLoading(true);
+    setError('');
+    try {
+      const res = await fetch('/api/collections', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      });
+      if (!res.ok) throw new Error('Failed to send');
+      setSubmitted(true);
+    } catch {
+      setError('Something went wrong. Please try again or call us directly.');
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -41,7 +56,7 @@ export default function CollectionsPage() {
         </div>
         <h1 className="text-3xl sm:text-4xl font-bold text-white mb-4">Sell Your Collection</h1>
         <p className="text-lg text-slate-400 max-w-xl mx-auto">
-          Secret Stock TCG buys Pokémon, One Piece, sports cards, sealed products, and entire
+          Secret Stock TX buys Pokémon, One Piece, sports cards, sealed products, and entire
           collections. Get a fair, fast offer — no hassle.
         </p>
       </div>
@@ -155,11 +170,15 @@ export default function CollectionsPage() {
             <p className="text-xs text-slate-600 mt-1">Photo upload coming soon</p>
           </div>
 
+          {error && (
+            <p className="text-sm text-red-400 bg-red-950/40 border border-red-800/40 rounded-lg px-4 py-2">{error}</p>
+          )}
           <button
             type="submit"
-            className="w-full py-3.5 bg-purple-700 hover:bg-purple-600 text-white font-semibold rounded-xl transition-colors glow-purple-sm"
+            disabled={loading}
+            className="w-full py-3.5 bg-purple-700 hover:bg-purple-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-colors glow-purple-sm"
           >
-            Request Collection Review
+            {loading ? 'Submitting...' : 'Request Collection Review'}
           </button>
         </form>
       )}

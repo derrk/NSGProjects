@@ -21,11 +21,15 @@ export default function Footer() {
               Contact us for current availability.
             </p>
             <div className="flex gap-3">
-              {['Instagram', 'TikTok', 'Facebook'].map((label) => (
-                <a key={label} href="#" title={label} className="w-8 h-8 rounded-lg bg-gray-800 flex items-center justify-center text-slate-400 hover:bg-purple-800 hover:text-white transition-colors">
-                  <ExternalLink className="w-3.5 h-3.5" />
-                </a>
-              ))}
+              <a
+                href="https://www.instagram.com/secret_stock_tx/"
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Instagram"
+                className="w-8 h-8 rounded-lg bg-gray-800 flex items-center justify-center text-slate-400 hover:bg-purple-800 hover:text-white transition-colors"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
             </div>
           </div>
 
