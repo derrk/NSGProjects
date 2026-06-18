@@ -100,4 +100,4 @@ if overdue:
         c1.markdown(f"**{lead['business_name']}**")
         c2.caption(lead.get("status",""))
         c3.caption(f"Due: {lead.get('next_followup_date','')}")
-        c4.page_link("pages/3_Follow_Ups.py", label="View", icon="→")
+        c4.page_link("pages/3_Follow_Ups.py", label="View")
