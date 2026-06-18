@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Search, SlidersHorizontal, X } from 'lucide-react';
+import { Search, SlidersHorizontal, X, ExternalLink, TrendingUp } from 'lucide-react';
 import { products } from '@/lib/data';
 import { ProductCategory, ProductType } from '@/lib/types';
 import InventoryCard from '@/components/shop/InventoryCard';
@@ -76,6 +76,32 @@ export default function InventoryPage() {
           <span className="text-purple-400">Contact us to confirm availability.</span>
         </p>
       </div>
+
+      {/* Collectr live inventory banner */}
+      <a
+        href="http://app.getcollectr.com/showcase/profile/feb49619-b46e-43bc-9bf6-e868b59085f7"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="group flex items-center justify-between gap-4 mb-6 p-5 bg-gradient-to-r from-purple-950/60 to-[#0f0f1a] border border-purple-700/50 hover:border-purple-500 rounded-2xl transition-colors"
+      >
+        <div className="flex items-center gap-4">
+          <div className="w-11 h-11 bg-purple-700/40 rounded-xl flex items-center justify-center shrink-0">
+            <TrendingUp className="w-5 h-5 text-purple-300" />
+          </div>
+          <div>
+            <p className="text-white font-semibold text-sm">
+              View Full Live Inventory on Collectr
+            </p>
+            <p className="text-slate-400 text-xs mt-0.5">
+              Updated in real time · includes market values · more items than shown here
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5 text-purple-400 group-hover:text-purple-300 transition-colors shrink-0 text-sm font-medium">
+          Open Collectr
+          <ExternalLink className="w-4 h-4" />
+        </div>
+      </a>
 
       {/* Availability disclaimer */}
       <div className="mb-6 p-4 bg-[#0f0f1a] border border-gray-800 rounded-xl text-sm text-slate-400 flex items-start gap-3">
