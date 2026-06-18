@@ -33,10 +33,12 @@ export default function CollectionsPage() {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch('/api/collections', {
+      const data = new FormData();
+      Object.entries(form).forEach(([k, v]) => data.append(k, v));
+      const res = await fetch('https://formspree.io/f/xwvjdbro', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: data,
+        headers: { Accept: 'application/json' },
       });
       if (!res.ok) throw new Error('Failed to send');
       setSubmitted(true);
