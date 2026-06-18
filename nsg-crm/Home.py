@@ -1,5 +1,6 @@
 import streamlit as st
 from database import init_db, get_dashboard_stats, get_followups_today
+from components import inject_css, metric_card, metric_card_sm, section_header, progress_bar, cards_row
 from datetime import date
 
 st.set_page_config(
@@ -9,81 +10,94 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-st.markdown("""
-<style>
-[data-testid="stSidebar"] { background: #0f0f1a; }
-.kpi-card { background:#111827; border:1px solid #1f2937; border-radius:12px; padding:1rem 1.25rem; }
-.kpi-val { font-size:2rem; font-weight:800; line-height:1.1; }
-.kpi-label { font-size:0.75rem; color:#6b7280; text-transform:uppercase; letter-spacing:.08em; margin-top:2px; }
-.kpi-purple { color:#9d6ef8; }
-.kpi-green  { color:#34d399; }
-.kpi-yellow { color:#fbbf24; }
-.kpi-red    { color:#f87171; }
-.kpi-blue   { color:#60a5fa; }
-.section-header { font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.12em; color:#6b7280; margin-bottom:.5rem; margin-top:1.5rem; }
-div[data-testid="metric-container"] { background:#111827; border:1px solid #1f2937; border-radius:12px; padding:.75rem 1rem; }
-</style>
-""", unsafe_allow_html=True)
-
+inject_css()
 init_db()
+
 stats = get_dashboard_stats()
 today_str = date.today().strftime("%A, %B %d")
-
-st.markdown(f"## 🟣 NSG Studios CRM")
-st.caption(f"Today is {today_str}")
-
 overdue = get_followups_today()
+
+# ── HEADER ───────────────────────────────────────────────
+col_h1, col_h2 = st.columns([3, 1])
+col_h1.markdown("## 🟣 NSG Studios CRM")
+col_h1.caption(f"Today is {today_str}")
+
 if overdue:
-    st.error(f"🔔 **{len(overdue)} follow-up{'s' if len(overdue)>1 else ''} due today** — check the Follow-Ups page", icon="🚨")
+    st.markdown(f"""
+    <div style="background:linear-gradient(135deg,rgba(220,38,38,0.15),rgba(220,38,38,0.05));
+         border:1px solid rgba(248,113,113,0.35);border-radius:10px;
+         padding:.85rem 1.1rem;margin-bottom:1rem;
+         display:flex;align-items:center;gap:.75rem;
+         font-size:.9rem;font-weight:600;color:#f87171;">
+        🚨 <span>{len(overdue)} follow-up{'s' if len(overdue)>1 else ''} overdue — check the Follow-Ups page</span>
+    </div>
+    """, unsafe_allow_html=True)
 
-# ── KPI ROW 1: LEADS ─────────────────────────────────────
-st.markdown('<div class="section-header">Lead Metrics</div>', unsafe_allow_html=True)
-c1, c2, c3, c4, c5 = st.columns(5)
-c1.metric("Total Leads", stats["total_leads"])
-c2.metric("New This Month", stats["new_leads_month"])
-c3.metric("Contacted", stats["contacted"])
-c4.metric("Follow-Ups Due Today", stats["followups_today"], delta="Overdue" if stats["followups_today"] > 0 else None, delta_color="inverse")
-c5.metric("Meetings Scheduled", stats["meetings"])
+# ── LEAD METRICS ─────────────────────────────────────────
+st.markdown(section_header("Lead Metrics"), unsafe_allow_html=True)
+cards_row([
+    metric_card("Total Leads",        stats["total_leads"],    icon="👥", color="purple"),
+    metric_card("New This Month",      stats["new_leads_month"],icon="📅", color="blue"),
+    metric_card("Contacted",           stats["contacted"],      icon="📞", color="blue"),
+    metric_card("Follow-Ups Due Today",stats["followups_today"],
+                sub="Check Follow-Ups page" if stats["followups_today"] else "All clear ✓",
+                icon="⏰", color="red" if stats["followups_today"] else "green",
+                glow=stats["followups_today"] > 0),
+    metric_card("Meetings Scheduled",  stats["meetings"],       icon="🗓️", color="purple"),
+])
 
-# ── KPI ROW 2: SALES ─────────────────────────────────────
-st.markdown('<div class="section-header">Sales Metrics</div>', unsafe_allow_html=True)
-c1, c2, c3, c4 = st.columns(4)
-c1.metric("Proposals Sent", stats["proposals"])
-c2.metric("Clients Won", stats["won"])
-c3.metric("Clients Lost", stats["lost"])
-c4.metric("Close Rate", f"{stats['close_rate']}%")
+# ── SALES METRICS ────────────────────────────────────────
+st.markdown(section_header("Sales Metrics"), unsafe_allow_html=True)
+cards_row([
+    metric_card("Proposals Sent", stats["proposals"],  icon="📄", color="yellow"),
+    metric_card("Clients Won",    stats["won"],         icon="🏆", color="green", glow=stats["won"]>0),
+    metric_card("Clients Lost",   stats["lost"],        icon="❌", color="red"),
+    metric_card("Close Rate",     f"{stats['close_rate']}%",
+                sub=f"{stats['won']} won of {stats['won']+stats['lost']} closed",
+                icon="📊", color="purple"),
+])
 
-# ── KPI ROW 3: REVENUE ───────────────────────────────────
-st.markdown('<div class="section-header">Revenue Metrics</div>', unsafe_allow_html=True)
-c1, c2, c3 = st.columns(3)
-c1.metric("Current MRR", f"${stats['mrr']:,.0f}")
-c2.metric("Setup Fees Collected", f"${stats['setup_revenue']:,.0f}")
-c3.metric("Total Revenue", f"${stats['total_revenue']:,.0f}")
+# ── REVENUE METRICS ──────────────────────────────────────
+st.markdown(section_header("Revenue Metrics"), unsafe_allow_html=True)
+cards_row([
+    metric_card("Current MRR",       f"${stats['mrr']:,.0f}",          icon="💜", color="purple", glow=True),
+    metric_card("Setup Fees Closed", f"${stats['setup_revenue']:,.0f}", icon="🔧", color="green"),
+    metric_card("Total Revenue",     f"${stats['total_revenue']:,.0f}", icon="💰", color="green"),
+])
 
 # ── MRR PROGRESS ─────────────────────────────────────────
 mrr_goal = 1000
-progress = min(stats["mrr"] / mrr_goal, 1.0) if mrr_goal > 0 else 0
-st.markdown('<div class="section-header">MRR Goal Progress</div>', unsafe_allow_html=True)
-col1, col2 = st.columns([3, 1])
-with col1:
-    st.progress(progress)
-with col2:
-    st.caption(f"${stats['mrr']:,.0f} / ${mrr_goal:,}/mo ({progress*100:.0f}%)")
+pct = min(stats["mrr"] / mrr_goal, 1.0) if mrr_goal else 0
+st.markdown(f"""
+<div class="card card-purple" style="margin-top:.75rem;">
+    <div class="card-label">MRR Goal — $1,000/month</div>
+    <div style="display:flex;align-items:baseline;gap:.5rem;margin:.25rem 0 .5rem;">
+        <span style="font-size:1.5rem;font-weight:800;color:#fff;">${stats['mrr']:,.0f}</span>
+        <span style="color:#6b7280;font-size:.85rem;">of ${mrr_goal:,}/mo</span>
+        <span style="margin-left:auto;font-size:.85rem;font-weight:700;color:#9d6ef8;">{pct*100:.0f}%</span>
+    </div>
+    <div style="background:#1f2937;border-radius:100px;height:8px;overflow:hidden;">
+        <div style="width:{pct*100:.1f}%;height:100%;background:linear-gradient(90deg,#7c3aed,#9d6ef8);border-radius:100px;"></div>
+    </div>
+    <div style="font-size:.75rem;color:#6b7280;margin-top:.4rem;">
+        Need ${max(mrr_goal - stats['mrr'], 0):,.0f} more · ~{max(int(-(-max(mrr_goal - stats['mrr'],0) // 99)),0)} more Starter clients
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
-# ── KPI ROW 4: ACTIVITY ──────────────────────────────────
-st.markdown('<div class="section-header">Activity This Period</div>', unsafe_allow_html=True)
-c1, c2 = st.columns(2)
-c1.metric("Businesses Contacted This Week", stats["contacted_week"])
-c2.metric("Businesses Contacted This Month", stats["contacted_month"])
+# ── ACTIVITY METRICS ─────────────────────────────────────
+st.markdown(section_header("Outreach Activity"), unsafe_allow_html=True)
+cards_row([
+    metric_card("Contacted This Week",  stats["contacted_week"],  icon="📤", color="blue"),
+    metric_card("Contacted This Month", stats["contacted_month"], icon="📬", color="blue"),
+])
 
-# ── OVERDUE FOLLOW-UPS TABLE ─────────────────────────────
+# ── OVERDUE TABLE ─────────────────────────────────────────
 if overdue:
-    st.markdown('<div class="section-header">🚨 Overdue Follow-Ups</div>', unsafe_allow_html=True)
+    st.markdown(section_header("🚨 Overdue Follow-Ups"), unsafe_allow_html=True)
     for lead in overdue:
-        col1, col2, col3, col4 = st.columns([3, 2, 2, 1])
-        col1.markdown(f"**{lead['business_name']}**")
-        col2.caption(lead.get("status",""))
-        col3.caption(f"Due: {lead.get('next_followup_date','')}")
-        with col4:
-            if st.button("View", key=f"ov_{lead['id']}"):
-                st.switch_page("pages/2_Leads.py")
+        c1, c2, c3, c4 = st.columns([3, 2, 2, 1])
+        c1.markdown(f"**{lead['business_name']}**")
+        c2.caption(lead.get("status",""))
+        c3.caption(f"Due: {lead.get('next_followup_date','')}")
+        c4.page_link("pages/3_Follow_Ups.py", label="View", icon="→")
