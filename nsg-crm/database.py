@@ -98,7 +98,6 @@ def init_db():
     );
     """)
     conn.commit()
-    _seed_sample_data(conn)
     conn.close()
 
 
