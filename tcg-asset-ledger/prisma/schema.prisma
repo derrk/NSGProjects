@@ -1,0 +1,412 @@
+// TCG Asset Ledger — Prisma schema
+// Local-first SQLite. All monetary values are stored as INTEGER cents.
+// Inventory is DERIVED from transactions; assets are never silently overwritten.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL") // pooled (Neon -pooler) for the app
+  directUrl = env("DIRECT_URL") // direct connection for migrations
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Asset — anything the business owns (raw card, graded card, sealed, pack, etc.)
+// ─────────────────────────────────────────────────────────────────────────────
+model Asset {
+  id String @id @default(cuid())
+
+  // Identity / description
+  name       String
+  game       String // Pokemon | One Piece | Sports | Other  (Collectr "Category")
+  assetType  String  @default("RawCard") // RawCard | GradedCard | SealedProduct | LoosePack | Bundle | Misc
+  set        String?
+  cardNumber String?
+  rarity     String? // SR, L, SEC, Illustration Rare, ...
+  variant    String? // Collectr "Variance": Foil / Normal / Holofoil / Reverse Holofoil
+  grade      String? // "Ungraded" or "PSA 10.0 GEM - MT", "CGC 10.0 Gem Mint", ...
+  condition  String? // Near Mint, Moderately Played, ...
+
+  // Quantity & money (cents, per-unit)
+  quantity         Int @default(1)
+  costBasisCents   Int @default(0) // per-unit cost basis
+  marketValueCents Int @default(0) // per-unit market value
+  priceOverrideCents Int? // per-unit manual market override (Collectr "Price Override")
+
+  // Lifecycle
+  status String @default("InStock") // InStock | Sold | Traded | Grading | BrokenDown | UsedAsPrize
+
+  // Brick tracking: manually flagged slow-movers. The app SUGGESTS (90+ days
+  // held) but never auto-marks.
+  isBrick Boolean @default(false)
+
+  // When the business acquired this asset (drives days-held / aging metrics).
+  // Backfilled from Collectr's Date Added or the earliest IN ledger line.
+  acquiredAt DateTime?
+
+  // Grading identity — set when a graded card returns. Same asset, same story.
+  gradingCompany String? // PSA | CGC | AGS | ...
+  certNumber     String?
+
+  // Provenance
+  source    String? // where it came from (show, vendor, pack pull, Collectr import...)
+  location  String? // physical location / box / binder
+  portfolio String? // Collectr "Portfolio Name"
+  notes     String?
+
+  // Collectr reconciliation
+  naturalKey        String  @unique // game|set|name|cardNumber|variant|grade|condition
+  collectrDateAdded DateTime?
+  marketPriceAsOf   DateTime? // date from the Collectr "Market Price (As of ...)" header
+  watchlist         Boolean @default(false)
+  ledgerTouched     Boolean @default(false) // true once a transaction in THIS app affects it
+
+  // Collectr sync state (the backlog): whether Collectr's portfolio currently
+  // reflects this asset, and what cost/quantity Collectr last reported for it.
+  // Null cost/quantity = unknown (e.g. manually marked synced) — no nag until
+  // the next import records Collectr's actual values.
+  inCollectr        Boolean @default(false)
+  collectrCostCents Int? // Collectr "Average Cost Paid" (per unit) as of last import
+  collectrQuantity  Int? // Collectr "Quantity" as of last import
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lines              TransactionLine[]
+  syncTasks          SyncTask[]
+  gradingSubmissions GradingSubmission[]
+  wheelSpins         WheelSpin[]
+  reconcileTasks     ReconcileTask[]
+
+  @@index([game])
+  @@index([status])
+  @@index([set])
+  @@index([inCollectr])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Transaction — one business event. A trade is a single transaction with
+// multiple lines (assets out, assets in, plus a cash delta).
+// ─────────────────────────────────────────────────────────────────────────────
+model Transaction {
+  id String @id @default(cuid())
+
+  // BUY | SALE | TRADE | BREAK | PRIZE | ADJUSTMENT | GRADING_SUBMIT |
+  // GRADING_RETURN | WHEEL_SPIN | WHEEL_PRIZE | WHEEL_REVENUE (wheel types are
+  // reserved for future wheel analytics — no UI yet)
+  type String
+  date DateTime @default(now())
+
+  counterparty String? // who you dealt with
+  // Signed cash movement in cents. Negative = money left your pocket (you paid);
+  // positive = money came in (you received).
+  cashDeltaCents Int @default(0)
+
+  // Where the deal happened: Show | Whatnot | TCGPlayer | eBay | Local |
+  // Facebook | Trade Night | Personal | Other. Auto-set to "Show" in Show Mode.
+  source String?
+
+  // Show this transaction belongs to (auto-attached while Show Mode is active).
+  showId String?
+  show   Show?   @relation(fields: [showId], references: [id], onDelete: SetNull)
+
+  notes String?
+
+  createdAt DateTime @default(now())
+
+  lines       TransactionLine[]
+  attachments Attachment[]
+  syncTasks   SyncTask[]
+
+  @@index([type])
+  @@index([date])
+  @@index([showId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Show — a card show / event. Carries its own expenses, and while Show Mode is
+// active every transaction is stamped with the showId (one show, many
+// transactions). Snapshot fields support future show analytics.
+// ─────────────────────────────────────────────────────────────────────────────
+model Show {
+  id String @id @default(cuid())
+
+  name      String
+  venue     String?
+  city      String?
+  startDate DateTime
+  endDate   DateTime?
+  status    String   @default("Upcoming") // Upcoming | Active | Completed | Cancelled
+
+  // Expenses (cents) — netted against show revenue in the summary.
+  tableFeeCents Int @default(0)
+  hotelCents    Int @default(0)
+  travelCents   Int @default(0) // fuel / mileage / flights
+  foodCents     Int @default(0)
+  otherCents    Int @default(0)
+
+  notes String?
+
+  // ── Show Mode session ──────────────────────────────────────────────────────
+  enteredAt DateTime? // when Show Mode started
+  endedAt   DateTime? // when it ended
+  // Cash you arrived with, split the way you run a table.
+  buyingCashCents   Int?
+  personalCashCents Int?
+  endingCashCents   Int? // counted when you end the show
+
+  // Inventory snapshot at Show Mode entry (for future analytics).
+  snapshotValueCents Int?
+  snapshotBasisCents Int?
+  snapshotAssetCount Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  transactions Transaction[]
+  wheelSpins   WheelSpin[]
+
+  @@index([status])
+  @@index([startDate])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GradingSubmission — one round-trip to PSA/CGC/etc. for ONE asset. The asset
+// keeps its identity; fees flow into its cost basis via GRADING_SUBMIT /
+// GRADING_RETURN ledger transactions, and the grade/cert land on the asset.
+// ─────────────────────────────────────────────────────────────────────────────
+model GradingSubmission {
+  id String @id @default(cuid())
+
+  assetId String
+  asset   Asset  @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  company      String  @default("PSA")
+  serviceLevel String?
+
+  submittedAt      DateTime  @default(now())
+  expectedReturnAt DateTime?
+  returnedAt       DateTime?
+
+  status String @default("Out") // Out | Returned
+
+  // Units sent (the whole lot at submit time) — the return applies to exactly
+  // this many, guarding against lot drift during the grading window.
+  quantity Int @default(1)
+
+  // The asset's naturalKey BEFORE the grade changed it. Lets the Collectr
+  // import recognize the old raw listing instead of re-creating it.
+  rawNaturalKey String?
+
+  // Costs (cents) — added to the asset's cost basis on submission.
+  shippingCents  Int @default(0)
+  insuranceCents Int @default(0)
+  feeCents       Int @default(0)
+
+  // Result
+  grade      String?
+  certNumber String?
+  certUrl    String? // future: PSA API link
+
+  // ROI bookkeeping: value snapshots on the way out and back.
+  marketValueAtSubmitCents Int?
+  marketValueAtReturnCents Int?
+  basisBeforeCents         Int? // cost basis (per unit) before fees
+
+  notes String?
+
+  // Papertrail links to the ledger entries this round-trip posted.
+  submitTransactionId String?
+  returnTransactionId String?
+
+  createdAt DateTime @default(now())
+
+  @@index([assetId])
+  @@index([status])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AppState — single-row app state (active Show Mode session).
+// ─────────────────────────────────────────────────────────────────────────────
+model AppState {
+  id           Int     @id @default(1)
+  activeShowId String?
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ReconcileTask — the CATCH-UP backlog (the mirror of SyncTask). Created when
+// an import reveals Collectr knows something the ledger doesn't: a card
+// vanished from the export ("vanished") or Collectr's count dropped below the
+// app's ("qty-drop") — usually an unrecorded show sale. Resolves when the
+// matching transaction is recorded (any way), or manually ("still have it",
+// merged into an imported duplicate).
+// ─────────────────────────────────────────────────────────────────────────────
+model ReconcileTask {
+  id String @id @default(cuid())
+
+  assetId String
+  asset   Asset  @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  kind String // vanished | qty-drop
+
+  appQty            Int // app-side quantity at detection
+  collectrQtyBefore Int? // what Collectr last reported before this import
+  collectrQtyAfter  Int? // what it reports now (0 for vanished)
+
+  status     String  @default("pending") // pending | resolved | dismissed
+  resolution String? // sold | recorded | reappeared | still-have | merged
+  note       String?
+
+  createdAt  DateTime  @default(now())
+  resolvedAt DateTime?
+
+  @@index([status])
+  @@index([assetId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WheelSlot — one spot on the prize wheel. estCostCents is the default prize
+// cost when a spin lands here without paying out a tracked inventory asset
+// (e.g. hand-assembled EX bundles of near-zero-cost cards).
+// ─────────────────────────────────────────────────────────────────────────────
+model WheelSlot {
+  id String @id @default(cuid())
+
+  label        String
+  estCostCents Int     @default(0)
+  active       Boolean @default(true)
+  sortOrder    Int     @default(0)
+
+  createdAt DateTime @default(now())
+
+  spins WheelSpin[]
+
+  @@index([active])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WheelSpin — one spin of the wheel. Spins are recorded in paid sessions
+// (1/$10, 3/$25, 5/$40): the session's revenue is allocated evenly across its
+// spins, and the prize cost is either the given asset's real basis (inventory
+// prize) or the slot's estimated cost (bundle). Drives hit-rate and P/L
+// analytics per slot and per show.
+// ─────────────────────────────────────────────────────────────────────────────
+model WheelSpin {
+  id String @id @default(cuid())
+
+  date DateTime @default(now())
+
+  slotId String
+  slot   WheelSlot @relation(fields: [slotId], references: [id])
+
+  // Inventory asset paid out on this spin (null for bundles / no-cost prizes).
+  assetId  String?
+  asset    Asset?  @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  quantity Int     @default(1)
+
+  revenueCents   Int @default(0) // this spin's share of the session price
+  prizeCostCents Int @default(0) // asset basis out, or the slot's est cost
+
+  showId String?
+  show   Show?   @relation(fields: [showId], references: [id], onDelete: SetNull)
+
+  // Papertrail links to the ledger entries this session posted.
+  revenueTransactionId String?
+  prizeTransactionId   String?
+
+  notes String?
+
+  createdAt DateTime @default(now())
+
+  @@index([slotId])
+  @@index([showId])
+  @@index([date])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SyncTask — the Collectr sync backlog. Ledger activity here (a buy, trade-in,
+// break, sale, ...) creates a to-do to reflect the change in your Collectr
+// portfolio so the two stay in sync. Auto-resolves when a re-import confirms it.
+// ─────────────────────────────────────────────────────────────────────────────
+model SyncTask {
+  id String @id @default(cuid())
+
+  assetId String
+  asset   Asset  @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  transactionId String?
+  transaction   Transaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+
+  kind   String // add | update | remove
+  status String @default("pending") // pending | done
+  note   String?
+
+  createdAt  DateTime  @default(now())
+  resolvedAt DateTime?
+
+  @@index([status])
+  @@index([assetId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Attachment — a photo (or file) attached to a transaction. Lets you snap a
+// picture of the trade / cards + cash at a busy show and log it later while
+// keeping proof tied to the papertrail.
+// ─────────────────────────────────────────────────────────────────────────────
+model Attachment {
+  id String @id @default(cuid())
+
+  transactionId String
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  path String // served path, e.g. /uploads/<file>
+  kind String @default("photo")
+
+  createdAt DateTime @default(now())
+
+  @@index([transactionId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TransactionLine — a single asset movement within a transaction (the ledger).
+// ─────────────────────────────────────────────────────────────────────────────
+model TransactionLine {
+  id String @id @default(cuid())
+
+  transactionId String
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  assetId String
+  asset   Asset  @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  direction String // IN (acquired) | OUT (given up / sold / consumed)
+  quantity  Int    @default(1)
+
+  // Per-unit valuation for this line at the time of the transaction.
+  unitValueCents Int @default(0) // market value used for allocation / sale price
+  // Per-unit cost basis attributed to this line.
+  // For OUT lines: the basis leaving inventory. For IN lines: the basis assigned.
+  unitBasisCents Int @default(0)
+
+  createdAt DateTime @default(now())
+
+  @@index([transactionId])
+  @@index([assetId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ImportBatch — an audit record of a Collectr CSV import.
+// ─────────────────────────────────────────────────────────────────────────────
+model ImportBatch {
+  id String @id @default(cuid())
+
+  source         String   @default("collectr")
+  fileName       String?
+  marketPriceAsOf DateTime?
+  createdCount   Int      @default(0)
+  updatedCount   Int      @default(0)
+  skippedCount   Int      @default(0)
+  createdAt      DateTime @default(now())
+}
