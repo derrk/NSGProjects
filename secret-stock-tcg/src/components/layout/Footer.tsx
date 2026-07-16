@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Zap, MapPin, Mail, Phone, ExternalLink } from 'lucide-react';
+import { Zap, MapPin, Mail, Phone, ExternalLink, KeyRound } from 'lucide-react';
 
 export default function Footer() {
   return (
@@ -106,9 +106,20 @@ export default function Footer() {
           <p className="text-xs text-slate-500">
             © {new Date().getFullYear()} Secret Stock TX · Wichita Falls, Texas · Trading Cards &amp; Collectibles
           </p>
-          <p className="text-xs text-slate-600">
-            Serving Wichita Falls · Burkburnett · Iowa Park · Vernon · Lawton
-          </p>
+          <div className="flex items-center gap-3">
+            <p className="text-xs text-slate-600">
+              Serving Wichita Falls · Burkburnett · Iowa Park · Vernon · Lawton
+            </p>
+            <a
+              href="https://secret-stock-ledger.vercel.app/"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Owner portal"
+              className="text-gray-800 hover:text-slate-600 transition-colors"
+            >
+              <KeyRound className="w-3 h-3" />
+            </a>
+          </div>
         </div>
       </div>
     </footer>
