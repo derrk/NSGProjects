@@ -127,19 +127,7 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
   let cogsCents = 0;
   for (const l of soldLines) cogsCents += l.unitBasisCents * l.quantity;
 
-  // Wheel economics are realized too: spin revenue in, prize cost out (spin
-  // rows carry real inventory basis or the slot's bundle estimate).
-  const [wheelRevenueAgg, wheelCostAgg] = await Promise.all([
-    prisma.transaction.aggregate({
-      where: { type: "WHEEL_REVENUE" },
-      _sum: { cashDeltaCents: true },
-    }),
-    prisma.wheelSpin.aggregate({ _sum: { prizeCostCents: true } }),
-  ]);
-  const wheelNetCents =
-    (wheelRevenueAgg._sum.cashDeltaCents ?? 0) - (wheelCostAgg._sum.prizeCostCents ?? 0);
-
-  const realizedProfitCents = salesProceedsCents - cogsCents + wheelNetCents;
+  const realizedProfitCents = salesProceedsCents - cogsCents;
 
   // Cash flow across all transactions.
   const txns = await prisma.transaction.findMany({ select: { cashDeltaCents: true } });

@@ -147,7 +147,7 @@ export default async function ShowDetailPage({ params }: { params: Promise<{ id:
               />
             </div>
             <div className="grid gap-x-8 gap-y-1.5 text-sm sm:grid-cols-2">
-              <Row label={`Sales (${summary.salesCount})`} value={formatUSD(summary.revenueCents - summary.wheelRevenueCents)} />
+              <Row label={`Sales (${summary.salesCount})`} value={formatUSD(summary.revenueCents)} />
               <Row label="COGS" value={formatUSD(summary.cogsCents)} />
               <Row label={`Buys (${summary.buysCount})`} value={formatUSD(summary.purchasedCents)} />
               <Row label="Buying cash used" value={formatUSD(summary.buyingCashUsedCents)} />
@@ -157,12 +157,6 @@ export default async function ShowDetailPage({ params }: { params: Promise<{ id:
                 <span className="text-muted-foreground">Inventory value gained via trades</span>
                 <ProfitText cents={summary.tradeMarketDeltaCents} />
               </div>
-              {summary.wheelRevenueCents > 0 || summary.wheelPrizeCostCents > 0 ? (
-                <Row
-                  label="Wheel revenue / prize cost"
-                  value={`${formatUSD(summary.wheelRevenueCents)} / ${formatUSD(summary.wheelPrizeCostCents)}`}
-                />
-              ) : null}
               {summary.prizeCostCents > 0 ? (
                 <Row label="Giveaway cost" value={formatUSD(summary.prizeCostCents)} />
               ) : null}

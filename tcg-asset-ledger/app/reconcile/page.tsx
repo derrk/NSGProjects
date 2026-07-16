@@ -28,7 +28,7 @@ function isSubset(a: Set<string>, b: Set<string>): boolean {
 export default async function ReconcilePage() {
   const tasks = await listPendingReconcileTasks();
 
-  const [shows, dupeCandidates, slots, unattachedBySlot] = await Promise.all([
+  const [shows, dupeCandidates] = await Promise.all([
     prisma.show.findMany({
       where: { status: { not: "Cancelled" } },
       orderBy: { startDate: "desc" },
@@ -55,20 +55,7 @@ export default async function ReconcilePage() {
       },
       orderBy: { name: "asc" },
     }),
-    prisma.wheelSlot.findMany({
-      where: { active: true },
-      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
-      select: { id: true, label: true },
-    }),
-    // Spins logged without a prize attached — the pool "Wheel prize" draws from.
-    prisma.wheelSpin.groupBy({ by: ["slotId"], where: { assetId: null }, _count: true }),
   ]);
-  const unattachedCount = new Map(unattachedBySlot.map((g) => [g.slotId, g._count]));
-  const wheelSlots = slots.map((s) => ({
-    id: s.id,
-    label: s.label,
-    openSpins: unattachedCount.get(s.id) ?? 0,
-  }));
 
   // Header total uses the task snapshots (clamped to live stock), matching the
   // per-row default sale quantities.
@@ -104,7 +91,7 @@ export default async function ReconcilePage() {
           <p className="text-sm text-muted-foreground">
             <span className="font-medium text-foreground">{tasks.length} item(s)</span> ·{" "}
             <span className="tnum">{formatUSD(totalValue)}</span> of unaccounted inventory value.
-            Resolve as sales or wheel prizes to capture missing revenue and profit — or
+            Resolve as sales to capture missing revenue and profit — or
             &quot;Still have it&quot; if Collectr is just behind.
           </p>
           <div className="space-y-3">
@@ -156,7 +143,6 @@ export default async function ReconcilePage() {
                   shows={shows}
                   mergeCandidates={rowCandidates}
                   suggestedMergeId={suggestion?.id ?? null}
-                  wheelSlots={wheelSlots}
                 />
               );
             })}

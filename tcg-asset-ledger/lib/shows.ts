@@ -45,18 +45,16 @@ export interface ShowSummary {
   buyingCashUsedCents: number; // cash out on buys + cash paid on trades
   // Activity
   salesCount: number;
-  revenueCents: number; // sale proceeds + wheel revenue
+  revenueCents: number; // sale proceeds
   cogsCents: number;
-  realizedProfitCents: number; // revenue − COGS (incl. wheel prize cost)
+  realizedProfitCents: number; // revenue − COGS
   buysCount: number;
   purchasedCents: number; // cash spent on buys
   tradesCount: number;
   tradeValueInCents: number;
   tradeValueOutCents: number;
   tradeMarketDeltaCents: number;
-  wheelRevenueCents: number;
-  wheelPrizeCostCents: number;
-  prizeCostCents: number; // plain (non-wheel) giveaways
+  prizeCostCents: number; // giveaways
   // Expenses
   tableFeeCents: number;
   hotelCents: number;
@@ -84,8 +82,6 @@ export async function computeShowSummary(showId: string): Promise<ShowSummary> {
   let tradeValueInCents = 0;
   let tradeValueOutCents = 0;
   let tradeCashPaidCents = 0;
-  let wheelRevenueCents = 0;
-  let wheelPrizeCostCents = 0;
   let prizeCostCents = 0;
   let cashDeltaCents = 0;
 
@@ -108,29 +104,17 @@ export async function computeShowSummary(showId: string): Promise<ShowSummary> {
         if (l.direction === "IN") tradeValueInCents += v;
         else tradeValueOutCents += v;
       }
-    } else if (t.type === "WHEEL_REVENUE") {
-      wheelRevenueCents += t.cashDeltaCents;
     } else if (t.type === "PRIZE") {
-      // Plain giveaways (raffles, thank-yous) — a cost, but not wheel economics.
+      // Plain giveaways (raffles, thank-yous).
       for (const l of t.lines) {
         if (l.direction === "OUT") prizeCostCents += l.unitBasisCents * l.quantity;
       }
     }
   }
 
-  // Wheel prize cost comes from the spin records: real basis for inventory
-  // payouts PLUS estimated cost of hand-assembled bundles (which never post
-  // ledger lines). Summing WHEEL_PRIZE lines here too would double-count.
-  const spinCost = await prisma.wheelSpin.aggregate({
-    where: { showId: show.id },
-    _sum: { prizeCostCents: true },
-  });
-  wheelPrizeCostCents = spinCost._sum.prizeCostCents ?? 0;
-
   const expensesCents =
     show.tableFeeCents + show.hotelCents + show.travelCents + show.foodCents + show.otherCents;
-  const realizedProfitCents =
-    revenueCents + wheelRevenueCents - cogsCents - wheelPrizeCostCents - prizeCostCents;
+  const realizedProfitCents = revenueCents - cogsCents - prizeCostCents;
 
   return {
     startingCashCents:
@@ -143,7 +127,7 @@ export async function computeShowSummary(showId: string): Promise<ShowSummary> {
     cashDeltaCents,
     buyingCashUsedCents: purchasedCents + tradeCashPaidCents,
     salesCount,
-    revenueCents: revenueCents + wheelRevenueCents,
+    revenueCents,
     cogsCents,
     realizedProfitCents,
     buysCount,
@@ -152,8 +136,6 @@ export async function computeShowSummary(showId: string): Promise<ShowSummary> {
     tradeValueInCents,
     tradeValueOutCents,
     tradeMarketDeltaCents: tradeValueInCents - tradeValueOutCents,
-    wheelRevenueCents,
-    wheelPrizeCostCents,
     prizeCostCents,
     tableFeeCents: show.tableFeeCents,
     hotelCents: show.hotelCents,

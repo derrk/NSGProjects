@@ -17,7 +17,6 @@ import {
   ListChecks,
   CalendarDays,
   Tent,
-  Disc3,
   ClipboardCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -43,7 +42,6 @@ const NAV: { section: string; items: { href: string; label: string; icon: React.
       { href: "/trade", label: "Trade", icon: ArrowLeftRight },
       { href: "/break", label: "Break", icon: PackageOpen },
       { href: "/prize", label: "Prize", icon: Gift },
-      { href: "/wheel", label: "Wheel", icon: Disc3 },
     ],
   },
   {

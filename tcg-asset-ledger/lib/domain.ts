@@ -41,11 +41,6 @@ export const TRANSACTION_TYPES = [
   "ADJUSTMENT",
   "GRADING_SUBMIT",
   "GRADING_RETURN",
-  // Wheel types are reserved for future wheel analytics — recognized by the
-  // ledger, labels, and show summaries, but have no UI yet.
-  "WHEEL_SPIN",
-  "WHEEL_PRIZE",
-  "WHEEL_REVENUE",
 ] as const;
 export type TransactionType = (typeof TRANSACTION_TYPES)[number];
 
@@ -94,9 +89,6 @@ export const TXN_TYPE_LABELS: Record<TransactionType, string> = {
   ADJUSTMENT: "Adjustment",
   GRADING_SUBMIT: "Sent to Grading",
   GRADING_RETURN: "Grading Returned",
-  WHEEL_SPIN: "Wheel Spin",
-  WHEEL_PRIZE: "Wheel Prize",
-  WHEEL_REVENUE: "Wheel Revenue",
 };
 
 /**
