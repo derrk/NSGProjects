@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { Zap, MapPin, Mail, Phone, ExternalLink, KeyRound } from 'lucide-react';
+import Image from 'next/image';
+import { MapPin, Mail, Phone, ExternalLink, KeyRound } from 'lucide-react';
 
 export default function Footer() {
   return (
@@ -9,8 +10,8 @@ export default function Footer() {
           {/* Brand */}
           <div className="lg:col-span-1">
             <Link href="/" className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 rounded-lg bg-purple-700 flex items-center justify-center">
-                <Zap className="w-4 h-4 text-white" />
+              <div className="w-8 h-8 rounded-lg overflow-hidden ring-1 ring-purple-700/40">
+                <Image src="/images/secretstockjpg.jpg" alt="Secret Stock TX" width={32} height={32} className="w-full h-full object-cover" />
               </div>
               <span className="font-bold text-lg text-white">
                 Secret Stock <span className="text-purple-400">TX</span>

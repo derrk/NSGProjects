@@ -94,6 +94,34 @@
   --ring: 350 85% 56%;
 }
 
+/* ── Secret Mode: Secret Stock TX's own dark purple/black/grey — a cousin of
+   the storefront's palette, moodier and built for back-office work. ───────── */
+.secret {
+  --background: 260 25% 5%; /* near-black, cool purple undertone */
+  --foreground: 270 15% 92%;
+  --card: 265 30% 8%;
+  --card-foreground: 270 15% 94%;
+  --popover: 265 30% 8%;
+  --popover-foreground: 270 15% 94%;
+  --primary: 271 76% 53%; /* the storefront's signature purple */
+  --primary-foreground: 0 0% 100%;
+  --secondary: 265 25% 14%;
+  --secondary-foreground: 270 15% 92%;
+  --muted: 240 6% 15%;
+  --muted-foreground: 265 10% 65%;
+  --accent: 271 40% 20%;
+  --accent-foreground: 270 15% 96%;
+  --destructive: 0 72% 55%;
+  --destructive-foreground: 0 0% 98%;
+  --success: 145 60% 48%;
+  --success-foreground: 0 0% 7%;
+  --warning: 38 92% 55%;
+  --warning-foreground: 0 0% 7%;
+  --border: 265 20% 16%;
+  --input: 265 20% 18%;
+  --ring: 271 76% 60%;
+}
+
 @theme inline {
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));

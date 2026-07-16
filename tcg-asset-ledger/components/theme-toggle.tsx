@@ -1,21 +1,22 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Sun, Moon, Rocket } from "lucide-react";
+import { Sun, Moon, Rocket, VenetianMask } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const THEMES = ["light", "dark", "rocket"] as const;
-type Theme = (typeof THEMES)[number];
+const THEMES = ["light", "dark", "rocket", "secret"] as const;
+export type Theme = (typeof THEMES)[number];
 
 const META: Record<Theme, { icon: React.ElementType; label: string }> = {
   light: { icon: Sun, label: "Light" },
   dark: { icon: Moon, label: "Dark" },
   rocket: { icon: Rocket, label: "Team Rocket" },
+  secret: { icon: VenetianMask, label: "Secret Mode" },
 };
 
 export function applyTheme(t: Theme) {
   const el = document.documentElement;
-  el.classList.remove("dark", "rocket");
+  el.classList.remove("dark", "rocket", "secret");
   if (t !== "light") el.classList.add(t);
   el.style.colorScheme = t === "light" ? "light" : "dark";
   localStorage.setItem("theme", t);
@@ -56,11 +57,12 @@ export function ThemeToggle({ compact = false }: { compact?: boolean }) {
         compact ? "p-2" : "w-full px-3 py-2",
       )}
     >
-      <Icon className={cn("size-4", t === "rocket" && "text-primary")} />
+      <Icon className={cn("size-4", (t === "rocket" || t === "secret") && "text-primary")} />
       {compact ? null : (
         <span className="flex-1 text-left">
           {META[t].label}
           {t === "rocket" ? <span className="ml-1 text-primary">R</span> : null}
+          {t === "secret" ? <span className="ml-1 text-primary">SS</span> : null}
         </span>
       )}
     </button>

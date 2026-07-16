@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import {
   LayoutDashboard,
   Boxes,
@@ -21,7 +23,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ShowModeProvider, type ActiveShowInfo } from "@/components/show-mode-context";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { ThemeToggle, type Theme } from "@/components/theme-toggle";
 
 const NAV: { section: string; items: { href: string; label: string; icon: React.ElementType }[] }[] = [
   {
@@ -66,6 +68,17 @@ export function Shell({
   activeShow?: ActiveShowInfo | null;
 }) {
   const pathname = usePathname();
+  const [theme, setTheme] = useState<Theme | null>(null);
+
+  useEffect(() => {
+    const stored = localStorage.getItem("theme");
+    setTheme((["light", "dark", "rocket", "secret"] as const).includes(stored as Theme) ? (stored as Theme) : "light");
+    const onChange = (e: Event) => setTheme((e as CustomEvent).detail as Theme);
+    window.addEventListener("themechange", onChange);
+    return () => window.removeEventListener("themechange", onChange);
+  }, []);
+
+  const isSecret = theme === "secret";
 
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
@@ -75,12 +88,16 @@ export function Shell({
     <div className="flex min-h-screen">
       <aside className="hidden w-60 shrink-0 flex-col border-r border-border bg-card/60 md:flex">
         <div className="flex h-16 items-center gap-2 border-b border-border px-5">
-          <div className="flex size-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
-            <Layers className="size-4" />
+          <div className="flex size-8 items-center justify-center rounded-md bg-primary text-primary-foreground overflow-hidden">
+            {isSecret ? (
+              <Image src="/secret-stock-badge.jpg" alt="Secret Stock TX" width={32} height={32} className="size-full object-cover" />
+            ) : (
+              <Layers className="size-4" />
+            )}
           </div>
           <div className="leading-tight">
-            <div className="text-sm font-semibold">TCG Ledger</div>
-            <div className="text-[11px] text-muted-foreground">Asset management</div>
+            <div className="text-sm font-semibold">{isSecret ? "Secret Stock TX" : "TCG Ledger"}</div>
+            <div className="text-[11px] text-muted-foreground">{isSecret ? "Shh — it's the ledger" : "Asset management"}</div>
           </div>
         </div>
         <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-5">

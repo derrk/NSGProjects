@@ -1,8 +1,9 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { Menu, X, Zap } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 import { useState } from 'react';
 
 // Cart icon removed for inventory-showcase version — preserved for future ecommerce build
@@ -26,8 +27,8 @@ export default function Header() {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 group">
-            <div className="w-8 h-8 rounded-lg bg-purple-700 flex items-center justify-center group-hover:bg-purple-600 transition-colors">
-              <Zap className="w-4 h-4 text-white" />
+            <div className="w-8 h-8 rounded-lg overflow-hidden ring-1 ring-purple-700/50 group-hover:ring-purple-500 transition-all">
+              <Image src="/images/secretstockjpg.jpg" alt="Secret Stock TX" width={32} height={32} className="w-full h-full object-cover" />
             </div>
             <span className="font-bold text-lg tracking-tight text-white">
               Secret Stock <span className="text-purple-400">TX</span>

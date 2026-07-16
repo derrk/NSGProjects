@@ -1,9 +1,10 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import {
   Package, Calendar, MessageCircle,
-  Plus, Edit, Trash2, Check, X, Settings, Zap,
+  Plus, Edit, Trash2, Check, X, Settings,
 } from 'lucide-react';
 import { products as initialProducts, events as initialEvents } from '@/lib/data';
 // formatPrice removed — prices hidden in inventory-showcase version
@@ -48,8 +49,8 @@ export default function AdminPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-purple-700 rounded-xl flex items-center justify-center">
-            <Zap className="w-5 h-5 text-white" />
+          <div className="w-10 h-10 rounded-xl overflow-hidden ring-1 ring-purple-700/40">
+            <Image src="/images/secretstockjpg.jpg" alt="Secret Stock TX" width={40} height={40} className="w-full h-full object-cover" />
           </div>
           <div>
             <h1 className="text-2xl font-bold text-white">Admin Dashboard</h1>

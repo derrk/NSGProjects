@@ -43,7 +43,7 @@ export default async function RootLayout({
         {/* Apply the saved theme before first paint (no flash). */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `try{var t=localStorage.getItem("theme");if(t==="dark"||t==="rocket"){document.documentElement.classList.add(t);document.documentElement.style.colorScheme="dark"}}catch(e){}`,
+            __html: `try{var t=localStorage.getItem("theme");if(t==="dark"||t==="rocket"||t==="secret"){document.documentElement.classList.add(t);document.documentElement.style.colorScheme="dark"}}catch(e){}`,
           }}
         />
       </head>
