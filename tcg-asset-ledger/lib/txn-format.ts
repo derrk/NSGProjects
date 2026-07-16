@@ -29,7 +29,6 @@ export function summarizeTransaction(txn: {
     case "BREAK":
       return `${outLines.map(label).join(", ")} → ${inLines.length} item(s)`;
     case "PRIZE":
-    case "WHEEL_PRIZE":
       return outLines.map(label).join(", ") || "Prize";
     case "ADJUSTMENT":
       return [...outLines, ...inLines].map(label).join(", ") || "Adjustment";
@@ -37,10 +36,6 @@ export function summarizeTransaction(txn: {
       return outLines.map(label).join(", ") || "Grading submission";
     case "GRADING_RETURN":
       return inLines.map(label).join(", ") || "Grading return";
-    case "WHEEL_REVENUE":
-      return "Wheel revenue";
-    case "WHEEL_SPIN":
-      return "Wheel spin";
     default:
       return "";
   }

@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Tag, Hand, Merge, Loader2, Disc3 } from "lucide-react";
+import { Tag, Hand, Merge, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,7 +15,6 @@ import {
   resolveReconcileSold,
   resolveReconcileStillHave,
   resolveReconcileMerge,
-  resolveReconcileWheelPrize,
 } from "@/app/actions";
 
 interface TaskView {
@@ -47,18 +46,16 @@ export function ReconcileRow({
   shows,
   mergeCandidates,
   suggestedMergeId,
-  wheelSlots,
 }: {
   task: TaskView;
   shows: { id: string; name: string }[];
   mergeCandidates: { id: string; label: string }[];
   suggestedMergeId: string | null;
-  wheelSlots: { id: string; label: string; openSpins: number }[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [mode, setMode] = useState<"none" | "sold" | "merge" | "wheel">("none");
+  const [mode, setMode] = useState<"none" | "sold" | "merge">("none");
 
   const a = task.asset;
   // Gap from the task's own snapshots (clamped to live stock) — never inflated
@@ -76,9 +73,6 @@ export function ReconcileRow({
   const [saleDate, setSaleDate] = useState(todayLocal());
   const [showId, setShowId] = useState(""); // default: NO show — post-hoc is explicit
   const [mergeTarget, setMergeTarget] = useState(""); // deliberate pick, never preselected
-  const attachableSlots = wheelSlots.filter((s) => s.openSpins > 0);
-  const [wheelSlotId, setWheelSlotId] = useState(attachableSlots[0]?.id ?? "");
-  const [wheelQty, setWheelQty] = useState(1);
 
   const proceedsCents = toCents(proceeds);
   const gapClosed = missingQty === 0;
@@ -127,13 +121,6 @@ export function ReconcileRow({
               onClick={() => setMode(mode === "sold" ? "none" : "sold")}
             >
               <Tag /> Sold it
-            </Button>
-            <Button
-              size="sm"
-              variant={mode === "wheel" ? "default" : "outline"}
-              onClick={() => setMode(mode === "wheel" ? "none" : "wheel")}
-            >
-              <Disc3 /> Wheel prize
             </Button>
             <Button
               size="sm"
@@ -217,59 +204,6 @@ export function ReconcileRow({
               Profit will be proceeds − basis ({formatUSD(a.costBasisCents * qty)}).
               {proceedsCents <= 0 ? " Enter what it sold for — giveaways go through Prize." : ""}
             </p>
-          </div>
-        ) : null}
-
-        {mode === "wheel" ? (
-          <div className="flex flex-wrap items-end gap-3 rounded-md bg-muted/50 p-3">
-            {attachableSlots.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No logged spins are missing a prize. Log the session on the Wheel page with this
-                card attached instead — the task resolves itself.
-              </p>
-            ) : (
-              <>
-                <div className="w-20">
-                  <Label className="mb-1 block text-xs">Qty out</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={a.quantity}
-                    value={wheelQty}
-                    onChange={(e) => setWheelQty(Number(e.target.value))}
-                  />
-                </div>
-                <div className="min-w-44">
-                  <Label className="mb-1 block text-xs">Slot it sat on</Label>
-                  <Select value={wheelSlotId} onChange={(e) => setWheelSlotId(e.target.value)}>
-                    {attachableSlots.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.label} ({s.openSpins} open spin{s.openSpins === 1 ? "" : "s"})
-                      </option>
-                    ))}
-                  </Select>
-                </div>
-                <Button
-                  size="sm"
-                  disabled={pending || !wheelSlotId}
-                  onClick={() =>
-                    run(() =>
-                      resolveReconcileWheelPrize(task.id, {
-                        slotId: wheelSlotId,
-                        quantity: wheelQty,
-                      }),
-                    )
-                  }
-                >
-                  {pending ? <Loader2 className="animate-spin" /> : null} Attach to spins
-                </Button>
-                <p className="w-full text-xs text-muted-foreground">
-                  Attaches to your logged spin(s) of that slot and swaps the estimated prize cost
-                  for this card&apos;s real basis ({formatUSD(a.costBasisCents)}/u). Spin revenue
-                  stays as logged — nothing double-counts.
-                </p>
-              </>
-            )}
           </div>
         ) : null}
 

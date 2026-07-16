@@ -32,8 +32,6 @@ export interface ReportData {
     cogsCents: number;
     realizedProfitCents: number;
     buySpendCents: number;
-    wheelRevenueCents: number;
-    wheelPrizeCostCents: number;
   };
   tradeStats: TradeStats;
   topGainers: { id: string; name: string; unrealizedCents: number }[];
@@ -65,16 +63,6 @@ export async function getReportData(): Promise<ReportData> {
   let cogsCents = 0;
   let buySpendCents = 0;
 
-  // Wheel economics (realized): session revenue minus real prize costs.
-  const [wheelRevenueAgg, wheelCostAgg] = await Promise.all([
-    prisma.transaction.aggregate({
-      where: { type: "WHEEL_REVENUE" },
-      _sum: { cashDeltaCents: true },
-    }),
-    prisma.wheelSpin.aggregate({ _sum: { prizeCostCents: true } }),
-  ]);
-  const wheelRevenueCents = wheelRevenueAgg._sum.cashDeltaCents ?? 0;
-  const wheelPrizeCostCents = wheelCostAgg._sum.prizeCostCents ?? 0;
   const tradeStats: TradeStats = {
     count: 0,
     valueInCents: 0,
@@ -161,10 +149,8 @@ export async function getReportData(): Promise<ReportData> {
     totals: {
       salesProceedsCents,
       cogsCents,
-      realizedProfitCents: salesProceedsCents - cogsCents + wheelRevenueCents - wheelPrizeCostCents,
+      realizedProfitCents: salesProceedsCents - cogsCents,
       buySpendCents,
-      wheelRevenueCents,
-      wheelPrizeCostCents,
     },
     tradeStats,
     topGainers,

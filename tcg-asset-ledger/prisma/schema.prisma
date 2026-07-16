@@ -77,7 +77,6 @@ model Asset {
   lines              TransactionLine[]
   syncTasks          SyncTask[]
   gradingSubmissions GradingSubmission[]
-  wheelSpins         WheelSpin[]
   reconcileTasks     ReconcileTask[]
 
   @@index([game])
@@ -94,8 +93,7 @@ model Transaction {
   id String @id @default(cuid())
 
   // BUY | SALE | TRADE | BREAK | PRIZE | ADJUSTMENT | GRADING_SUBMIT |
-  // GRADING_RETURN | WHEEL_SPIN | WHEEL_PRIZE | WHEEL_REVENUE (wheel types are
-  // reserved for future wheel analytics — no UI yet)
+  // GRADING_RETURN
   type String
   date DateTime @default(now())
 
@@ -166,7 +164,6 @@ model Show {
   updatedAt DateTime @updatedAt
 
   transactions Transaction[]
-  wheelSpins   WheelSpin[]
 
   @@index([status])
   @@index([startDate])
@@ -264,65 +261,6 @@ model ReconcileTask {
 
   @@index([status])
   @@index([assetId])
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// WheelSlot — one spot on the prize wheel. estCostCents is the default prize
-// cost when a spin lands here without paying out a tracked inventory asset
-// (e.g. hand-assembled EX bundles of near-zero-cost cards).
-// ─────────────────────────────────────────────────────────────────────────────
-model WheelSlot {
-  id String @id @default(cuid())
-
-  label        String
-  estCostCents Int     @default(0)
-  active       Boolean @default(true)
-  sortOrder    Int     @default(0)
-
-  createdAt DateTime @default(now())
-
-  spins WheelSpin[]
-
-  @@index([active])
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// WheelSpin — one spin of the wheel. Spins are recorded in paid sessions
-// (1/$10, 3/$25, 5/$40): the session's revenue is allocated evenly across its
-// spins, and the prize cost is either the given asset's real basis (inventory
-// prize) or the slot's estimated cost (bundle). Drives hit-rate and P/L
-// analytics per slot and per show.
-// ─────────────────────────────────────────────────────────────────────────────
-model WheelSpin {
-  id String @id @default(cuid())
-
-  date DateTime @default(now())
-
-  slotId String
-  slot   WheelSlot @relation(fields: [slotId], references: [id])
-
-  // Inventory asset paid out on this spin (null for bundles / no-cost prizes).
-  assetId  String?
-  asset    Asset?  @relation(fields: [assetId], references: [id], onDelete: SetNull)
-  quantity Int     @default(1)
-
-  revenueCents   Int @default(0) // this spin's share of the session price
-  prizeCostCents Int @default(0) // asset basis out, or the slot's est cost
-
-  showId String?
-  show   Show?   @relation(fields: [showId], references: [id], onDelete: SetNull)
-
-  // Papertrail links to the ledger entries this session posted.
-  revenueTransactionId String?
-  prizeTransactionId   String?
-
-  notes String?
-
-  createdAt DateTime @default(now())
-
-  @@index([slotId])
-  @@index([showId])
-  @@index([date])
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

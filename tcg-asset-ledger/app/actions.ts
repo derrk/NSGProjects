@@ -16,8 +16,6 @@ import {
   recordAdjustment,
   recordGradingSubmit,
   recordGradingReturn,
-  recordWheelSession,
-  recordWheelPrizeAttach,
   type ReceivedLine,
   type GivenLine,
 } from "@/lib/ledger";
@@ -448,16 +446,6 @@ export async function deleteTransaction(id: string): Promise<ActionResult> {
         "This transaction belongs to a grading submission and can't be deleted. Correct the asset with an Adjustment instead.",
     };
   }
-  const wheelSpin = await prisma.wheelSpin.findFirst({
-    where: { OR: [{ revenueTransactionId: id }, { prizeTransactionId: id }] },
-  });
-  if (wheelSpin) {
-    return {
-      ok: false,
-      error:
-        "This transaction belongs to recorded wheel spins and can't be deleted — it would break wheel analytics.",
-    };
-  }
   const attachments = await prisma.attachment.findMany({
     where: { transactionId: id },
     select: { path: true },
@@ -556,81 +544,6 @@ export async function recordGradingReturnAction(input: unknown): Promise<ActionR
 
 // ── Bricks (v0.2) ────────────────────────────────────────────────────────────
 
-// ── Prize wheel ─────────────────────────────────────────────────────────────
-
-const wheelSlotSchema = z.object({
-  label: z.string().min(1, "Slot needs a label"),
-  estCostCents: z.number().int().nonnegative(),
-});
-
-export async function createWheelSlot(input: unknown): Promise<ActionResult> {
-  const parsed = wheelSlotSchema.safeParse(input);
-  if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid data" };
-  }
-  try {
-    const count = await prisma.wheelSlot.count();
-    const slot = await prisma.wheelSlot.create({
-      data: { ...parsed.data, sortOrder: count },
-    });
-    revalidatePath("/wheel");
-    return { ok: true, id: slot.id };
-  } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "Failed to create slot" };
-  }
-}
-
-export async function updateWheelSlot(id: string, input: unknown): Promise<ActionResult> {
-  const parsed = wheelSlotSchema.partial().extend({ active: z.boolean().optional() }).safeParse(input);
-  if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid data" };
-  }
-  try {
-    await prisma.wheelSlot.update({ where: { id }, data: parsed.data });
-    revalidatePath("/wheel");
-    return { ok: true, id };
-  } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "Failed to update slot" };
-  }
-}
-
-const wheelSessionSchema = z.object({
-  ...metaSchema,
-  priceCents: z.number().int().nonnegative(),
-  spins: z
-    .array(
-      z.object({
-        slotId: z.string().min(1, "Pick the slot each spin landed on"),
-        assetId: z.string().optional(),
-        quantity: z.number().int().positive().default(1),
-      }),
-    )
-    .min(1, "Record at least one spin"),
-});
-
-export async function recordWheelSessionAction(input: unknown): Promise<ActionResult> {
-  const parsed = wheelSessionSchema.safeParse(input);
-  if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid data" };
-  }
-  try {
-    const txn = await recordWheelSession({
-      date: toDate(parsed.data.date),
-      counterparty: parsed.data.counterparty,
-      notes: parsed.data.notes,
-      source: parsed.data.source,
-      showId: parsed.data.showId,
-      priceCents: parsed.data.priceCents,
-      spins: parsed.data.spins,
-    });
-    revalidateAll();
-    revalidatePath("/wheel");
-    return { ok: true, id: txn.id };
-  } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "Failed to record wheel session" };
-  }
-}
-
 // ── Catch-up backlog (reconcile) ────────────────────────────────────────────
 
 const reconcileSoldSchema = z.object({
@@ -697,41 +610,6 @@ export async function resolveReconcileSold(taskId: string, input: unknown): Prom
   }
 }
 
-const reconcileWheelSchema = z.object({
-  slotId: z.string().min(1, "Pick the slot the card sat on"),
-  quantity: z.number().int().positive(),
-});
-
-/** "Wheel prize" — the card went out on the wheel; spins were logged without
- *  the prize attached. Posts the outflow and swaps est-cost for real basis on
- *  those spins (revenue stays as logged — no double count). */
-export async function resolveReconcileWheelPrize(
-  taskId: string,
-  input: unknown,
-): Promise<ActionResult> {
-  const parsed = reconcileWheelSchema.safeParse(input);
-  if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid data" };
-  }
-  try {
-    const task = await prisma.reconcileTask.findFirst({
-      where: { id: taskId, status: "pending" },
-    });
-    if (!task) return { ok: false, error: "Task not found (already resolved?)" };
-    await recordWheelPrizeAttach({
-      assetId: task.assetId,
-      slotId: parsed.data.slotId,
-      quantity: parsed.data.quantity,
-    });
-    revalidateAll();
-    revalidatePath("/reconcile");
-    revalidatePath("/wheel");
-    return { ok: true };
-  } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "Failed to attach wheel prize" };
-  }
-}
-
 /** "Still have it" — Collectr is behind, not the ledger. The add-to-Collectr
  *  task on the sync backlog stays. */
 export async function resolveReconcileStillHave(taskId: string): Promise<ActionResult> {
@@ -785,10 +663,6 @@ export async function resolveReconcileMerge(
       }
 
       // Move any history the duplicate accumulated onto the surviving row.
-      await tx.wheelSpin.updateMany({
-        where: { assetId: target.id },
-        data: { assetId: source.id },
-      });
       await tx.gradingSubmission.updateMany({
         where: { assetId: target.id },
         data: { assetId: source.id },
