@@ -20,6 +20,7 @@ import {
   CalendarDays,
   Tent,
   ClipboardCheck,
+  Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ShowModeProvider, type ActiveShowInfo } from "@/components/show-mode-context";
@@ -52,6 +53,12 @@ const NAV: { section: string; items: { href: string; label: string; icon: React.
       { href: "/import", label: "Import from Collectr", icon: Upload },
       { href: "/sync", label: "Collectr backlog", icon: ListChecks },
       { href: "/reconcile", label: "Catch-up", icon: ClipboardCheck },
+    ],
+  },
+  {
+    section: "Admin",
+    items: [
+      { href: "/settings", label: "Settings", icon: Settings },
     ],
   },
 ];
