@@ -72,8 +72,7 @@ function Section({
       <div className="grid gap-4 sm:grid-cols-2">
         {shows.map((s) => {
           const days = daysUntil(s.startDate);
-          const expenses =
-            s.tableFeeCents + s.hotelCents + s.travelCents + s.foodCents + s.otherCents;
+          const expenses = s.operatingExpensesCents;
           return (
             <Link key={s.id} href={`/shows/${s.id}`}>
               <Card className="h-full transition-colors hover:bg-accent/40">

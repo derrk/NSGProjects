@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
-import { toCents } from "@/lib/money";
 import { createShow, updateShow } from "@/app/actions";
 import { emptyShowForm, type ShowFormValues } from "@/lib/show-form-values";
 
@@ -30,11 +29,6 @@ export function ShowForm({ initial }: { initial?: ShowFormValues }) {
       ...(v.status !== "Active"
         ? { status: v.status as "Upcoming" | "Completed" | "Cancelled" }
         : {}),
-      tableFeeCents: toCents(v.tableFeeDollars),
-      hotelCents: toCents(v.hotelDollars),
-      travelCents: toCents(v.travelDollars),
-      foodCents: toCents(v.foodDollars),
-      otherCents: toCents(v.otherDollars),
       notes: v.notes.trim() || null,
     };
     startTransition(async () => {
@@ -96,33 +90,12 @@ export function ShowForm({ initial }: { initial?: ShowFormValues }) {
 
       <Card>
         <CardContent className="p-6">
-          <div className="mb-3 text-sm font-semibold">Expenses</div>
-          <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-5">
-            {(
-              [
-                ["Table fee ($)", "tableFeeDollars"],
-                ["Hotel ($)", "hotelDollars"],
-                ["Travel / fuel ($)", "travelDollars"],
-                ["Food ($)", "foodDollars"],
-                ["Other ($)", "otherDollars"],
-              ] as const
-            ).map(([label, key]) => (
-              <div key={key}>
-                <Label className="mb-1.5 block">{label}</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  value={v[key]}
-                  placeholder="0.00"
-                  onChange={(e) => set({ [key]: e.target.value } as Partial<ShowFormValues>)}
-                />
-              </div>
-            ))}
-          </div>
-          <div className="mt-4">
-            <Label className="mb-1.5 block">Notes</Label>
-            <Input value={v.notes} placeholder="Optional" onChange={(e) => set({ notes: e.target.value })} />
-          </div>
+          <Label className="mb-1.5 block">Notes</Label>
+          <Input value={v.notes} placeholder="Optional" onChange={(e) => set({ notes: e.target.value })} />
+          <p className="mt-3 text-xs text-muted-foreground">
+            Expenses (table fee, travel, food…) are added on the show&rsquo;s page once it exists — they
+            post to your books as real journal entries.
+          </p>
         </CardContent>
       </Card>
 

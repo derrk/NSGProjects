@@ -1,14 +1,85 @@
 // Shows + Show Mode service. A Show owns expenses and (while Show Mode is
 // active) every ledger transaction is stamped with its id — the ledger stays
 // the single source of truth; the summary is derived, never stored.
+//
+// Show expenses are NOT stored on the Show row: they are BusinessExpense journal
+// entries in the accounting layer, tagged with the show's id. computeShowSummary
+// reads OPERATING expenses from the journal (excluding COGS / giveaway / over-short
+// codes, which the show summary already accounts for from transaction lines).
 
 import { prisma } from "./db";
+import { AUTO_ONLY_EXPENSE_CODES } from "./accounting-math";
+
+/** Sum OPERATING-expense journal lines per show, grouped by account name.
+ *  Excludes AUTO_ONLY codes (COGS / promo / over-short) which the show summary
+ *  derives from transaction lines — including them would double-count.
+ *
+ *  Status is "posted" ONLY (not "reversed"): global reports net an entry against
+ *  its reversal because both share the same account, but reverseEntry does NOT
+ *  copy showId onto the reversal, so a reversal is untagged (showId=null). If we
+ *  included "reversed" here, a reversed show expense's original line would still
+ *  match the show while its offsetting reversal (showId=null) would be filtered
+ *  out — leaving the expense wrongly counted. Excluding "reversed" makes the
+ *  reversed original drop out entirely, which is correct for a show-scoped read. */
+async function showOperatingExpenses(showId?: string): Promise<Map<string, { name: string; cents: number }[]>> {
+  const lines = await prisma.journalLine.findMany({
+    where: {
+      account: { type: "Expense" },
+      entry: {
+        status: "posted",
+        showId: showId ? showId : { not: null },
+      },
+    },
+    select: {
+      debitCents: true,
+      creditCents: true,
+      entry: { select: { showId: true } },
+      account: { select: { name: true, code: true } },
+    },
+  });
+
+  // showId -> (accountName -> cents)
+  const byShow = new Map<string, Map<string, number>>();
+  for (const l of lines) {
+    const code = l.account.code;
+    if (code && AUTO_ONLY_EXPENSE_CODES.has(code)) continue; // COGS / promo / over-short
+    const sid = l.entry.showId;
+    if (!sid) continue;
+    const cents = l.debitCents - l.creditCents;
+    if (cents === 0) continue;
+    let acc = byShow.get(sid);
+    if (!acc) {
+      acc = new Map();
+      byShow.set(sid, acc);
+    }
+    acc.set(l.account.name, (acc.get(l.account.name) ?? 0) + cents);
+  }
+
+  const out = new Map<string, { name: string; cents: number }[]>();
+  for (const [sid, acc] of byShow) {
+    out.set(
+      sid,
+      [...acc.entries()]
+        .map(([name, cents]) => ({ name, cents }))
+        .filter((x) => x.cents !== 0)
+        .sort((a, b) => b.cents - a.cents),
+    );
+  }
+  return out;
+}
 
 export async function listShows() {
-  return prisma.show.findMany({
-    orderBy: [{ startDate: "desc" }],
-    include: { _count: { select: { transactions: true } } },
-  });
+  const [shows, expenseMap] = await Promise.all([
+    prisma.show.findMany({
+      orderBy: [{ startDate: "desc" }],
+      include: { _count: { select: { transactions: true } } },
+    }),
+    showOperatingExpenses(),
+  ]);
+  return shows.map((s) => ({
+    ...s,
+    operatingExpensesCents: (expenseMap.get(s.id) ?? []).reduce((sum, e) => sum + e.cents, 0),
+  }));
 }
 
 export async function getShow(id: string) {
@@ -57,12 +128,8 @@ export interface ShowSummary {
   prizeCostCents: number; // giveaways
   wheelRevenueCents: number;
   wheelPrizeCostCents: number;
-  // Expenses
-  tableFeeCents: number;
-  hotelCents: number;
-  travelCents: number;
-  foodCents: number;
-  otherCents: number;
+  // Operating expenses (from journal entries tagged to this show), by category.
+  expensesByCategory: { name: string; cents: number }[];
   expensesCents: number;
   // Bottom line
   netProfitCents: number; // realized profit − expenses
@@ -126,8 +193,11 @@ export async function computeShowSummary(showId: string): Promise<ShowSummary> {
   });
   const wheelPrizeCostCents = spinCost._sum.prizeCostCents ?? 0;
 
-  const expensesCents =
-    show.tableFeeCents + show.hotelCents + show.travelCents + show.foodCents + show.otherCents;
+  // Operating expenses come from BusinessExpense journal entries tagged to this
+  // show (table fees, travel, etc.). COGS / giveaways / over-short are excluded
+  // there — they're already captured above from transaction lines.
+  const expensesByCategory = (await showOperatingExpenses(show.id)).get(show.id) ?? [];
+  const expensesCents = expensesByCategory.reduce((sum, e) => sum + e.cents, 0);
   const realizedProfitCents =
     revenueCents + wheelRevenueCents - cogsCents - wheelPrizeCostCents - prizeCostCents;
 
@@ -154,11 +224,7 @@ export async function computeShowSummary(showId: string): Promise<ShowSummary> {
     prizeCostCents,
     wheelRevenueCents,
     wheelPrizeCostCents,
-    tableFeeCents: show.tableFeeCents,
-    hotelCents: show.hotelCents,
-    travelCents: show.travelCents,
-    foodCents: show.foodCents,
-    otherCents: show.otherCents,
+    expensesByCategory,
     expensesCents,
     netProfitCents: realizedProfitCents - expensesCents,
   };

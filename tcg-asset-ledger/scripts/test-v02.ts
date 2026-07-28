@@ -6,6 +6,7 @@
 import { prisma } from "../lib/db";
 import { recordBuy, recordSale, recordGradingSubmit, recordGradingReturn } from "../lib/ledger";
 import { enterShowMode, endShowMode, computeShowSummary } from "../lib/shows";
+import { ensureChartOfAccounts, postEntry } from "../lib/accounting";
 import { formatUSD } from "../lib/money";
 
 let failures = 0;
@@ -131,11 +132,22 @@ async function main() {
       name: "Dallas Card Show",
       city: "Dallas",
       startDate: new Date(),
-      tableFeeCents: 150_00,
-      hotelCents: 200_00,
-      travelCents: 80_00,
-      foodCents: 40_00,
     },
+  });
+  // Show expenses are journal entries tagged to the show (the 5 legacy columns
+  // were retired). Post $470 of operating expenses so the summary can net them.
+  await ensureChartOfAccounts();
+  await postEntry({
+    type: "BusinessExpense",
+    description: "Show expenses",
+    showId: show.id,
+    lines: [
+      { accountCode: "show_table_fees", debitCents: 150_00, creditCents: 0 },
+      { accountCode: "travel_hotel", debitCents: 200_00, creditCents: 0 },
+      { accountCode: "travel_fuel", debitCents: 80_00, creditCents: 0 },
+      { accountCode: "travel_meals", debitCents: 40_00, creditCents: 0 },
+      { accountCode: "cash_on_hand", debitCents: 0, creditCents: 470_00 },
+    ],
   });
   await enterShowMode({ showId: show.id, buyingCashCents: 1000_00, personalCashCents: 100_00 });
   const activeShow = await prisma.show.findUniqueOrThrow({ where: { id: show.id } });

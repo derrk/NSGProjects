@@ -15,17 +15,35 @@ import {
 } from "@/components/ui/table";
 import { ProfitText } from "@/components/money-text";
 import { getShow, getActiveShow, computeShowSummary, daysUntil } from "@/lib/shows";
+import { listActiveAccounts, isCapitalSetUp } from "@/lib/accounting";
+import { AUTO_ONLY_EXPENSE_CODES } from "@/lib/accounting-math";
 import { formatUSD } from "@/lib/money";
 import { summarizeTransaction, txnTypeLabel } from "@/lib/txn-format";
 import { EnterShowMode, EndShowMode } from "./show-mode-controls";
+import { ShowExpenseForm } from "./show-expense-form";
 
 export const dynamic = "force-dynamic";
 
 export default async function ShowDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [show, activeShow] = await Promise.all([getShow(id), getActiveShow()]);
+  const [show, activeShow, capitalSetUp, accounts] = await Promise.all([
+    getShow(id),
+    getActiveShow(),
+    isCapitalSetUp(),
+    listActiveAccounts(),
+  ]);
   if (!show) notFound();
   const summary = await computeShowSummary(id);
+
+  const cashAccounts = accounts
+    .filter((a) => a.isCash)
+    .map((a) => ({ code: a.code ?? "", name: a.name }))
+    .filter((a) => a.code);
+  const expenseAccounts = accounts
+    .filter((a) => a.type === "Expense" && !(a.code && AUTO_ONLY_EXPENSE_CODES.has(a.code)))
+    .map((a) => ({ id: a.id, name: a.name }));
+  const now = new Date();
+  const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 
   const isActive = activeShow?.id === show.id;
   const otherShowActive = !!activeShow && !isActive;
@@ -167,16 +185,56 @@ export default async function ShowDetailPage({ params }: { params: Promise<{ id:
                 <Row label="Giveaway cost" value={formatUSD(summary.prizeCostCents)} />
               ) : null}
             </div>
-            <div className="grid gap-x-8 gap-y-1.5 border-t border-border pt-3 text-sm sm:grid-cols-2">
-              <Row label="Table fee" value={formatUSD(summary.tableFeeCents)} />
-              <Row label="Hotel" value={formatUSD(summary.hotelCents)} />
-              <Row label="Travel / fuel" value={formatUSD(summary.travelCents)} />
-              <Row label="Food" value={formatUSD(summary.foodCents)} />
-              {summary.otherCents ? <Row label="Other" value={formatUSD(summary.otherCents)} /> : null}
-            </div>
+            {/* Per-category expense breakdown lives in the dedicated Expenses card below. */}
           </CardContent>
         </Card>
       ) : null}
+
+      {/* Show expenses — recorded as journal entries tagged to this show. */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Expenses</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4 pt-0">
+          {summary.expensesByCategory.length > 0 ? (
+            <div className="grid gap-x-8 gap-y-1.5 text-sm sm:grid-cols-2">
+              {summary.expensesByCategory.map((e) => (
+                <Row key={e.name} label={e.name} value={formatUSD(e.cents)} />
+              ))}
+              <div className="flex items-center justify-between border-t border-border pt-1.5 font-medium sm:col-span-2">
+                <span>Total expenses</span>
+                <span className="tnum">{formatUSD(summary.expensesCents)}</span>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              No expenses recorded for this show yet.
+            </p>
+          )}
+          {capitalSetUp ? (
+            expenseAccounts.length > 0 && cashAccounts.length > 0 ? (
+              <ShowExpenseForm
+                showId={show.id}
+                cashAccounts={cashAccounts}
+                expenseAccounts={expenseAccounts}
+                todayIso={todayIso}
+              />
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No expense or cash accounts are set up yet.
+              </p>
+            )
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Set up{" "}
+              <Link href="/capital/setup" className="underline">
+                Capital
+              </Link>{" "}
+              to record show expenses in your books.
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Future analytics placeholder */}
       <Card>

@@ -1295,11 +1295,6 @@ const showSchema = z.object({
   startDate: z.string().min(1, "Start date is required"),
   endDate: z.string().nullish(),
   status: z.enum(["Upcoming", "Active", "Completed", "Cancelled"]).optional(),
-  tableFeeCents: z.number().int().nonnegative().default(0),
-  hotelCents: z.number().int().nonnegative().default(0),
-  travelCents: z.number().int().nonnegative().default(0),
-  foodCents: z.number().int().nonnegative().default(0),
-  otherCents: z.number().int().nonnegative().default(0),
   notes: z.string().nullish(),
 });
 
@@ -1324,11 +1319,6 @@ export async function createShow(input: unknown): Promise<ActionResult> {
         startDate,
         endDate,
         status: d.status ?? "Upcoming",
-        tableFeeCents: d.tableFeeCents,
-        hotelCents: d.hotelCents,
-        travelCents: d.travelCents,
-        foodCents: d.foodCents,
-        otherCents: d.otherCents,
         notes: d.notes ?? null,
       },
     });
@@ -1380,11 +1370,6 @@ export async function updateShow(id: string, input: unknown): Promise<ActionResu
         ...(d.startDate !== undefined ? { startDate } : {}),
         ...(d.endDate !== undefined ? { endDate } : {}),
         ...(d.status !== undefined ? { status: d.status } : {}),
-        ...(d.tableFeeCents !== undefined ? { tableFeeCents: d.tableFeeCents } : {}),
-        ...(d.hotelCents !== undefined ? { hotelCents: d.hotelCents } : {}),
-        ...(d.travelCents !== undefined ? { travelCents: d.travelCents } : {}),
-        ...(d.foodCents !== undefined ? { foodCents: d.foodCents } : {}),
-        ...(d.otherCents !== undefined ? { otherCents: d.otherCents } : {}),
         ...(d.notes !== undefined ? { notes: d.notes ?? null } : {}),
       },
     });
