@@ -28,7 +28,7 @@ function isOwned(a: AssetReconcileFields): boolean {
 export async function upsertReconcileTask(
   db: Db,
   asset: AssetReconcileFields,
-  kind: "vanished" | "qty-drop",
+  kind: "vanished" | "qty-drop" | "appeared",
   collectrQtyBefore: number | null,
   collectrQtyAfter: number | null,
 ) {
@@ -104,6 +104,13 @@ export async function autoResolveReconcileTasks(db: Db, asset: AssetReconcileFie
         // Collectr, which answers the question as "still have them".
         resolution = "collectr-corrected";
       }
+    } else if (t.kind === "appeared") {
+      // "How was this acquired?" is answered the moment ANY acquisition posts
+      // an IN line for this asset (buy, trade, break — recorded any way).
+      const inLines = await db.transactionLine.count({
+        where: { assetId: asset.id, direction: "IN" },
+      });
+      if (inLines > 0) resolution = "recorded";
     }
     if (resolution) {
       await db.reconcileTask.update({

@@ -41,10 +41,12 @@ export function desiredSyncKind(a: AssetSyncFields): SyncKind | null {
   // Quantity drift: Collectr's last-known quantity no longer matches (e.g.
   // sold 2 of 5) — Collectr needs its count fixed.
   if (a.collectrQuantity != null && a.collectrQuantity !== a.quantity) return "update";
-  // Only nudge to fix cost when Collectr has a *conflicting non-zero* cost.
-  // A blank (0) Collectr cost is fine — the app's basis stays authoritative
-  // and simply fills the gap (you said forgetting the price is OK).
-  if (a.collectrCostCents != null && a.collectrCostCents > 0 && a.costBasisCents !== a.collectrCostCents)
+  // Cost drift: the app has a REAL computed basis (from a buy/trade/break) that
+  // Collectr doesn't reflect — push it so Collectr matches. Fires even when
+  // Collectr shows $0 (the common case after trading for a card). Skipped when
+  // Collectr's cost is unknown (null, e.g. just marked done) so it doesn't
+  // immediately re-nag, and when the app basis is $0 (nothing to tell Collectr).
+  if (a.collectrCostCents != null && a.costBasisCents > 0 && a.costBasisCents !== a.collectrCostCents)
     return "update";
   return null;
 }
@@ -58,7 +60,7 @@ export function syncNote(a: AssetSyncFields, kind: SyncKind): string {
     const parts: string[] = [];
     if (a.collectrQuantity != null && a.collectrQuantity !== a.quantity)
       parts.push(`set quantity to ${a.quantity} (Collectr shows ${a.collectrQuantity})`);
-    if (a.collectrCostCents != null && a.collectrCostCents > 0 && a.costBasisCents !== a.collectrCostCents)
+    if (a.collectrCostCents != null && a.costBasisCents > 0 && a.costBasisCents !== a.collectrCostCents)
       parts.push(
         `set cost basis to ${formatUSD(a.costBasisCents)}/u (Collectr shows ${formatUSD(a.collectrCostCents)})`,
       );

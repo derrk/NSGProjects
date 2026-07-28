@@ -16,12 +16,22 @@ import {
   recordAdjustment,
   recordGradingSubmit,
   recordGradingReturn,
+  recordWheelSession,
+  recordWheelPrizeAttach,
   type ReceivedLine,
   type GivenLine,
 } from "@/lib/ledger";
 import { enterShowMode, endShowMode } from "@/lib/shows";
 import { reconcileAssetSync } from "@/lib/sync-backlog";
 import { upsertReconcileTask } from "@/lib/reconcile-tasks";
+import { gradeToMarketCents, playDedupeKey } from "@/lib/grading-play";
+import { parseCollectrCsv } from "@/lib/collectr";
+import { collectrRowsToGradingPlays } from "@/lib/collectr-grading";
+import {
+  createCustomer as createCustomerRecord,
+  updateCustomer as updateCustomerRecord,
+  deleteCustomer as deleteCustomerRecord,
+} from "@/lib/customers";
 
 export type ActionResult = { ok: true; id?: string } | { ok: false; error: string };
 
@@ -69,6 +79,11 @@ const givenLineSchema = z.object({
 
 const metaSchema = {
   counterparty: z.string().nullish(),
+  // Optional link to a known Customer; empty string = none.
+  customerId: z
+    .string()
+    .nullish()
+    .transform((v) => (v?.trim() ? v : null)),
   notes: z.string().nullish(),
   date: z.string().nullish(),
   // Empty string = "auto" (Show Mode stamps it); anything else must be a real source.
@@ -130,6 +145,7 @@ const assetSchema = z.object({
   costBasisCents: z.number().int().nonnegative(),
   marketValueCents: z.number().int().nonnegative(),
   status: z.string().min(1),
+  isPersonal: z.boolean().optional(),
 });
 
 export async function createAsset(input: unknown): Promise<ActionResult> {
@@ -212,6 +228,7 @@ export async function recordBuyAction(input: unknown): Promise<ActionResult> {
   try {
     const txn = await recordBuy({
       counterparty: parsed.data.counterparty,
+      customerId: parsed.data.customerId,
       notes: parsed.data.notes,
       date: toDate(parsed.data.date),
       source: parsed.data.source,
@@ -239,6 +256,7 @@ export async function recordSaleAction(input: unknown): Promise<ActionResult> {
   try {
     const txn = await recordSale({
       counterparty: parsed.data.counterparty,
+      customerId: parsed.data.customerId,
       notes: parsed.data.notes,
       date: toDate(parsed.data.date),
       source: parsed.data.source,
@@ -270,6 +288,7 @@ export async function recordTradeAction(input: unknown): Promise<ActionResult> {
   try {
     const txn = await recordTrade({
       counterparty: parsed.data.counterparty,
+      customerId: parsed.data.customerId,
       notes: parsed.data.notes,
       date: toDate(parsed.data.date),
       source: parsed.data.source,
@@ -446,6 +465,16 @@ export async function deleteTransaction(id: string): Promise<ActionResult> {
         "This transaction belongs to a grading submission and can't be deleted. Correct the asset with an Adjustment instead.",
     };
   }
+  const wheelSpin = await prisma.wheelSpin.findFirst({
+    where: { OR: [{ revenueTransactionId: id }, { prizeTransactionId: id }] },
+  });
+  if (wheelSpin) {
+    return {
+      ok: false,
+      error:
+        "This transaction belongs to recorded wheel spins and can't be deleted — it would break wheel analytics.",
+    };
+  }
   const attachments = await prisma.attachment.findMany({
     where: { transactionId: id },
     select: { path: true },
@@ -610,6 +639,100 @@ export async function resolveReconcileSold(taskId: string, input: unknown): Prom
   }
 }
 
+const reconcileAcquiredSchema = z.discriminatedUnion("mode", [
+  z.object({
+    mode: z.literal("buy"),
+    cashPaidCents: z.number().int().positive("Enter what you paid — gifts can be dismissed as Already owned"),
+    counterparty: z.string().nullish(),
+    date: z.string().nullish(),
+    showId: z
+      .string()
+      .nullish()
+      .transform((v) => (v?.trim() ? v : "none")),
+  }),
+  z.object({
+    mode: z.literal("break"),
+    sealedAssetId: z.string().min(1, "Pick the sealed product it came from"),
+    date: z.string().nullish(),
+  }),
+]);
+
+/** "Appeared" resolution — a new Collectr row needs its acquisition story.
+ *  Bought: posts a BUY whose cash becomes the imported row's real basis.
+ *  From a pack: posts a BREAK allocating the pack's basis into the card.
+ *  (Trades go through the Trade form — the task auto-resolves on any IN line.) */
+export async function resolveReconcileAcquired(
+  taskId: string,
+  input: unknown,
+): Promise<ActionResult> {
+  const parsed = reconcileAcquiredSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid data" };
+  }
+  try {
+    const task = await prisma.reconcileTask.findFirst({
+      where: { id: taskId, status: "pending", kind: "appeared" },
+      include: { asset: true },
+    });
+    if (!task) return { ok: false, error: "Task not found (already resolved?)" };
+    const a = task.asset;
+    if (a.quantity < 1) return { ok: false, error: "This card has no stock to attribute." };
+
+    const receivedLine = {
+      assetId: a.id,
+      matchMode: "reprice" as const,
+      quantity: a.quantity,
+      unitMarketValueCents: a.priceOverrideCents ?? a.marketValueCents,
+    };
+
+    if (parsed.data.mode === "buy") {
+      await recordBuy({
+        date: toDate(parsed.data.date),
+        counterparty: parsed.data.counterparty,
+        notes: "Catch-up acquisition (recorded from Collectr reconcile)",
+        showId: parsed.data.showId,
+        cashPaidCents: parsed.data.cashPaidCents,
+        received: [receivedLine],
+      });
+    } else {
+      await recordBreak({
+        date: toDate(parsed.data.date),
+        notes: "Catch-up acquisition — pulled from sealed product",
+        sealedAssetId: parsed.data.sealedAssetId,
+        quantity: 1,
+        received: [receivedLine],
+      });
+    }
+    revalidateAll();
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to record acquisition" };
+  }
+}
+
+/** "Personal collection" — not business inventory. Flags the asset personal
+ *  (excluded from business metrics, Collectr's cost kept for reference) and
+ *  closes the question without posting a business transaction. */
+export async function resolveReconcilePersonal(taskId: string): Promise<ActionResult> {
+  try {
+    const task = await prisma.reconcileTask.findFirst({
+      where: { id: taskId, status: "pending" },
+    });
+    if (!task) return { ok: false, error: "Task not found (already resolved?)" };
+    await prisma.$transaction([
+      prisma.asset.update({ where: { id: task.assetId }, data: { isPersonal: true } }),
+      prisma.reconcileTask.update({
+        where: { id: task.id },
+        data: { status: "dismissed", resolution: "personal", resolvedAt: new Date() },
+      }),
+    ]);
+    revalidateAll();
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to update" };
+  }
+}
+
 /** "Still have it" — Collectr is behind, not the ledger. The add-to-Collectr
  *  task on the sync backlog stays. */
 export async function resolveReconcileStillHave(taskId: string): Promise<ActionResult> {
@@ -723,6 +846,425 @@ export async function resolveReconcileMerge(
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Merge failed" };
   }
+}
+
+/** Manual brick flag. The app suggests (90+ days held) but never auto-marks. */
+// ── Prize wheel ─────────────────────────────────────────────────────────────
+
+const wheelSlotSchema = z.object({
+  label: z.string().min(1, "Slot needs a label"),
+  estCostCents: z.number().int().nonnegative(),
+});
+
+export async function createWheelSlot(input: unknown): Promise<ActionResult> {
+  const parsed = wheelSlotSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid data" };
+  }
+  try {
+    const count = await prisma.wheelSlot.count();
+    const slot = await prisma.wheelSlot.create({
+      data: { ...parsed.data, sortOrder: count },
+    });
+    revalidatePath("/wheel");
+    return { ok: true, id: slot.id };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to create slot" };
+  }
+}
+
+export async function updateWheelSlot(id: string, input: unknown): Promise<ActionResult> {
+  const parsed = wheelSlotSchema.partial().extend({ active: z.boolean().optional() }).safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid data" };
+  }
+  try {
+    await prisma.wheelSlot.update({ where: { id }, data: parsed.data });
+    revalidatePath("/wheel");
+    return { ok: true, id };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to update slot" };
+  }
+}
+
+const wheelSessionSchema = z.object({
+  ...metaSchema,
+  priceCents: z.number().int().nonnegative(),
+  spins: z
+    .array(
+      z.object({
+        slotId: z.string().min(1, "Pick the slot each spin landed on"),
+        assetId: z.string().optional(),
+        quantity: z.number().int().positive().default(1),
+      }),
+    )
+    .min(1, "Record at least one spin"),
+});
+
+export async function recordWheelSessionAction(input: unknown): Promise<ActionResult> {
+  const parsed = wheelSessionSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid data" };
+  }
+  try {
+    const txn = await recordWheelSession({
+      date: toDate(parsed.data.date),
+      counterparty: parsed.data.counterparty,
+      notes: parsed.data.notes,
+      source: parsed.data.source,
+      showId: parsed.data.showId,
+      priceCents: parsed.data.priceCents,
+      spins: parsed.data.spins,
+    });
+    revalidateAll();
+    revalidatePath("/wheel");
+    return { ok: true, id: txn.id };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to record wheel session" };
+  }
+}
+
+const reconcileWheelSchema = z.object({
+  slotId: z.string().min(1, "Pick the slot the card sat on"),
+  quantity: z.number().int().positive(),
+});
+
+/** Catch-up "Wheel prize": the card went out on the wheel; spins were logged
+ *  without the prize attached. Posts the outflow and swaps est-cost for real
+ *  basis on those spins (revenue stays as logged — no double count). */
+export async function resolveReconcileWheelPrize(
+  taskId: string,
+  input: unknown,
+): Promise<ActionResult> {
+  const parsed = reconcileWheelSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid data" };
+  }
+  try {
+    const task = await prisma.reconcileTask.findFirst({
+      where: { id: taskId, status: "pending" },
+    });
+    if (!task) return { ok: false, error: "Task not found (already resolved?)" };
+    await recordWheelPrizeAttach({
+      assetId: task.assetId,
+      slotId: parsed.data.slotId,
+      quantity: parsed.data.quantity,
+    });
+    revalidateAll();
+    revalidatePath("/wheel");
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to attach wheel prize" };
+  }
+}
+
+// ── Grading Play Analyzer ────────────────────────────────────────────────────
+
+const gradingPlaySchema = z.object({
+  assetId: z.string().nullish(),
+  name: z.string().min(1, "Card name is required"),
+  set: z.string().nullish(),
+  cardNumber: z.string().nullish(),
+  variant: z.string().nullish(),
+  game: z.string().nullish(),
+  notes: z.string().nullish(),
+  rawValueCents: z.number().int().nonnegative(),
+  purchasePriceCents: z.number().int().nonnegative().nullish(),
+  psa10Cents: z.number().int().nonnegative(),
+  psa9Cents: z.number().int().nonnegative().nullish(),
+  psa8Cents: z.number().int().nonnegative().nullish(),
+  bgs10Cents: z.number().int().nonnegative().nullish(),
+  bgsBlackLabelCents: z.number().int().nonnegative().nullish(),
+  gemRatePct: z.number().int().min(0).max(100),
+  feeCents: z.number().int().nonnegative(),
+  shippingCents: z.number().int().nonnegative(),
+  insuranceCents: z.number().int().nonnegative(),
+  preGradingFeeCents: z.number().int().nonnegative(),
+  status: z.enum(["LookingFor", "Purchased", "Submitted", "AtPSA", "Returned", "Sold"]).optional(),
+  priority: z.enum(["Low", "Medium", "High", "MustBuy"]).optional(),
+  psa10Pop: z.number().int().nonnegative().nullish(),
+  returnedGrade: z.string().nullish(),
+  certNumber: z.string().nullish(),
+  finalSalePriceCents: z.number().int().nonnegative().nullish(),
+  returnedAt: z.string().nullish(),
+});
+
+export async function createGradingPlay(input: unknown): Promise<ActionResult> {
+  const parsed = gradingPlaySchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid data" };
+  }
+  try {
+    const d = parsed.data;
+    // Inventory-linked plays snapshot identity/prices from the asset itself —
+    // server-side, so the numbers can't drift from what inventory says.
+    let snapshot = {};
+    if (d.assetId) {
+      const asset = await prisma.asset.findUnique({ where: { id: d.assetId } });
+      if (!asset) return { ok: false, error: "Inventory card not found" };
+      snapshot = {
+        name: asset.name,
+        set: asset.set,
+        cardNumber: asset.cardNumber,
+        variant: asset.variant,
+        game: asset.game,
+        rawValueCents: asset.priceOverrideCents ?? asset.marketValueCents,
+        purchasePriceCents: asset.costBasisCents,
+        status: "Purchased" as const, // it's already in the case
+      };
+    }
+    const play = await prisma.gradingPlay.create({
+      data: {
+        ...d,
+        returnedAt: toDate(d.returnedAt) ?? null,
+        ...snapshot,
+      },
+    });
+    revalidatePath("/grading-analyzer");
+    return { ok: true, id: play.id };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to save grading play" };
+  }
+}
+
+export async function updateGradingPlay(id: string, input: unknown): Promise<ActionResult> {
+  const parsed = gradingPlaySchema.partial().safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid data" };
+  }
+  try {
+    const play = await prisma.gradingPlay.findUnique({ where: { id } });
+    if (!play) return { ok: false, error: "Grading play not found" };
+    const d = parsed.data;
+
+    let gradingSubmissionId = play.gradingSubmissionId;
+    let snapshot = {};
+
+    // Changing the linked card: forbidden once a real submission is attached
+    // (the papertrail would point at the wrong asset), and otherwise the
+    // identity is re-snapshotted server-side so the play can't describe card A
+    // while pointing at card B.
+    if (d.assetId !== undefined && (d.assetId ?? null) !== play.assetId) {
+      if (gradingSubmissionId) {
+        return {
+          ok: false,
+          error: "This play already has a live PSA submission — it can't switch cards.",
+        };
+      }
+      if (d.assetId) {
+        const asset = await prisma.asset.findUnique({ where: { id: d.assetId } });
+        if (!asset) return { ok: false, error: "Inventory card not found" };
+        snapshot = {
+          name: asset.name,
+          set: asset.set,
+          cardNumber: asset.cardNumber,
+          variant: asset.variant,
+          game: asset.game,
+          rawValueCents: asset.priceOverrideCents ?? asset.marketValueCents,
+          purchasePriceCents: asset.costBasisCents,
+        };
+      }
+    }
+
+    // Inventory integration: moving to Submitted posts the REAL grading
+    // submission (fees fold into basis, card reserved via the Grading guards).
+    if (
+      d.status === "Submitted" &&
+      play.status !== "Submitted" &&
+      play.assetId &&
+      !gradingSubmissionId
+    ) {
+      // Adopt an open submission if one already exists (submitted from the
+      // inventory page, or a prior attempt whose link write failed) — this
+      // self-heals instead of throwing "already out for grading".
+      const existing = await prisma.gradingSubmission.findFirst({
+        where: { assetId: play.assetId, status: "Out" },
+        orderBy: { createdAt: "desc" },
+      });
+      if (existing) {
+        gradingSubmissionId = existing.id;
+      } else {
+        const txn = await recordGradingSubmit({
+          assetId: play.assetId,
+          company: "PSA",
+          shippingCents: d.shippingCents ?? play.shippingCents,
+          insuranceCents: d.insuranceCents ?? play.insuranceCents,
+          feeCents: d.feeCents ?? play.feeCents,
+          notes: "Submitted from Grading Play Analyzer",
+        });
+        // Deterministic link via the transaction we just posted — never a
+        // latest-by-date guess that a concurrent request could race.
+        const sub = await prisma.gradingSubmission.findFirst({
+          where: { submitTransactionId: txn.id },
+        });
+        if (!sub) {
+          return {
+            ok: false,
+            error:
+              "The submission posted but couldn't be linked — reload and set the status again.",
+          };
+        }
+        gradingSubmissionId = sub.id;
+      }
+    }
+
+    // Returned: run the real return flow (grade + cert land on the asset,
+    // market updates to the matching graded comp).
+    if (d.status === "Returned" && play.status !== "Returned" && play.assetId) {
+      // Resolve a postable submission: the linked one, or the asset's open one.
+      let sub = gradingSubmissionId
+        ? await prisma.gradingSubmission.findUnique({ where: { id: gradingSubmissionId } })
+        : null;
+      if (!sub || sub.status !== "Out") {
+        sub = await prisma.gradingSubmission.findFirst({
+          where: { assetId: play.assetId, status: "Out" },
+          orderBy: { createdAt: "desc" },
+        });
+      }
+      if (!sub || sub.status !== "Out") {
+        return {
+          ok: false,
+          error:
+            "No open PSA submission found for this card — record the return from the card's inventory page, or check its grading history.",
+        };
+      }
+      const grade = d.returnedGrade?.trim();
+      if (!grade) {
+        return { ok: false, error: "Enter the grade it came back as." };
+      }
+      gradingSubmissionId = sub.id;
+      await recordGradingReturn({
+        submissionId: sub.id,
+        grade,
+        certNumber: d.certNumber ?? null,
+        // Explicit grade→comp mapping (10/9/8); unknown grades leave the
+        // asset's market value untouched instead of guessing.
+        newMarketValueCents: gradeToMarketCents(grade, {
+          psa10Cents: d.psa10Cents ?? play.psa10Cents,
+          psa9Cents: d.psa9Cents ?? play.psa9Cents,
+          psa8Cents: d.psa8Cents ?? play.psa8Cents,
+          bgs10Cents: d.bgs10Cents ?? play.bgs10Cents,
+          bgsBlackLabelCents: d.bgsBlackLabelCents ?? play.bgsBlackLabelCents,
+        }),
+        date: toDate(d.returnedAt),
+      });
+    }
+
+    await prisma.gradingPlay.update({
+      where: { id },
+      data: {
+        ...d,
+        ...snapshot,
+        returnedAt: d.returnedAt !== undefined ? (toDate(d.returnedAt) ?? null) : undefined,
+        gradingSubmissionId,
+      },
+    });
+    revalidateAll();
+    revalidatePath("/grading-analyzer");
+    return { ok: true, id };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to update grading play" };
+  }
+}
+
+export async function deleteGradingPlay(id: string): Promise<ActionResult> {
+  try {
+    await prisma.gradingPlay.delete({ where: { id } });
+    revalidatePath("/grading-analyzer");
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to delete grading play" };
+  }
+}
+
+/** CSV import: an array of previously exported plays (round-trip format).
+ *  Atomic (one createMany), skips rows without a PSA 10 price (junk from
+ *  mismatched headers), and dedupes against existing plays so re-importing an
+ *  export never doubles the watch list. */
+export async function importGradingPlays(input: unknown): Promise<ActionResult> {
+  const parsed = z.array(gradingPlaySchema).max(2000).safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid CSV rows" };
+  }
+  try {
+    // Dedupe on a normalized key so Collectr's 038↔38 padding can't double rows.
+    const existing = await prisma.gradingPlay.findMany({
+      select: { name: true, set: true, cardNumber: true, variant: true },
+    });
+    const seen = new Set(existing.map(playDedupeKey));
+
+    let skippedNoPrice = 0;
+    let skippedDupes = 0;
+    const rows = parsed.data.filter((d) => {
+      if (d.psa10Cents <= 0) {
+        skippedNoPrice++;
+        return false;
+      }
+      const key = playDedupeKey(d);
+      if (seen.has(key)) {
+        skippedDupes++;
+        return false;
+      }
+      seen.add(key);
+      return true;
+    });
+
+    if (rows.length > 0) {
+      await prisma.gradingPlay.createMany({
+        data: rows.map((d) => ({
+          ...d,
+          assetId: null,
+          returnedAt: toDate(d.returnedAt) ?? null,
+        })),
+      });
+    }
+    revalidatePath("/grading-analyzer");
+    const parts = [`${rows.length} imported`];
+    if (skippedDupes) parts.push(`${skippedDupes} duplicate(s) skipped`);
+    if (skippedNoPrice) parts.push(`${skippedNoPrice} without a PSA 10 price skipped`);
+    return { ok: true, id: parts.join(", ") };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Import failed" };
+  }
+}
+
+/** Import a Collectr portfolio export as THEORETICAL grading candidates.
+ *  Groups each card's raw/PSA 10/BGS 10 rows into one wanted play and reuses
+ *  importGradingPlays (atomic createMany + dedupe + PSA-10 guard). This never
+ *  creates Asset/ledger/sync rows — it is entirely separate from real inventory. */
+export async function importCollectrGradingPlays(csvText: unknown): Promise<ActionResult> {
+  if (typeof csvText !== "string" || csvText.trim() === "") {
+    return { ok: false, error: "No Collectr CSV provided." };
+  }
+  let plays: ReturnType<typeof collectrRowsToGradingPlays>;
+  try {
+    const parsed = parseCollectrCsv(csvText);
+    if (parsed.rows.length === 0) {
+      return {
+        ok: false,
+        error: parsed.errors[0] ?? "No cards found in that Collectr export.",
+      };
+    }
+    plays = collectrRowsToGradingPlays(parsed.rows);
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Couldn't read that Collectr CSV." };
+  }
+  if (plays.length === 0) {
+    return { ok: false, error: "No gradeable candidates found in that portfolio." };
+  }
+  // The analyzer's math is anchored on the PSA 10 comp. If the portfolio has
+  // cards but none carry a PSA 10 price, say so specifically rather than letting
+  // importGradingPlays silently skip them all and report "0 imported".
+  if (plays.every((p) => p.psa10Cents <= 0)) {
+    return {
+      ok: false,
+      error:
+        "Found cards, but none have a PSA 10 price. Add the PSA 10 version of each candidate to your Collectr portfolio — that graded comp is what the grading math needs.",
+    };
+  }
+  // importGradingPlays validates, dedupes by identity, skips rows without a PSA
+  // 10 comp, and creates them as wanted plays (assetId: null).
+  return importGradingPlays(plays);
 }
 
 /** Manual brick flag. The app suggests (90+ days held) but never auto-marks. */
@@ -912,5 +1454,67 @@ export async function endShowModeAction(input: unknown): Promise<ActionResult> {
     return { ok: true, id };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to end Show Mode" };
+  }
+}
+
+// ── Customers ────────────────────────────────────────────────────────────────
+
+const customerSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  email: z.string().nullish(),
+  phone: z.string().nullish(),
+  notes: z.string().nullish(),
+});
+
+export async function createCustomer(input: unknown): Promise<ActionResult> {
+  const parsed = customerSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid data" };
+  }
+  try {
+    const customer = await createCustomerRecord(parsed.data);
+    revalidatePath("/customers");
+    return { ok: true, id: customer.id };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to create customer" };
+  }
+}
+
+/** Name-only quick-create used by the inline picker — avoids forcing the
+ *  picker to gather email/phone at show-floor speed. */
+export async function createCustomerQuick(name: string): Promise<ActionResult> {
+  const trimmed = name.trim();
+  if (!trimmed) return { ok: false, error: "Name is required" };
+  try {
+    const customer = await createCustomerRecord({ name: trimmed });
+    revalidatePath("/customers");
+    return { ok: true, id: customer.id };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to create customer" };
+  }
+}
+
+export async function updateCustomerAction(id: string, input: unknown): Promise<ActionResult> {
+  const parsed = customerSchema.partial().safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid data" };
+  }
+  try {
+    await updateCustomerRecord(id, parsed.data);
+    revalidatePath("/customers");
+    revalidatePath(`/customers/${id}`);
+    return { ok: true, id };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to update customer" };
+  }
+}
+
+export async function deleteCustomerAction(id: string): Promise<ActionResult> {
+  try {
+    await deleteCustomerRecord(id);
+    revalidatePath("/customers");
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to delete customer" };
   }
 }

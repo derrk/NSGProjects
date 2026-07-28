@@ -12,9 +12,14 @@ import { FlowMeta, defaultMeta, type MetaState } from "@/components/flows/flow-m
 import { ReceivedLinesEditor } from "@/components/flows/received-lines-editor";
 import { AttachmentUploader } from "@/components/flows/attachment-uploader";
 import { receivedIsFilled, receivedIsPartial, receivedToPayload } from "@/components/flows/to-payload";
-import { newReceivedDraft, type PickableAsset, type ReceivedDraft } from "@/components/flows/types";
+import {
+  newReceivedDraft,
+  type PickableAsset,
+  type PickableCustomer,
+  type ReceivedDraft,
+} from "@/components/flows/types";
 
-export function BuyForm({ assets }: { assets: PickableAsset[] }) {
+export function BuyForm({ assets, customers }: { assets: PickableAsset[]; customers: PickableCustomer[] }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -51,6 +56,7 @@ export function BuyForm({ assets }: { assets: PickableAsset[] }) {
     const payload = {
       date: meta.date || undefined,
       counterparty: meta.counterparty || undefined,
+      customerId: meta.customerId || undefined,
       notes: meta.notes || undefined,
       source: meta.source || undefined,
       attachmentPaths: photos,
@@ -83,7 +89,7 @@ export function BuyForm({ assets }: { assets: PickableAsset[] }) {
     <div className="space-y-6">
       <Card>
         <CardContent className="space-y-5 p-6">
-          <FlowMeta meta={meta} onChange={setMeta} counterpartyLabel="Bought from" />
+          <FlowMeta meta={meta} onChange={setMeta} counterpartyLabel="Bought from" customers={customers} />
           <div className="max-w-xs">
             <Label className="mb-1.5 block">Total cash paid ($)</Label>
             <Input

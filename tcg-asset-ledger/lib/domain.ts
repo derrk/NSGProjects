@@ -41,6 +41,9 @@ export const TRANSACTION_TYPES = [
   "ADJUSTMENT",
   "GRADING_SUBMIT",
   "GRADING_RETURN",
+  "WHEEL_REVENUE",
+  "WHEEL_PRIZE",
+  "WHEEL_SPIN",
 ] as const;
 export type TransactionType = (typeof TRANSACTION_TYPES)[number];
 
@@ -89,6 +92,9 @@ export const TXN_TYPE_LABELS: Record<TransactionType, string> = {
   ADJUSTMENT: "Adjustment",
   GRADING_SUBMIT: "Sent to Grading",
   GRADING_RETURN: "Grading Returned",
+  WHEEL_REVENUE: "Wheel Spins",
+  WHEEL_PRIZE: "Wheel Prize",
+  WHEEL_SPIN: "Wheel Spin",
 };
 
 /**
@@ -146,5 +152,28 @@ export function normalizeGame(category: string | null | undefined): Game {
 export function assetTypeFromGrade(grade: string | null | undefined): AssetType {
   const g = (grade ?? "").trim().toLowerCase();
   if (g && g !== "ungraded") return "GradedCard";
+  return "RawCard";
+}
+
+/**
+ * Sealed-product detection for imported rows. Cards often carry packish words
+ * INSIDE parentheses ("Yamato (CS 2024 Event Pack)") and have a card number —
+ * so we strip parentheticals, require a packish word in the base name, and
+ * require NO card number before calling something sealed.
+ */
+const PACK_WORDS = /\b(booster pack|sleeved booster|booster bundle|booster box|booster display|elite trainer box|etb|blister|build & battle|premium collection|collection box|poster collection|display box|tin)\b/i;
+const LOOSE_PACK = /\bpack\b/i;
+
+export function inferSealedAssetType(
+  name: string,
+  cardNumber: string | null | undefined,
+  grade: string | null | undefined,
+): AssetType {
+  const graded = assetTypeFromGrade(grade);
+  if (graded === "GradedCard") return graded;
+  if (cardNumber && cardNumber.trim() !== "") return "RawCard"; // numbered = a card
+  const base = name.replace(/\([^)]*\)/g, " ").trim();
+  if (PACK_WORDS.test(base)) return LOOSE_PACK.test(base) ? "LoosePack" : "SealedProduct";
+  if (LOOSE_PACK.test(base)) return "LoosePack";
   return "RawCard";
 }

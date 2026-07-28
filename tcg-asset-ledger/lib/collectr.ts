@@ -4,7 +4,7 @@
 import Papa from "papaparse";
 import { toCents } from "./money";
 import {
-  assetTypeFromGrade,
+  inferSealedAssetType,
   buildNaturalKey,
   normalizeGame,
 } from "./domain";
@@ -132,7 +132,7 @@ export function parseCollectrCsv(csvText: string): ParsedCollectr {
       variant,
       grade,
       condition,
-      assetType: assetTypeFromGrade(grade),
+      assetType: inferSealedAssetType(name, cardNumber, grade),
       quantity: qty,
       costBasisCents: toCents(kCost ? raw[kCost] : undefined),
       marketValueCents: toCents(marketPriceHeader ? raw[marketPriceHeader] : undefined),

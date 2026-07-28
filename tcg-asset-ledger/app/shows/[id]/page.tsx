@@ -157,6 +157,12 @@ export default async function ShowDetailPage({ params }: { params: Promise<{ id:
                 <span className="text-muted-foreground">Inventory value gained via trades</span>
                 <ProfitText cents={summary.tradeMarketDeltaCents} />
               </div>
+              {summary.wheelRevenueCents > 0 || summary.wheelPrizeCostCents > 0 ? (
+                <Row
+                  label="Wheel revenue / prize cost"
+                  value={`${formatUSD(summary.wheelRevenueCents)} / ${formatUSD(summary.wheelPrizeCostCents)}`}
+                />
+              ) : null}
               {summary.prizeCostCents > 0 ? (
                 <Row label="Giveaway cost" value={formatUSD(summary.prizeCostCents)} />
               ) : null}

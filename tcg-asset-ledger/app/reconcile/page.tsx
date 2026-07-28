@@ -57,9 +57,41 @@ export default async function ReconcilePage() {
     }),
   ]);
 
+  // Sealed products in stock — "From a pack" pulls allocate their basis.
+  const packs = await prisma.asset.findMany({
+    where: {
+      status: "InStock",
+      quantity: { gt: 0 },
+      assetType: { in: ["SealedProduct", "LoosePack", "Bundle"] },
+    },
+    select: { id: true, name: true, quantity: true },
+    orderBy: { name: "asc" },
+  });
+  const packCandidates = packs.map((p) => ({ id: p.id, label: `${p.name} (qty ${p.quantity})` }));
+
+  // Wheel slots + the count of logged spins missing a prize (the pool the
+  // "Wheel prize" resolution attaches to).
+  const [slots, unattachedBySlot] = await Promise.all([
+    prisma.wheelSlot.findMany({
+      where: { active: true },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+      select: { id: true, label: true },
+    }),
+    prisma.wheelSpin.groupBy({ by: ["slotId"], where: { assetId: null }, _count: true }),
+  ]);
+  const unattachedCount = new Map(unattachedBySlot.map((g) => [g.slotId, g._count]));
+  const wheelSlots = slots.map((s) => ({
+    id: s.id,
+    label: s.label,
+    openSpins: unattachedCount.get(s.id) ?? 0,
+  }));
+
   // Header total uses the task snapshots (clamped to live stock), matching the
-  // per-row default sale quantities.
-  const totalValue = tasks.reduce((s, t) => {
+  // per-row default sale quantities. "Appeared" items aren't unaccounted value —
+  // they're in inventory, just missing their acquisition story.
+  const outTasks = tasks.filter((t) => t.kind !== "appeared");
+  const appearedCount = tasks.length - outTasks.length;
+  const totalValue = outTasks.reduce((s, t) => {
     const unit = t.asset.priceOverrideCents ?? t.asset.marketValueCents;
     const gap =
       t.kind === "qty-drop"
@@ -89,10 +121,22 @@ export default async function ReconcilePage() {
       ) : (
         <>
           <p className="text-sm text-muted-foreground">
-            <span className="font-medium text-foreground">{tasks.length} item(s)</span> ·{" "}
-            <span className="tnum">{formatUSD(totalValue)}</span> of unaccounted inventory value.
-            Resolve as sales to capture missing revenue and profit — or
-            &quot;Still have it&quot; if Collectr is just behind.
+            <span className="font-medium text-foreground">{tasks.length} item(s)</span>
+            {outTasks.length > 0 ? (
+              <>
+                {" "}
+                · <span className="tnum">{formatUSD(totalValue)}</span> of unaccounted outgoing
+                value
+              </>
+            ) : null}
+            {appearedCount > 0 ? (
+              <>
+                {" "}
+                · <span className="font-medium text-foreground">{appearedCount}</span> new from
+                Collectr needing an acquisition (buy / trade / pack)
+              </>
+            ) : null}
+            . Answer each one and the ledger posts the real transaction.
           </p>
           <div className="space-y-3">
             {tasks.map((t) => {
@@ -143,6 +187,8 @@ export default async function ReconcilePage() {
                   shows={shows}
                   mergeCandidates={rowCandidates}
                   suggestedMergeId={suggestion?.id ?? null}
+                  packCandidates={packCandidates}
+                  wheelSlots={wheelSlots}
                 />
               );
             })}

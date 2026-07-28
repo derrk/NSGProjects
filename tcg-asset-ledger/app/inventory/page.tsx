@@ -18,7 +18,7 @@ export const dynamic = "force-dynamic";
 
 type SP = Record<string, string | undefined>;
 
-const HEALTH_FILTERS = ["Healthy", "Aging", "Slow Moving", "Brick", "Normal"] as const;
+const HEALTH_FILTERS = ["Healthy", "Aging", "Slow Moving", "Brick", "Normal", "Personal"] as const;
 
 export default async function InventoryPage({
   searchParams,
@@ -41,6 +41,8 @@ export default async function InventoryPage({
     assets = assets.filter((a) => {
       const owned = (a.status === "InStock" || a.status === "Grading") && a.quantity > 0;
       if (!owned) return false;
+      if (health === "Personal") return a.isPersonal;
+      if (a.isPersonal) return false; // business health views exclude personal
       if (health === "Brick") return a.isBrick;
       if (health === "Normal") return !a.isBrick;
       const bucket = agingBucket(daysHeld(a.acquiredAt));
@@ -167,11 +169,16 @@ export default async function InventoryPage({
                             </Badge>
                           ) : null}
                           {a.variant ? <span>{a.variant}</span> : null}
-                          {owned && a.isBrick ? (
+                          {a.isPersonal ? (
+                            <Badge variant="outline" className="px-1.5 py-0 text-[10px]">
+                              Personal
+                            </Badge>
+                          ) : null}
+                          {owned && !a.isPersonal && a.isBrick ? (
                             <Badge variant="destructive" className="px-1.5 py-0 text-[10px]">
                               Brick
                             </Badge>
-                          ) : owned && bucket !== "Healthy" ? (
+                          ) : owned && !a.isPersonal && bucket !== "Healthy" ? (
                             <Badge
                               variant={bucket === "Aging" ? "muted" : "warning"}
                               className="px-1.5 py-0 text-[10px]"

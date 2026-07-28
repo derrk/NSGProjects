@@ -97,7 +97,7 @@ export interface DashboardMetrics {
 
 export async function getDashboardMetrics(): Promise<DashboardMetrics> {
   const inStock = await prisma.asset.findMany({
-    where: { status: "InStock", quantity: { gt: 0 } },
+    where: { status: "InStock", quantity: { gt: 0 }, isPersonal: false },
     select: { quantity: true, marketValueCents: true, costBasisCents: true, priceOverrideCents: true },
   });
 
@@ -127,7 +127,19 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
   let cogsCents = 0;
   for (const l of soldLines) cogsCents += l.unitBasisCents * l.quantity;
 
-  const realizedProfitCents = salesProceedsCents - cogsCents;
+  // Wheel economics are realized earnings too: spin revenue in, prize cost out
+  // (spin rows carry real inventory basis or the slot's bundle estimate).
+  const [wheelRevenueAgg, wheelCostAgg] = await Promise.all([
+    prisma.transaction.aggregate({
+      where: { type: "WHEEL_REVENUE" },
+      _sum: { cashDeltaCents: true },
+    }),
+    prisma.wheelSpin.aggregate({ _sum: { prizeCostCents: true } }),
+  ]);
+  const wheelNetCents =
+    (wheelRevenueAgg._sum.cashDeltaCents ?? 0) - (wheelCostAgg._sum.prizeCostCents ?? 0);
+
+  const realizedProfitCents = salesProceedsCents - cogsCents + wheelNetCents;
 
   // Cash flow across all transactions.
   const txns = await prisma.transaction.findMany({ select: { cashDeltaCents: true } });
@@ -173,7 +185,7 @@ export interface InventoryHealth {
 
 export async function getInventoryHealth(now: Date = new Date()): Promise<InventoryHealth> {
   const owned = await prisma.asset.findMany({
-    where: { status: { in: ["InStock", "Grading"] }, quantity: { gt: 0 } },
+    where: { status: { in: ["InStock", "Grading"] }, quantity: { gt: 0 }, isPersonal: false },
     select: {
       status: true,
       quantity: true,

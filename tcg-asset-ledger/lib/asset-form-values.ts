@@ -20,6 +20,7 @@ export interface AssetFormValues {
   quantity: number;
   costBasisDollars: string;
   marketValueDollars: string;
+  isPersonal: boolean;
 }
 
 export const EMPTY_ASSET_FORM: AssetFormValues = {
@@ -39,6 +40,7 @@ export const EMPTY_ASSET_FORM: AssetFormValues = {
   quantity: 1,
   costBasisDollars: "0",
   marketValueDollars: "0",
+  isPersonal: false,
 };
 
 export function assetToFormValues(a: {
@@ -59,6 +61,7 @@ export function assetToFormValues(a: {
   quantity: number;
   costBasisCents: number;
   marketValueCents: number;
+  isPersonal: boolean;
 }): AssetFormValues {
   return {
     id: a.id,
@@ -78,5 +81,6 @@ export function assetToFormValues(a: {
     quantity: a.quantity,
     costBasisDollars: String(toDollars(a.costBasisCents)),
     marketValueDollars: String(toDollars(a.marketValueCents)),
+    isPersonal: a.isPersonal,
   };
 }

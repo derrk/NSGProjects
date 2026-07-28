@@ -36,6 +36,10 @@ export function summarizeTransaction(txn: {
       return outLines.map(label).join(", ") || "Grading submission";
     case "GRADING_RETURN":
       return inLines.map(label).join(", ") || "Grading return";
+    case "WHEEL_REVENUE":
+      return "Wheel spins purchased";
+    case "WHEEL_PRIZE":
+      return outLines.map(label).join(", ") || "Wheel prize";
     default:
       return "";
   }

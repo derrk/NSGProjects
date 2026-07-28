@@ -32,9 +32,12 @@ export interface ReportData {
     cogsCents: number;
     realizedProfitCents: number;
     buySpendCents: number;
+    wheelRevenueCents: number;
+    wheelPrizeCostCents: number;
   };
   tradeStats: TradeStats;
   topGainers: { id: string; name: string; unrealizedCents: number }[];
+  topCustomers: { id: string; name: string; salesCents: number; transactionCount: number }[];
 }
 
 function monthKey(d: Date): string {
@@ -45,7 +48,7 @@ export async function getReportData(): Promise<ReportData> {
   // Sales, buys & trades with their lines for month grouping + trade stats.
   const txns = await prisma.transaction.findMany({
     where: { type: { in: ["SALE", "BUY", "TRADE"] } },
-    include: { lines: true },
+    include: { lines: true, customer: { select: { id: true, name: true } } },
     orderBy: { date: "asc" },
   });
 
@@ -63,6 +66,17 @@ export async function getReportData(): Promise<ReportData> {
   let cogsCents = 0;
   let buySpendCents = 0;
 
+  // Wheel economics (realized): session revenue minus real prize costs.
+  const [wheelRevenueAgg, wheelCostAgg] = await Promise.all([
+    prisma.transaction.aggregate({
+      where: { type: "WHEEL_REVENUE" },
+      _sum: { cashDeltaCents: true },
+    }),
+    prisma.wheelSpin.aggregate({ _sum: { prizeCostCents: true } }),
+  ]);
+  const wheelRevenueCents = wheelRevenueAgg._sum.cashDeltaCents ?? 0;
+  const wheelPrizeCostCents = wheelCostAgg._sum.prizeCostCents ?? 0;
+
   const tradeStats: TradeStats = {
     count: 0,
     valueInCents: 0,
@@ -70,6 +84,8 @@ export async function getReportData(): Promise<ReportData> {
     marketDeltaCents: 0,
     cashDeltaCents: 0,
   };
+
+  const customerMap = new Map<string, { id: string; name: string; salesCents: number; transactionCount: number }>();
 
   for (const t of txns) {
     if (t.type === "SALE") {
@@ -86,6 +102,17 @@ export async function getReportData(): Promise<ReportData> {
       row.cogsCents += cogs;
       row.profitCents += proceeds - cogs;
       salesProceedsCents += proceeds;
+      if (t.customer) {
+        const c = customerMap.get(t.customer.id) ?? {
+          id: t.customer.id,
+          name: t.customer.name,
+          salesCents: 0,
+          transactionCount: 0,
+        };
+        c.salesCents += proceeds;
+        c.transactionCount += 1;
+        customerMap.set(t.customer.id, c);
+      }
       cogsCents += cogs;
     } else if (t.type === "BUY") {
       const row = ensure(monthKey(t.date));
@@ -110,7 +137,7 @@ export async function getReportData(): Promise<ReportData> {
 
   // Inventory breakdown by game.
   const inStock = await prisma.asset.findMany({
-    where: { status: "InStock", quantity: { gt: 0 } },
+    where: { status: "InStock", quantity: { gt: 0 }, isPersonal: false },
     select: {
       id: true,
       name: true,
@@ -142,6 +169,7 @@ export async function getReportData(): Promise<ReportData> {
 
   const byGame = [...gameMap.values()].sort((a, b) => b.valueCents - a.valueCents);
   const topGainers = gainers.sort((a, b) => b.unrealizedCents - a.unrealizedCents).slice(0, 8);
+  const topCustomers = [...customerMap.values()].sort((a, b) => b.salesCents - a.salesCents).slice(0, 8);
 
   return {
     months,
@@ -149,10 +177,13 @@ export async function getReportData(): Promise<ReportData> {
     totals: {
       salesProceedsCents,
       cogsCents,
-      realizedProfitCents: salesProceedsCents - cogsCents,
+      realizedProfitCents: salesProceedsCents - cogsCents + wheelRevenueCents - wheelPrizeCostCents,
       buySpendCents,
+      wheelRevenueCents,
+      wheelPrizeCostCents,
     },
     tradeStats,
+    topCustomers,
     topGainers,
   };
 }

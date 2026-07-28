@@ -25,10 +25,19 @@ describe("desiredSyncKind — the Collectr backlog rules", () => {
     expect(desiredSyncKind({ ...base, inCollectr: true, collectrCostCents: 7000 })).toBe(null);
   });
 
-  it("forgot to enter the price in Collectr (0) → app fills it, no nag", () => {
-    // The user's rule: blank Collectr cost is fine — no duplicate work, the
-    // app's $70 basis stays authoritative.
-    expect(desiredSyncKind({ ...base, inCollectr: true, collectrCostCents: 0 })).toBe(null);
+  it("app has a real basis but Collectr shows $0 → update (push the cost)", () => {
+    // Trades/buys compute a basis Collectr can't know. Tell Collectr to set it.
+    expect(desiredSyncKind({ ...base, inCollectr: true, collectrCostCents: 0 })).toBe("update");
+  });
+
+  it("cost unknown (null, e.g. just marked done) → no re-nag", () => {
+    expect(desiredSyncKind({ ...base, inCollectr: true, collectrCostCents: null })).toBe(null);
+  });
+
+  it("both app basis and Collectr cost are $0 → nothing to push", () => {
+    expect(
+      desiredSyncKind({ ...base, inCollectr: true, costBasisCents: 0, collectrCostCents: 0 }),
+    ).toBe(null);
   });
 
   it("conflicting non-zero Collectr cost → update", () => {

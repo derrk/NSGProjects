@@ -1,5 +1,12 @@
 // Shared client-side types for the transaction flow editors.
 
+export interface PickableCustomer {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+}
+
 export interface PickableAsset {
   id: string;
   name: string;

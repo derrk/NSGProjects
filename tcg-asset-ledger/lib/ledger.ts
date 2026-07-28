@@ -67,6 +67,9 @@ export interface GivenLine {
 
 interface CommonMeta {
   counterparty?: string | null;
+  /** Optional link to a known Customer — additive; counterparty text is the
+   *  fast default path and is never required. */
+  customerId?: string | null;
   date?: Date;
   notes?: string | null;
   /** Where the deal happened (Show, Whatnot, eBay, ...). Auto-set to "Show"
@@ -355,6 +358,7 @@ export async function recordBuy(input: CommonMeta & {
         type: "BUY",
         date: input.date ?? new Date(),
         counterparty: input.counterparty ?? null,
+        customerId: input.customerId ?? null,
         cashDeltaCents: -Math.abs(input.cashPaidCents),
         notes: input.notes ?? null,
         ...(await showStamp(tx, input.source, input.showId)),
@@ -381,6 +385,7 @@ export async function recordSale(input: CommonMeta & {
         type: "SALE",
         date: input.date ?? new Date(),
         counterparty: input.counterparty ?? null,
+        customerId: input.customerId ?? null,
         cashDeltaCents: Math.abs(input.proceedsCents),
         notes: input.notes ?? null,
         ...(await showStamp(tx, input.source, input.showId)),
@@ -421,6 +426,7 @@ export async function recordTrade(input: CommonMeta & {
         type: "TRADE",
         date: input.date ?? new Date(),
         counterparty: input.counterparty ?? null,
+        customerId: input.customerId ?? null,
         cashDeltaCents: input.cashDeltaCents,
         notes: input.notes ?? null,
         ...(await showStamp(tx, input.source, input.showId)),
@@ -461,6 +467,7 @@ export async function recordBreak(input: CommonMeta & {
         type: "BREAK",
         date: input.date ?? new Date(),
         counterparty: input.counterparty ?? null,
+        customerId: input.customerId ?? null,
         cashDeltaCents: 0,
         notes: input.notes ?? null,
         ...(await showStamp(tx, input.source, input.showId)),
@@ -492,6 +499,7 @@ export async function recordPrize(input: CommonMeta & {
         type: "PRIZE",
         date: input.date ?? new Date(),
         counterparty: input.counterparty ?? null,
+        customerId: input.customerId ?? null,
         cashDeltaCents: 0,
         notes: input.notes ?? null,
         ...(await showStamp(tx, input.source, input.showId)),
@@ -500,6 +508,165 @@ export async function recordPrize(input: CommonMeta & {
     for (const g of input.given) {
       await applyOut(tx, txn.id, { ...g, unitValueCents: 0 }, "UsedAsPrize");
     }
+    await reconcileTouched(tx, txn.id);
+    return txn;
+  });
+}
+
+/** One spin within a paid wheel session. */
+export interface WheelSpinLine {
+  slotId: string;
+  /** Inventory asset paid out on this spin (omit for bundles / no-cost prizes). */
+  assetId?: string;
+  quantity?: number;
+}
+
+/** WHEEL SESSION: a customer buys spins (1/$10, 3/$25, 5/$40, ...). Posts one
+ *  WHEEL_REVENUE transaction for the cash, one WHEEL_PRIZE transaction for any
+ *  inventory payouts (real basis leaves as prize cost), and a WheelSpin row per
+ *  spin — slot hit, allocated revenue share, and prize cost (asset basis or the
+ *  slot's estimated bundle cost). */
+export async function recordWheelSession(input: CommonMeta & {
+  priceCents: number;
+  spins: WheelSpinLine[];
+}) {
+  if (input.spins.length === 0) throw new Error("A wheel session needs at least one spin.");
+  if (input.priceCents < 0) throw new Error("Session price can't be negative.");
+  return prisma.$transaction(async (tx) => {
+    const stamp = await showStamp(tx, input.source, input.showId);
+    const date = input.date ?? new Date();
+
+    const revenueTxn = await tx.transaction.create({
+      data: {
+        type: "WHEEL_REVENUE",
+        date,
+        counterparty: input.counterparty ?? null,
+        customerId: input.customerId ?? null,
+        cashDeltaCents: Math.abs(input.priceCents),
+        notes: input.notes ?? `Wheel — ${input.spins.length} spin(s)`,
+        ...stamp,
+      },
+    });
+
+    // Inventory payouts share one WHEEL_PRIZE posting.
+    const hasInventoryPrizes = input.spins.some((s) => s.assetId);
+    let prizeTxnId: string | null = null;
+    const basisBySpin = new Map<number, number>();
+    if (hasInventoryPrizes) {
+      const prizeTxn = await tx.transaction.create({
+        data: {
+          type: "WHEEL_PRIZE",
+          date,
+          counterparty: input.counterparty ?? null,
+          customerId: input.customerId ?? null,
+          cashDeltaCents: 0,
+          notes: "Wheel prizes paid from inventory",
+          ...stamp,
+        },
+      });
+      prizeTxnId = prizeTxn.id;
+      for (const [i, s] of input.spins.entries()) {
+        if (!s.assetId) continue;
+        const basis = await applyOut(
+          tx,
+          prizeTxn.id,
+          { assetId: s.assetId, quantity: s.quantity ?? 1, unitValueCents: 0 },
+          "UsedAsPrize",
+        );
+        basisBySpin.set(i, basis);
+      }
+    }
+
+    // Even revenue split across the session's spins (exact to the cent).
+    const revenueSplit = allocateByWeight(
+      Math.abs(input.priceCents),
+      input.spins.map(() => 1),
+    );
+    for (const [i, s] of input.spins.entries()) {
+      const slot = await tx.wheelSlot.findUniqueOrThrow({ where: { id: s.slotId } });
+      await tx.wheelSpin.create({
+        data: {
+          date,
+          slotId: s.slotId,
+          assetId: s.assetId ?? null,
+          quantity: s.quantity ?? 1,
+          revenueCents: revenueSplit[i],
+          prizeCostCents: basisBySpin.get(i) ?? slot.estCostCents,
+          showId: stamp.showId,
+          revenueTransactionId: revenueTxn.id,
+          prizeTransactionId: s.assetId ? prizeTxnId : null,
+        },
+      });
+    }
+
+    if (prizeTxnId) await reconcileTouched(tx, prizeTxnId);
+    return revenueTxn;
+  });
+}
+
+/** WHEEL PRIZE (catch-up): an inventory card went out on the wheel, but the
+ *  spins were logged without the prize attached (busy show — slot est-cost was
+ *  used). Attach the card to the most recent prize-less spins of its slot:
+ *  posts the WHEEL_PRIZE outflow at real basis and swaps the spins' estimated
+ *  cost for the truth. Revenue is NOT touched — it was logged with the session. */
+export async function recordWheelPrizeAttach(input: {
+  assetId: string;
+  slotId: string;
+  quantity: number;
+  date?: Date;
+}) {
+  if (input.quantity < 1) throw new Error("Quantity must be at least 1.");
+  return prisma.$transaction(async (tx) => {
+    const asset = await tx.asset.findUniqueOrThrow({ where: { id: input.assetId } });
+    const slot = await tx.wheelSlot.findUniqueOrThrow({ where: { id: input.slotId } });
+
+    const spins = await tx.wheelSpin.findMany({
+      where: { slotId: slot.id, assetId: null },
+      orderBy: { date: "desc" },
+      take: input.quantity,
+    });
+    if (spins.length < input.quantity) {
+      throw new Error(
+        `Only ${spins.length} logged "${slot.label}" spin(s) are missing a prize. ` +
+          `Log the session on the Wheel page (with the prize attached) instead.`,
+      );
+    }
+
+    // Attribute the outflow to the show the spins belong to (if any).
+    const showId = spins.find((s) => s.showId)?.showId ?? null;
+
+    const txn = await tx.transaction.create({
+      data: {
+        type: "WHEEL_PRIZE",
+        date: input.date ?? spins[0].date,
+        cashDeltaCents: 0,
+        notes: `Wheel prize (catch-up) — attached to ${input.quantity} logged "${slot.label}" spin(s)`,
+        source: "Show",
+        showId,
+      },
+    });
+
+    const totalBasis = await applyOut(
+      tx,
+      txn.id,
+      { assetId: asset.id, quantity: input.quantity, unitValueCents: 0 },
+      "UsedAsPrize",
+    );
+    const unitBasis = Math.round(totalBasis / input.quantity);
+
+    for (const s of spins) {
+      await tx.wheelSpin.update({
+        where: { id: s.id },
+        data: {
+          assetId: asset.id,
+          quantity: 1,
+          // Replace the slot's estimated cost with the card's real basis.
+          prizeCostCents: unitBasis,
+          prizeTransactionId: txn.id,
+        },
+      });
+    }
+
     await reconcileTouched(tx, txn.id);
     return txn;
   });
@@ -520,6 +687,7 @@ export async function recordAdjustment(input: CommonMeta & {
         type: "ADJUSTMENT",
         date: input.date ?? new Date(),
         counterparty: input.counterparty ?? null,
+        customerId: input.customerId ?? null,
         cashDeltaCents: 0,
         notes: input.notes ?? null,
         ...(await showStamp(tx, input.source, input.showId)),
@@ -608,6 +776,7 @@ export async function recordGradingSubmit(input: CommonMeta & {
         type: "GRADING_SUBMIT",
         date: input.date ?? new Date(),
         counterparty: input.company,
+        customerId: input.customerId ?? null,
         cashDeltaCents: -totalFeesCents,
         notes: input.notes ?? null,
         ...(await showStamp(tx, input.source, input.showId)),
@@ -697,6 +866,7 @@ export async function recordGradingReturn(input: CommonMeta & {
         type: "GRADING_RETURN",
         date: input.date ?? new Date(),
         counterparty: sub.company,
+        customerId: input.customerId ?? null,
         cashDeltaCents: 0,
         notes: input.notes ?? null,
         ...(await showStamp(tx, input.source, input.showId)),

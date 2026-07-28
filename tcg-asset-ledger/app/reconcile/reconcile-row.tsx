@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Tag, Hand, Merge, Loader2 } from "lucide-react";
+import { Tag, Hand, Merge, Loader2, ShoppingCart, PackageOpen, ArrowLeftRight, Heart, Disc3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,6 +15,9 @@ import {
   resolveReconcileSold,
   resolveReconcileStillHave,
   resolveReconcileMerge,
+  resolveReconcileAcquired,
+  resolveReconcilePersonal,
+  resolveReconcileWheelPrize,
 } from "@/app/actions";
 
 interface TaskView {
@@ -46,16 +49,21 @@ export function ReconcileRow({
   shows,
   mergeCandidates,
   suggestedMergeId,
+  packCandidates,
+  wheelSlots,
 }: {
   task: TaskView;
   shows: { id: string; name: string }[];
   mergeCandidates: { id: string; label: string }[];
   suggestedMergeId: string | null;
+  packCandidates: { id: string; label: string }[];
+  wheelSlots: { id: string; label: string; openSpins: number }[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [mode, setMode] = useState<"none" | "sold" | "merge">("none");
+  const [mode, setMode] = useState<"none" | "sold" | "merge" | "buy" | "pack" | "wheel">("none");
+  const isAppeared = task.kind === "appeared";
 
   const a = task.asset;
   // Gap from the task's own snapshots (clamped to live stock) — never inflated
@@ -73,6 +81,13 @@ export function ReconcileRow({
   const [saleDate, setSaleDate] = useState(todayLocal());
   const [showId, setShowId] = useState(""); // default: NO show — post-hoc is explicit
   const [mergeTarget, setMergeTarget] = useState(""); // deliberate pick, never preselected
+  // "Appeared" acquisition inputs
+  const [paid, setPaid] = useState((a.costBasisCents > 0 ? (a.costBasisCents * a.quantity) / 100 : "").toString());
+  const [buyFrom, setBuyFrom] = useState("");
+  const [packId, setPackId] = useState("");
+  const attachableSlots = wheelSlots.filter((s) => s.openSpins > 0);
+  const [wheelSlotId, setWheelSlotId] = useState(attachableSlots[0]?.id ?? "");
+  const [wheelQty, setWheelQty] = useState(1);
 
   const proceedsCents = toCents(proceeds);
   const gapClosed = missingQty === 0;
@@ -99,12 +114,22 @@ export function ReconcileRow({
                 <span className="text-xs text-muted-foreground">#{a.cardNumber}</span>
               ) : null}
               {a.grade && a.grade !== "Ungraded" ? <Badge variant="outline">{a.grade}</Badge> : null}
-              <Badge variant={task.kind === "vanished" ? "destructive" : "warning"}>
+              <Badge
+                variant={
+                  task.kind === "vanished"
+                    ? "destructive"
+                    : task.kind === "appeared"
+                      ? "outline"
+                      : "warning"
+                }
+              >
                 {task.kind === "vanished"
                   ? task.neverSeenInCollectr
                     ? "not in Collectr"
                     : "gone from Collectr"
-                  : `Collectr shows ${task.collectrQtyAfter} of ${task.appQty}`}
+                  : task.kind === "appeared"
+                    ? "new from Collectr — how was it acquired?"
+                    : `Collectr shows ${task.collectrQtyAfter} of ${task.appQty}`}
               </Badge>
             </div>
             <div className="mt-0.5 text-xs text-muted-foreground">
@@ -113,32 +138,245 @@ export function ReconcileRow({
               {formatUSD(a.costBasisCents)}/u
             </div>
           </div>
-          <div className="flex items-center gap-1.5">
-            <Button
-              size="sm"
-              variant={mode === "sold" ? "default" : "outline"}
-              disabled={gapClosed}
-              onClick={() => setMode(mode === "sold" ? "none" : "sold")}
-            >
-              <Tag /> Sold it
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={pending}
-              onClick={() => run(() => resolveReconcileStillHave(task.id))}
-            >
-              <Hand /> Still have it
-            </Button>
-            <Button
-              size="sm"
-              variant={mode === "merge" ? "default" : "outline"}
-              onClick={() => setMode(mode === "merge" ? "none" : "merge")}
-            >
-              <Merge /> Same as…
-            </Button>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {isAppeared ? (
+              <>
+                <Button
+                  size="sm"
+                  variant={mode === "buy" ? "default" : "outline"}
+                  onClick={() => setMode(mode === "buy" ? "none" : "buy")}
+                >
+                  <ShoppingCart /> Bought
+                </Button>
+                <Button
+                  size="sm"
+                  variant={mode === "pack" ? "default" : "outline"}
+                  onClick={() => setMode(mode === "pack" ? "none" : "pack")}
+                >
+                  <PackageOpen /> From a pack
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  title="Opens the Trade form with this card preloaded on the You-Get side — add what you gave, post, and this task resolves itself."
+                  onClick={() => router.push(`/trade?get=${a.id}`)}
+                >
+                  <ArrowLeftRight /> Traded for it
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={pending}
+                  title="Keeps the card but excludes it from business inventory, profit, and health metrics"
+                  onClick={() => run(() => resolveReconcilePersonal(task.id))}
+                >
+                  <Heart /> Personal collection
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={pending}
+                  title="Business stock, not a new acquisition — keep Collectr's cost as the basis"
+                  onClick={() => run(() => resolveReconcileStillHave(task.id))}
+                >
+                  <Hand /> Already owned
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  size="sm"
+                  variant={mode === "sold" ? "default" : "outline"}
+                  disabled={gapClosed}
+                  onClick={() => setMode(mode === "sold" ? "none" : "sold")}
+                >
+                  <Tag /> Sold it
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  title="Opens the Trade form with this card preloaded on the You-Give side — add what you got, post, and this task resolves itself."
+                  onClick={() => router.push(`/trade?give=${a.id}`)}
+                >
+                  <ArrowLeftRight /> Traded
+                </Button>
+                <Button
+                  size="sm"
+                  variant={mode === "wheel" ? "default" : "outline"}
+                  onClick={() => setMode(mode === "wheel" ? "none" : "wheel")}
+                >
+                  <Disc3 /> Wheel prize
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={pending}
+                  onClick={() => run(() => resolveReconcileStillHave(task.id))}
+                >
+                  <Hand /> Still have it
+                </Button>
+                <Button
+                  size="sm"
+                  variant={mode === "merge" ? "default" : "outline"}
+                  onClick={() => setMode(mode === "merge" ? "none" : "merge")}
+                >
+                  <Merge /> Same as…
+                </Button>
+              </>
+            )}
           </div>
         </div>
+
+        {mode === "buy" ? (
+          <div className="flex flex-wrap items-end gap-3 rounded-md bg-muted/50 p-3">
+            <div className="w-28">
+              <Label className="mb-1 block text-xs">
+                Paid total ($){a.quantity > 1 ? ` for ${a.quantity}` : ""}
+              </Label>
+              <Input
+                type="number"
+                step="0.01"
+                value={paid}
+                placeholder="0.00"
+                onChange={(e) => setPaid(e.target.value)}
+              />
+            </div>
+            <div className="min-w-36">
+              <Label className="mb-1 block text-xs">From (optional)</Label>
+              <Input
+                value={buyFrom}
+                placeholder="Vendor / person"
+                onChange={(e) => setBuyFrom(e.target.value)}
+              />
+            </div>
+            <div className="w-36">
+              <Label className="mb-1 block text-xs">Date</Label>
+              <Input type="date" value={saleDate} onChange={(e) => setSaleDate(e.target.value)} />
+            </div>
+            <div className="min-w-40">
+              <Label className="mb-1 block text-xs">Show (optional)</Label>
+              <Select value={showId} onChange={(e) => setShowId(e.target.value)}>
+                <option value="">No show</option>
+                {shows.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </Select>
+            </div>
+            <Button
+              size="sm"
+              disabled={pending || toCents(paid) <= 0}
+              onClick={() =>
+                run(() =>
+                  resolveReconcileAcquired(task.id, {
+                    mode: "buy",
+                    cashPaidCents: toCents(paid),
+                    counterparty: buyFrom || null,
+                    date: saleDate || null,
+                    showId: showId || null,
+                  }),
+                )
+              }
+            >
+              {pending ? <Loader2 className="animate-spin" /> : null} Record buy
+            </Button>
+            <p className="w-full text-xs text-muted-foreground">
+              Posts the buy and sets this card&apos;s cost basis to what you paid
+              {a.quantity > 1 ? ` (${formatUSD(Math.round(toCents(paid) / a.quantity))}/u)` : ""}.
+              Free/gifted? Use &quot;Already owned&quot; instead.
+            </p>
+          </div>
+        ) : null}
+
+        {mode === "pack" ? (
+          <div className="flex flex-wrap items-end gap-3 rounded-md bg-muted/50 p-3">
+            {packCandidates.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No sealed product in stock to pull from — record the sealed buy first, or use
+                &quot;Bought&quot; / &quot;Already owned&quot;.
+              </p>
+            ) : (
+              <>
+                <div className="min-w-64 flex-1">
+                  <Label className="mb-1 block text-xs">Pulled from</Label>
+                  <Select value={packId} onChange={(e) => setPackId(e.target.value)}>
+                    <option value="">Pick the sealed product…</option>
+                    {packCandidates.map((p) => (
+                      <option key={p.id} value={p.id}>{p.label}</option>
+                    ))}
+                  </Select>
+                </div>
+                <Button
+                  size="sm"
+                  disabled={pending || !packId}
+                  onClick={() =>
+                    run(() =>
+                      resolveReconcileAcquired(task.id, { mode: "break", sealedAssetId: packId }),
+                    )
+                  }
+                >
+                  {pending ? <Loader2 className="animate-spin" /> : null} Record pull
+                </Button>
+                <p className="w-full text-xs text-muted-foreground">
+                  Opens one of that sealed product and allocates its cost into this card — the
+                  pack&apos;s papertrail shows the break.
+                </p>
+              </>
+            )}
+          </div>
+        ) : null}
+
+        {mode === "wheel" ? (
+          <div className="flex flex-wrap items-end gap-3 rounded-md bg-muted/50 p-3">
+            {attachableSlots.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No logged spins are missing a prize. Log the session on the Wheel page with this
+                card attached instead — the task resolves itself.
+              </p>
+            ) : (
+              <>
+                <div className="w-20">
+                  <Label className="mb-1 block text-xs">Qty out</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={a.quantity}
+                    value={wheelQty}
+                    onChange={(e) => setWheelQty(Number(e.target.value))}
+                  />
+                </div>
+                <div className="min-w-44">
+                  <Label className="mb-1 block text-xs">Slot it sat on</Label>
+                  <Select value={wheelSlotId} onChange={(e) => setWheelSlotId(e.target.value)}>
+                    {attachableSlots.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.label} ({s.openSpins} open spin{s.openSpins === 1 ? "" : "s"})
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+                <Button
+                  size="sm"
+                  disabled={pending || !wheelSlotId}
+                  onClick={() =>
+                    run(() =>
+                      resolveReconcileWheelPrize(task.id, {
+                        slotId: wheelSlotId,
+                        quantity: wheelQty,
+                      }),
+                    )
+                  }
+                >
+                  {pending ? <Loader2 className="animate-spin" /> : null} Attach to spins
+                </Button>
+                <p className="w-full text-xs text-muted-foreground">
+                  Attaches to your logged spin(s) of that slot and swaps the estimated prize cost
+                  for this card&apos;s real basis ({formatUSD(a.costBasisCents)}/u). Spin revenue
+                  stays as logged — nothing double-counts.
+                </p>
+              </>
+            )}
+          </div>
+        ) : null}
 
         {mode === "sold" ? (
           <div className="flex flex-wrap items-end gap-3 rounded-md bg-muted/50 p-3">

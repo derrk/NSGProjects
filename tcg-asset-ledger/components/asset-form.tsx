@@ -50,6 +50,7 @@ export function AssetForm({ initial }: { initial?: AssetFormValues }) {
       quantity: Number(v.quantity) || 0,
       costBasisCents: toCents(v.costBasisDollars),
       marketValueCents: toCents(v.marketValueDollars),
+      isPersonal: v.isPersonal,
     };
     startTransition(async () => {
       const res: ActionResult = isEdit
@@ -116,6 +117,15 @@ export function AssetForm({ initial }: { initial?: AssetFormValues }) {
           <Field label="Status">
             <Select value={v.status} onChange={(e) => set("status", e.target.value)}>
               {ASSET_STATUSES.map((s) => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
+            </Select>
+          </Field>
+          <Field label="Ownership">
+            <Select
+              value={v.isPersonal ? "personal" : "business"}
+              onChange={(e) => set("isPersonal", e.target.value === "personal")}
+            >
+              <option value="business">Business inventory</option>
+              <option value="personal">Personal collection</option>
             </Select>
           </Field>
 

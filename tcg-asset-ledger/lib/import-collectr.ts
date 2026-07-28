@@ -178,10 +178,15 @@ export async function applyPlan(
     });
     const touchedAssetIds: string[] = [];
 
+    // A brand-new row in a routine import = something acquired that the ledger
+    // hasn't heard about → ask "how?" on the catch-up backlog. A fresh seed
+    // (empty database) is cataloging, not acquiring — skip the questions then.
+    const isSeedImport = (await tx.asset.count()) === 0;
+
     for (const item of plan.items) {
       const row = item.row;
       if (item.action === "create") {
-        await tx.asset.create({
+        const createdAsset = await tx.asset.create({
           data: {
             name: row.name,
             game: row.game,
@@ -212,6 +217,9 @@ export async function applyPlan(
             collectrQuantity: row.quantity,
           },
         });
+        if (!isSeedImport) {
+          await upsertReconcileTask(tx, createdAsset, "appeared", null, row.quantity);
+        }
         created++;
       } else if (item.action === "refresh") {
         await tx.asset.update({

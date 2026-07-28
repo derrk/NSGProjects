@@ -55,6 +55,8 @@ export interface ShowSummary {
   tradeValueOutCents: number;
   tradeMarketDeltaCents: number;
   prizeCostCents: number; // giveaways
+  wheelRevenueCents: number;
+  wheelPrizeCostCents: number;
   // Expenses
   tableFeeCents: number;
   hotelCents: number;
@@ -83,11 +85,14 @@ export async function computeShowSummary(showId: string): Promise<ShowSummary> {
   let tradeValueOutCents = 0;
   let tradeCashPaidCents = 0;
   let prizeCostCents = 0;
+  let wheelRevenueCents = 0;
   let cashDeltaCents = 0;
 
   for (const t of txns) {
     cashDeltaCents += t.cashDeltaCents;
-    if (t.type === "SALE") {
+    if (t.type === "WHEEL_REVENUE") {
+      wheelRevenueCents += t.cashDeltaCents;
+    } else if (t.type === "SALE") {
       salesCount++;
       revenueCents += t.cashDeltaCents;
       for (const l of t.lines) {
@@ -112,9 +117,19 @@ export async function computeShowSummary(showId: string): Promise<ShowSummary> {
     }
   }
 
+  // Wheel prize cost from the spin records: real basis for inventory payouts
+  // PLUS estimated cost of hand-assembled bundles (which never post ledger
+  // lines).
+  const spinCost = await prisma.wheelSpin.aggregate({
+    where: { showId: show.id },
+    _sum: { prizeCostCents: true },
+  });
+  const wheelPrizeCostCents = spinCost._sum.prizeCostCents ?? 0;
+
   const expensesCents =
     show.tableFeeCents + show.hotelCents + show.travelCents + show.foodCents + show.otherCents;
-  const realizedProfitCents = revenueCents - cogsCents - prizeCostCents;
+  const realizedProfitCents =
+    revenueCents + wheelRevenueCents - cogsCents - wheelPrizeCostCents - prizeCostCents;
 
   return {
     startingCashCents:
@@ -137,6 +152,8 @@ export async function computeShowSummary(showId: string): Promise<ShowSummary> {
     tradeValueOutCents,
     tradeMarketDeltaCents: tradeValueInCents - tradeValueOutCents,
     prizeCostCents,
+    wheelRevenueCents,
+    wheelPrizeCostCents,
     tableFeeCents: show.tableFeeCents,
     hotelCents: show.hotelCents,
     travelCents: show.travelCents,
@@ -171,7 +188,7 @@ export async function enterShowMode(input: {
 
     // Inventory snapshot (owned stock: InStock + Grading).
     const owned = await tx.asset.findMany({
-      where: { status: { in: ["InStock", "Grading"] }, quantity: { gt: 0 } },
+      where: { status: { in: ["InStock", "Grading"] }, quantity: { gt: 0 }, isPersonal: false },
       select: {
         quantity: true,
         costBasisCents: true,

@@ -17,17 +17,59 @@ import { GivenLinesEditor } from "@/components/flows/given-lines-editor";
 import { ReceivedLinesEditor } from "@/components/flows/received-lines-editor";
 import { AttachmentUploader } from "@/components/flows/attachment-uploader";
 import { receivedIsFilled, receivedIsPartial, receivedToPayload } from "@/components/flows/to-payload";
-import type { GivenDraft, PickableAsset, ReceivedDraft } from "@/components/flows/types";
+import {
+  newReceivedDraft,
+  marketOf,
+  type GivenDraft,
+  type PickableAsset,
+  type PickableCustomer,
+  type ReceivedDraft,
+} from "@/components/flows/types";
 
 type CashDir = "paid" | "received" | "none";
 
-export function TradeForm({ assets }: { assets: PickableAsset[] }) {
+export function TradeForm({
+  assets,
+  customers,
+  initialGiveId,
+  initialGetId,
+}: {
+  assets: PickableAsset[];
+  customers: PickableCustomer[];
+  /** Preload a card on the You-Give side (catch-up "Traded" hand-off). */
+  initialGiveId?: string;
+  /** Preload a card on the You-Get side as "Already in inventory". */
+  initialGetId?: string;
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [meta, setMeta] = useState<MetaState>(defaultMeta());
-  const [given, setGiven] = useState<GivenDraft[]>([]);
-  const [received, setReceived] = useState<ReceivedDraft[]>([]);
+  const [given, setGiven] = useState<GivenDraft[]>(() => {
+    const a = assets.find((x) => x.id === initialGiveId);
+    if (!a) return [];
+    return [
+      {
+        key: crypto.randomUUID(),
+        assetId: a.id,
+        quantity: 1,
+        unitValueDollars: (marketOf(a) / 100).toString(),
+      },
+    ];
+  });
+  const [received, setReceived] = useState<ReceivedDraft[]>(() => {
+    const a = assets.find((x) => x.id === initialGetId);
+    if (!a) return [];
+    return [
+      {
+        ...newReceivedDraft(crypto.randomUUID()),
+        existingAssetId: a.id,
+        name: a.name,
+        quantity: a.quantity,
+        unitMarketValueDollars: (marketOf(a) / 100).toString(),
+      },
+    ];
+  });
   const [cashDir, setCashDir] = useState<CashDir>("none");
   const [cashAmount, setCashAmount] = useState("");
   const [photos, setPhotos] = useState<string[]>([]);
@@ -86,6 +128,7 @@ export function TradeForm({ assets }: { assets: PickableAsset[] }) {
     const payload = {
       date: meta.date || undefined,
       counterparty: meta.counterparty || undefined,
+      customerId: meta.customerId || undefined,
       notes: meta.notes || undefined,
       source: meta.source || undefined,
       attachmentPaths: photos,
@@ -127,7 +170,7 @@ export function TradeForm({ assets }: { assets: PickableAsset[] }) {
     <div className="space-y-6">
       <Card>
         <CardContent className="space-y-5 p-6">
-          <FlowMeta meta={meta} onChange={setMeta} counterpartyLabel="Traded with" />
+          <FlowMeta meta={meta} onChange={setMeta} counterpartyLabel="Traded with" customers={customers} />
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <Label className="mb-1.5 block">Cash on top</Label>

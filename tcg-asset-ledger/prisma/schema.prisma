@@ -30,9 +30,9 @@ model Asset {
   condition  String? // Near Mint, Moderately Played, ...
 
   // Quantity & money (cents, per-unit)
-  quantity         Int @default(1)
-  costBasisCents   Int @default(0) // per-unit cost basis
-  marketValueCents Int @default(0) // per-unit market value
+  quantity           Int  @default(1)
+  costBasisCents     Int  @default(0) // per-unit cost basis
+  marketValueCents   Int  @default(0) // per-unit market value
   priceOverrideCents Int? // per-unit manual market override (Collectr "Price Override")
 
   // Lifecycle
@@ -41,6 +41,10 @@ model Asset {
   // Brick tracking: manually flagged slow-movers. The app SUGGESTS (90+ days
   // held) but never auto-marks.
   isBrick Boolean @default(false)
+
+  // Personal collection — not business inventory. Excluded from inventory
+  // value, cost basis, health, and brick metrics; still synced with Collectr.
+  isPersonal Boolean @default(false)
 
   // When the business acquired this asset (drives days-held / aging metrics).
   // Backfilled from Collectr's Date Added or the earliest IN ledger line.
@@ -57,11 +61,11 @@ model Asset {
   notes     String?
 
   // Collectr reconciliation
-  naturalKey        String  @unique // game|set|name|cardNumber|variant|grade|condition
+  naturalKey        String    @unique // game|set|name|cardNumber|variant|grade|condition
   collectrDateAdded DateTime?
   marketPriceAsOf   DateTime? // date from the Collectr "Market Price (As of ...)" header
-  watchlist         Boolean @default(false)
-  ledgerTouched     Boolean @default(false) // true once a transaction in THIS app affects it
+  watchlist         Boolean   @default(false)
+  ledgerTouched     Boolean   @default(false) // true once a transaction in THIS app affects it
 
   // Collectr sync state (the backlog): whether Collectr's portfolio currently
   // reflects this asset, and what cost/quantity Collectr last reported for it.
@@ -77,7 +81,9 @@ model Asset {
   lines              TransactionLine[]
   syncTasks          SyncTask[]
   gradingSubmissions GradingSubmission[]
+  wheelSpins         WheelSpin[]
   reconcileTasks     ReconcileTask[]
+  gradingPlays       GradingPlay[]
 
   @@index([game])
   @@index([status])
@@ -97,10 +103,10 @@ model Transaction {
   type String
   date DateTime @default(now())
 
-  counterparty String? // who you dealt with
+  counterparty   String? // who you dealt with (free text; kept even when customerId is set)
   // Signed cash movement in cents. Negative = money left your pocket (you paid);
   // positive = money came in (you received).
-  cashDeltaCents Int @default(0)
+  cashDeltaCents Int     @default(0)
 
   // Where the deal happened: Show | Whatnot | TCGPlayer | eBay | Local |
   // Facebook | Trade Night | Personal | Other. Auto-set to "Show" in Show Mode.
@@ -109,6 +115,11 @@ model Transaction {
   // Show this transaction belongs to (auto-attached while Show Mode is active).
   showId String?
   show   Show?   @relation(fields: [showId], references: [id], onDelete: SetNull)
+
+  // Optional link to a known Customer. Nullable on purpose — historical
+  // transactions and fast walk-up sales only ever have counterparty text.
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
 
   notes String?
 
@@ -121,6 +132,27 @@ model Transaction {
   @@index([type])
   @@index([date])
   @@index([showId])
+  @@index([customerId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Customer — a known buyer/trade partner. Optional: most transactions just
+// carry free-text counterparty; this is for repeat customers worth tracking.
+// ─────────────────────────────────────────────────────────────────────────────
+model Customer {
+  id String @id @default(cuid())
+
+  name  String
+  email String?
+  phone String?
+  notes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  transactions Transaction[]
+
+  @@index([name])
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -136,7 +168,7 @@ model Show {
   city      String?
   startDate DateTime
   endDate   DateTime?
-  status    String   @default("Upcoming") // Upcoming | Active | Completed | Cancelled
+  status    String    @default("Upcoming") // Upcoming | Active | Completed | Cancelled
 
   // Expenses (cents) — netted against show revenue in the summary.
   tableFeeCents Int @default(0)
@@ -148,8 +180,8 @@ model Show {
   notes String?
 
   // ── Show Mode session ──────────────────────────────────────────────────────
-  enteredAt DateTime? // when Show Mode started
-  endedAt   DateTime? // when it ended
+  enteredAt         DateTime? // when Show Mode started
+  endedAt           DateTime? // when it ended
   // Cash you arrived with, split the way you run a table.
   buyingCashCents   Int?
   personalCashCents Int?
@@ -164,9 +196,77 @@ model Show {
   updatedAt DateTime @updatedAt
 
   transactions Transaction[]
+  wheelSpins   WheelSpin[]
 
   @@index([status])
   @@index([startDate])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GradingPlay — the Grading Play Analyzer / wanted list. One row per candidate:
+// either linked to an inventory asset or a manually entered "wanted" card
+// spotted in the wild. Inputs (raw value, PSA comps, gem rate, costs) are
+// stored; EV / profit / ROI / recommendation are computed live in
+// lib/grading-play.ts. Designed for future expansion: population reports,
+// price APIs (PriceCharting/Card Ladder/PSA), CGC/BGS, scan uploads.
+// ─────────────────────────────────────────────────────────────────────────────
+model GradingPlay {
+  id String @id @default(cuid())
+
+  // Inventory origin (null = wanted / manually entered card)
+  assetId String?
+  asset   Asset?  @relation(fields: [assetId], references: [id], onDelete: SetNull)
+
+  // Card identity (denormalized so wanted cards work standalone)
+  name       String
+  set        String?
+  cardNumber String?
+  variant    String?
+  game       String?
+  notes      String? // vendor notes: "Saw at Dallas show, asking $42, clean"
+
+  // Pricing inputs (cents)
+  rawValueCents      Int  @default(0)
+  purchasePriceCents Int? // optional until purchased / vendor ask while wanted
+  psa10Cents         Int  @default(0)
+  psa9Cents          Int?
+  psa8Cents          Int?
+  bgs10Cents         Int? // BGS 10 comp
+  bgsBlackLabelCents Int? // BGS Black Label (Pristine 10) comp
+
+  // Gem rate: estimated chance of a PSA 10, whole percent (0–100).
+  gemRatePct Int @default(50)
+
+  // Grading costs (cents) — prefilled with defaults, editable per play.
+  // $80 fee + $3 ship + $2 insurance + $7 pre-grading = $92 all-in.
+  feeCents           Int @default(8000)
+  shippingCents      Int @default(300)
+  insuranceCents     Int @default(200)
+  preGradingFeeCents Int @default(700)
+
+  status   String @default("LookingFor") // LookingFor | Purchased | Submitted | AtPSA | Returned | Sold
+  priority String @default("Medium") // Low | Medium | High | MustBuy
+
+  // PSA 10 population count, entered by hand from the pop report (null = unknown).
+  // Classified into tiers (Ultra Low…Very High) for the buy-vs-grade long-term
+  // signal — low pop = scarcity-driven upside.
+  psa10Pop Int?
+
+  // Return / outcome details
+  returnedGrade       String?
+  certNumber          String?
+  finalSalePriceCents Int?
+  returnedAt          DateTime?
+
+  // Papertrail link when the Submitted status posts a real grading submission.
+  gradingSubmissionId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([priority])
+  @@index([assetId])
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -230,6 +330,9 @@ model GradingSubmission {
 model AppState {
   id           Int     @id @default(1)
   activeShowId String?
+  // Capital reserve targets (cents) for buying-power alerts.
+  minCashReserveCents    Int?
+  buyingPowerTargetCents Int?
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -264,6 +367,64 @@ model ReconcileTask {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// WheelSlot — one spot on the prize wheel. estCostCents is the default prize
+// cost when a spin lands here without paying out a tracked inventory asset
+// (e.g. hand-assembled EX bundles of near-zero-cost cards).
+// ─────────────────────────────────────────────────────────────────────────────
+model WheelSlot {
+  id String @id @default(cuid())
+
+  label        String
+  estCostCents Int     @default(0)
+  active       Boolean @default(true)
+  sortOrder    Int     @default(0)
+
+  createdAt DateTime @default(now())
+
+  spins WheelSpin[]
+
+  @@index([active])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WheelSpin — one spin of the wheel, recorded in paid sessions (1/$10, 3/$25,
+// 5/$40): session revenue is allocated evenly across its spins; prize cost is
+// the given asset's real basis (inventory prize) or the slot's estimated cost
+// (bundle). Drives hit-rate and P/L analytics per slot and per show.
+// ─────────────────────────────────────────────────────────────────────────────
+model WheelSpin {
+  id String @id @default(cuid())
+
+  date DateTime @default(now())
+
+  slotId String
+  slot   WheelSlot @relation(fields: [slotId], references: [id])
+
+  // Inventory asset paid out on this spin (null for bundles / no-cost prizes).
+  assetId  String?
+  asset    Asset?  @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  quantity Int     @default(1)
+
+  revenueCents   Int @default(0) // this spin's share of the session price
+  prizeCostCents Int @default(0) // asset basis out, or the slot's est cost
+
+  showId String?
+  show   Show?   @relation(fields: [showId], references: [id], onDelete: SetNull)
+
+  // Papertrail links to the ledger entries this session posted.
+  revenueTransactionId String?
+  prizeTransactionId   String?
+
+  notes String?
+
+  createdAt DateTime @default(now())
+
+  @@index([slotId])
+  @@index([showId])
+  @@index([date])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // SyncTask — the Collectr sync backlog. Ledger activity here (a buy, trade-in,
 // break, sale, ...) creates a to-do to reflect the change in your Collectr
 // portfolio so the two stay in sync. Auto-resolves when a re-import confirms it.
@@ -278,7 +439,7 @@ model SyncTask {
   transaction   Transaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
 
   kind   String // add | update | remove
-  status String @default("pending") // pending | done
+  status String  @default("pending") // pending | done
   note   String?
 
   createdAt  DateTime  @default(now())
@@ -340,11 +501,120 @@ model TransactionLine {
 model ImportBatch {
   id String @id @default(cuid())
 
-  source         String   @default("collectr")
-  fileName       String?
+  source          String    @default("collectr")
+  fileName        String?
   marketPriceAsOf DateTime?
-  createdCount   Int      @default(0)
-  updatedCount   Int      @default(0)
-  skippedCount   Int      @default(0)
-  createdAt      DateTime @default(now())
+  createdCount    Int       @default(0)
+  updatedCount    Int       @default(0)
+  skippedCount    Int       @default(0)
+  createdAt       DateTime  @default(now())
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CAPITAL / MONEY LAYER (Phase 1) — a double-entry journal that lives ALONGSIDE
+// the inventory ledger above. It is the source of truth for CASH and OWNER
+// CAPITAL (contributions, draws, money owed each way, expenses, transfers).
+// Inventory cost basis / realized profit still come from the Transaction ledger;
+// the Capital Dashboard combines both. Every posted entry must balance
+// (Σ debits = Σ credits) and is immutable — corrections post a reversal.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Chart of accounts. Seeded system accounts carry a stable `code` for lookups;
+// users can add their own (code null).
+model Account {
+  id           String  @id @default(cuid())
+  name         String
+  type         String // Asset | Liability | Equity | Income | Expense
+  subtype      String? // Cash | Receivable | Inventory | Equipment | OwnerEquity | ...
+  code         String? @unique // stable slug for seeded accounts, e.g. "due_from_owner"
+  isCash       Boolean @default(false) // counts toward "business cash"
+  isRestricted Boolean @default(false) // excluded from unrestricted buying power
+  isSystem     Boolean @default(false) // seeded; not user-deletable
+  isActive     Boolean @default(true)
+  sortOrder    Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lines JournalLine[]
+
+  @@index([type])
+  @@index([isCash])
+}
+
+// One balanced money event.
+model JournalEntry {
+  id          String   @id @default(cuid())
+  date        DateTime @default(now())
+  // OwnerContribution | OwnerDraw | DueFromOwner | OwnerRepayment | DueToOwner |
+  // OwnerReimbursement | BusinessExpense | Transfer | OpeningBalance |
+  // Reconciliation | Reversal
+  type        String
+  description String?
+  status      String   @default("posted") // draft | posted | reversed
+  reference   String?
+  showId      String? // optional show/event tag (no FK; Phase 1)
+  // When this entry was auto-mirrored from an inventory Transaction, its id —
+  // unique so the mirror is idempotent (one journal entry per transaction).
+  sourceTransactionId String? @unique
+
+  // Reversal audit trail: a reversing entry points back at the one it undoes.
+  reversalOfId String?
+  reversalOf   JournalEntry?  @relation("EntryReversal", fields: [reversalOfId], references: [id])
+  reversedBy   JournalEntry[] @relation("EntryReversal")
+
+  createdAt DateTime  @default(now())
+  postedAt  DateTime?
+
+  lines JournalLine[]
+
+  @@index([type])
+  @@index([date])
+  @@index([status])
+}
+
+// A single debit or credit against one account. Exactly one of debit/credit is
+// non-zero per line; the parent entry's lines must sum debits == credits.
+model JournalLine {
+  id             String @id @default(cuid())
+  journalEntryId String
+  entry          JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  accountId      String
+  account        Account @relation(fields: [accountId], references: [id])
+
+  debitCents  Int     @default(0)
+  creditCents Int     @default(0)
+  memo        String?
+
+  @@index([journalEntryId])
+  @@index([accountId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Commitment — an upcoming cash obligation you've committed to (pre-orders,
+// reserved table fees, hotels, subscriptions, expected tax). A planning overlay:
+// the REMAINING balance (total − deposit already paid) is reserved out of
+// safe-to-spend buying power so you don't spend money that's already spoken for.
+// Deposits are informational — record the actual purchase in the normal flow
+// when the item arrives, then mark the commitment fulfilled.
+// ─────────────────────────────────────────────────────────────────────────────
+model Commitment {
+  id       String @id @default(cuid())
+  name     String
+  // PreOrder | TableFee | Hotel | Subscription | Grading | Tax | Other
+  category String @default("PreOrder")
+
+  totalCents       Int // full cost when fulfilled
+  depositPaidCents Int @default(0) // already put down (e.g. GameStop half-deposit)
+
+  dueDate DateTime? // when the balance comes due / release/ship date
+  status  String    @default("Open") // Open | Fulfilled | Cancelled
+
+  notes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([dueDate])
 }

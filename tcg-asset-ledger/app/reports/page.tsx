@@ -193,6 +193,44 @@ export default async function ReportsPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Top customers</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Customer</TableHead>
+                <TableHead className="text-right">Sales</TableHead>
+                <TableHead className="text-right">Transactions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {r.topCustomers.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={3} className="py-8 text-center text-muted-foreground">
+                    No linked-customer sales yet.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                r.topCustomers.map((c) => (
+                  <TableRow key={c.id}>
+                    <TableCell className="max-w-[260px] truncate">
+                      <Link href={`/customers/${c.id}`} className="hover:underline">
+                        {c.name}
+                      </Link>
+                    </TableCell>
+                    <TableCell className="text-right"><Money cents={c.salesCents} /></TableCell>
+                    <TableCell className="text-right tnum">{c.transactionCount}</TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
     </div>
   );
 }

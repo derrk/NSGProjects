@@ -12,9 +12,9 @@ import { recordSaleAction } from "@/app/actions";
 import { FlowMeta, defaultMeta, type MetaState } from "@/components/flows/flow-meta";
 import { GivenLinesEditor } from "@/components/flows/given-lines-editor";
 import { AttachmentUploader } from "@/components/flows/attachment-uploader";
-import type { GivenDraft, PickableAsset } from "@/components/flows/types";
+import type { GivenDraft, PickableAsset, PickableCustomer } from "@/components/flows/types";
 
-export function SellForm({ assets }: { assets: PickableAsset[] }) {
+export function SellForm({ assets, customers }: { assets: PickableAsset[]; customers: PickableCustomer[] }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -47,6 +47,7 @@ export function SellForm({ assets }: { assets: PickableAsset[] }) {
     const payload = {
       date: meta.date || undefined,
       counterparty: meta.counterparty || undefined,
+      customerId: meta.customerId || undefined,
       notes: meta.notes || undefined,
       source: meta.source || undefined,
       attachmentPaths: photos,
@@ -80,7 +81,7 @@ export function SellForm({ assets }: { assets: PickableAsset[] }) {
     <div className="space-y-6">
       <Card>
         <CardContent className="space-y-5 p-6">
-          <FlowMeta meta={meta} onChange={setMeta} counterpartyLabel="Sold to" />
+          <FlowMeta meta={meta} onChange={setMeta} counterpartyLabel="Sold to" customers={customers} />
           <AttachmentUploader paths={photos} onChange={setPhotos} label="Photos (optional)" />
         </CardContent>
       </Card>
