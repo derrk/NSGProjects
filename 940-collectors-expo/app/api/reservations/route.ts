@@ -1,0 +1,64 @@
+import { NextResponse } from "next/server";
+import { supabaseConfigured } from "../../lib/supabase";
+import { getPublicState, createHold, ConflictError } from "../../lib/reservations-service";
+
+export const dynamic = "force-dynamic";
+
+// Public map state (no contact PII).
+export async function GET() {
+  if (!supabaseConfigured()) {
+    return NextResponse.json({ configured: false, reservations: [], blocked: [] });
+  }
+  try {
+    const state = await getPublicState();
+    return NextResponse.json({ configured: true, ...state });
+  } catch (e) {
+    return NextResponse.json(
+      { configured: true, error: String((e as Error)?.message ?? e), reservations: [], blocked: [] },
+      { status: 500 }
+    );
+  }
+}
+
+// Create a pending hold (server recomputes price, DB guards double-booking).
+export async function POST(req: Request) {
+  if (!supabaseConfigured()) {
+    return NextResponse.json({ error: "not_configured" }, { status: 503 });
+  }
+  let body: {
+    tableNumbers?: number[];
+    promoCode?: string | null;
+    profile?: Record<string, unknown>;
+  };
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "bad_request" }, { status: 400 });
+  }
+  const tableNumbers = Array.isArray(body.tableNumbers) ? body.tableNumbers.map(Number) : [];
+  const profile = body.profile as
+    | {
+        business: string;
+        firstName?: string;
+        lastName?: string;
+        email: string;
+        phone?: string;
+        instagram?: string;
+        bio?: string;
+        category?: string;
+        photo?: string;
+      }
+    | undefined;
+  if (!tableNumbers.length || !profile?.business || !profile?.email) {
+    return NextResponse.json({ error: "missing_fields" }, { status: 400 });
+  }
+  try {
+    const result = await createHold({ tableNumbers, promoCode: body.promoCode ?? null, profile });
+    return NextResponse.json({ ok: true, ...result });
+  } catch (e) {
+    if (e instanceof ConflictError) {
+      return NextResponse.json({ error: "conflict", tables: e.tables }, { status: 409 });
+    }
+    return NextResponse.json({ error: String((e as Error)?.message ?? e) }, { status: 400 });
+  }
+}
