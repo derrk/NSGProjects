@@ -3,37 +3,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown } from "lucide-react";
-
-const faqs = [
-  {
-    q: "What kinds of collectibles are welcome?",
-    a: "All of them. The 940 Collector's Expo is a full collectibles event — trading cards (sports, Pokémon, Magic, One Piece, Yu-Gi-Oh!), Funko Pops, comics, LEGO, action figures, video games, anime figures, memorabilia, and pretty much anything else worth collecting.",
-  },
-  {
-    q: "Can I trade or sell as an attendee?",
-    a: "Trading with other collectors on the floor is always welcome. If you want to sell as a vendor, just reserve a table — easy to do right here through the table map and reservation page.",
-  },
-  {
-    q: "Can vendors reserve multiple tables?",
-    a: "Yes! Vendors can request multiple tables when filling out the registration form. We offer single tables, double tables, and premium corner placements depending on availability.",
-  },
-  {
-    q: "Are kids allowed?",
-    a: "Absolutely — the 940 Collectors Expo is completely family friendly. Kids are welcome and admission will be affordable for families. We encourage young collectors to come and discover the hobby.",
-  },
-  {
-    q: "Is parking free?",
-    a: "Yes. Free parking is available for all attendees and vendors at the event venue. Vendor load-in areas will be designated to make setup easy.",
-  },
-  {
-    q: "Can I buy tickets online?",
-    a: "Online ticket sales are coming in the future. For the first event, stay tuned to our social media and mailing list for admission details as the show date approaches.",
-  },
-  {
-    q: "How do I become a vendor?",
-    a: "Just fill out our Vendor Registration Form on this page. Submit your information and we'll reach out with table availability, pricing, and confirmation details. No payment is required to apply.",
-  },
-];
+import { FAQS as faqs } from "../lib/site";
 
 function FAQItem({ q, a }: { q: string; a: string }) {
   const [open, setOpen] = useState(false);

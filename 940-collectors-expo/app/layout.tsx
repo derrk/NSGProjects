@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Inter, Silkscreen } from "next/font/google";
 import "./globals.css";
+import { SITE_URL, SITE_NAME, SITE_DESCRIPTION, SEO_KEYWORDS } from "./lib/site";
+import StructuredData from "./components/StructuredData";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const silkscreen = Silkscreen({
@@ -9,33 +11,46 @@ const silkscreen = Silkscreen({
   variable: "--font-pixel",
 });
 
+const TITLE = "940 Collector's Expo — Trading Cards, Pokémon, Funko & Collectibles Show | Wichita Falls, TX";
+
 export const metadata: Metadata = {
-  title: "940 Collector's Expo | North Texas Collectibles Show",
-  description:
-    "940 Collector's Expo is North Texas's premier collectibles event in Wichita Falls. Buy, sell, and trade trading cards, Funko Pops, comics, LEGO, action figures, video games, anime figures, memorabilia, and everything collectible.",
-  keywords: [
-    "940 Collectors Expo",
-    "collectibles show Texas",
-    "collectibles show Wichita Falls",
-    "North Texas collectors event",
-    "trading card show Texas",
-    "Pokémon card show",
-    "sports card show",
-    "Funko Pop show",
-    "comic con Wichita Falls",
-    "LEGO show",
-    "action figure show",
-    "video game expo",
-    "anime figure show",
-    "collector convention",
-    "vendor tables",
-  ],
-  openGraph: {
-    title: "940 Collector's Expo | North Texas Collectibles Show",
-    description:
-      "Buy, sell, and trade cards, Funko Pops, comics, LEGO, action figures, video games, anime figures, memorabilia & more.",
-    type: "website",
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: TITLE,
+    template: "%s | 940 Collector's Expo",
   },
+  description: SITE_DESCRIPTION,
+  keywords: SEO_KEYWORDS,
+  applicationName: SITE_NAME,
+  alternates: { canonical: "/" },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: { index: true, follow: true, "max-image-preview": "large" },
+  },
+  openGraph: {
+    type: "website",
+    siteName: SITE_NAME,
+    url: SITE_URL,
+    title: TITLE,
+    description: SITE_DESCRIPTION,
+    locale: "en_US",
+    images: [
+      {
+        url: "/hero-backdrop.jpg",
+        width: 1260,
+        height: 1260,
+        alt: "940 Collector's Expo — North Texas collectibles show in Wichita Falls",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: TITLE,
+    description: SITE_DESCRIPTION,
+    images: ["/hero-backdrop.jpg"],
+  },
+  category: "events",
 };
 
 export default function RootLayout({
@@ -44,6 +59,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} ${silkscreen.variable} scroll-smooth`}>
       <body className="min-h-screen text-[#E5E7EB] antialiased">
+        <StructuredData />
         {children}
       </body>
     </html>

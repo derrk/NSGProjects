@@ -9,6 +9,7 @@ import UpcomingEvents from "./components/UpcomingEvents";
 import FeaturedVendors from "./components/FeaturedVendors";
 import Sponsorship from "./components/Sponsorship";
 import Gallery from "./components/Gallery";
+import AreasServed from "./components/AreasServed";
 import FAQ from "./components/FAQ";
 import Contact from "./components/Contact";
 import Footer from "./components/Footer";
@@ -28,6 +29,7 @@ export default function Home() {
         <FeaturedVendors />
         <Sponsorship />
         <Gallery />
+        <AreasServed />
         <FAQ />
         <Contact />
       </main>
