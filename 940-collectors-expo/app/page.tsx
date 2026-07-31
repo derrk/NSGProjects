@@ -13,10 +13,12 @@ import AreasServed from "./components/AreasServed";
 import FAQ from "./components/FAQ";
 import Contact from "./components/Contact";
 import Footer from "./components/Footer";
+import FaqJsonLd from "./components/FaqJsonLd";
 
 export default function Home() {
   return (
     <>
+      <FaqJsonLd />
       <Nav />
       <main>
         <Hero />

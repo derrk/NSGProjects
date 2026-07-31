@@ -4,9 +4,10 @@ import Footer from "../components/Footer";
 import ReserveClient from "./ReserveClient";
 
 export const metadata: Metadata = {
-  title: "Reserve a Table | 940 Collectors Expo",
+  title: "Reserve a Vendor Table",
   description:
-    "Reserve your vendor table at the 940 Collectors Expo. Pick your spot on the floor map, add tables to your cart, and check out.",
+    "Reserve your vendor table at the 940 Collector's Expo in Wichita Falls, TX. Pick your spot on the interactive floor map, add tables to your cart, and check out. Tables from $99.99.",
+  alternates: { canonical: "/reserve" },
 };
 
 export default function ReservePage() {

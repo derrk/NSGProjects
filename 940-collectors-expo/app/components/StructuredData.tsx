@@ -3,7 +3,6 @@ import {
   SITE_NAME,
   SITE_DESCRIPTION,
   CITIES,
-  FAQS,
   VENUE,
   EVENT_DATE_ISO,
 } from "../lib/site";
@@ -39,16 +38,6 @@ export default function StructuredData() {
     url: SITE_URL,
   };
 
-  const faqPage = {
-    "@context": "https://schema.org",
-    "@type": "FAQPage",
-    mainEntity: FAQS.map((f) => ({
-      "@type": "Question",
-      name: f.q,
-      acceptedAnswer: { "@type": "Answer", text: f.a },
-    })),
-  };
-
   const event = EVENT_DATE_ISO
     ? {
         "@context": "https://schema.org",
@@ -76,7 +65,7 @@ export default function StructuredData() {
       }
     : null;
 
-  const blocks = [organization, website, faqPage, ...(event ? [event] : [])];
+  const blocks = [organization, website, ...(event ? [event] : [])];
 
   return (
     <>
