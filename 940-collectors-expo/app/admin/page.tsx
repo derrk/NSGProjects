@@ -20,12 +20,28 @@ interface AdminReservation {
   tables: number[];
 }
 
+interface AdminInquiry {
+  id: string;
+  business: string | null;
+  contactName: string | null;
+  email: string;
+  phone: string | null;
+  products: string[];
+  tablesRequested: string | null;
+  website: string | null;
+  social: string | null;
+  notes: string | null;
+  status: string;
+  createdAt: string;
+}
+
 export default function AdminPage() {
   const [authed, setAuthed] = useState<boolean | null>(null);
   const [configured, setConfigured] = useState(true);
   const [passcode, setPasscode] = useState("");
   const [loginError, setLoginError] = useState<string | null>(null);
   const [rows, setRows] = useState<AdminReservation[]>([]);
+  const [inquiries, setInquiries] = useState<AdminInquiry[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -38,6 +54,11 @@ export default function AdminPage() {
     setAuthed(true);
     setConfigured(json.configured !== false);
     setRows(json.reservations ?? []);
+    const iq = await fetch("/api/admin/inquiries", { cache: "no-store" });
+    if (iq.ok) {
+      const ij = await iq.json();
+      setInquiries(ij.inquiries ?? []);
+    }
   }, []);
 
   useEffect(() => {
@@ -72,6 +93,18 @@ export default function AdminPage() {
     setBusy(null);
   };
 
+  const archiveInquiry = async (id: string, status: "new" | "archived") => {
+    setBusy(id);
+    await fetch("/api/admin/inquiries/action", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ id, status }),
+    });
+    await load();
+    setBusy(null);
+  };
+
+  const newInquiries = inquiries.filter((i) => i.status !== "archived");
   const pending = rows.filter((r) => r.status === "pending");
   const confirmed = rows.filter((r) => r.status === "confirmed");
   const totalConfirmed = confirmed.reduce((s, r) => s + r.amountCents, 0);
@@ -118,10 +151,11 @@ export default function AdminPage() {
       {authed && configured && (
         <div className="space-y-8">
           {/* Stats */}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-4 gap-3">
             <Stat label="Pending" value={String(pending.length)} />
             <Stat label="Tables sold" value={String(tablesSold)} />
             <Stat label="Confirmed $" value={formatUSD(totalConfirmed)} />
+            <Stat label="Inquiries" value={String(newInquiries.length)} />
           </div>
 
           <Section title={`Pending payment (${pending.length})`}>
@@ -135,6 +169,13 @@ export default function AdminPage() {
             {confirmed.length === 0 && <Empty>None yet.</Empty>}
             {confirmed.map((r) => (
               <ResRow key={r.id} r={r} busy={busy} onRelease={() => act(r.resCode, "release")} />
+            ))}
+          </Section>
+
+          <Section title={`Vendor inquiries (${newInquiries.length})`}>
+            {newInquiries.length === 0 && <Empty>No new inquiries.</Empty>}
+            {newInquiries.map((i) => (
+              <InquiryRow key={i.id} i={i} busy={busy} onArchive={() => archiveInquiry(i.id, "archived")} />
             ))}
           </Section>
         </div>
@@ -163,6 +204,63 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 function Empty({ children }: { children: React.ReactNode }) {
   return <p className="text-sm text-[#E5E7EB]/40">{children}</p>;
+}
+
+function InquiryRow({
+  i,
+  busy,
+  onArchive,
+}: {
+  i: AdminInquiry;
+  busy: string | null;
+  onArchive: () => void;
+}) {
+  return (
+    <div className="retro-panel p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="font-bold text-white">
+            {i.business || "(no business name)"}
+            {i.tablesRequested ? ` · ${i.tablesRequested} table(s)` : ""}
+          </p>
+          <p className="text-xs text-[#E5E7EB]/50">
+            {i.contactName ? `${i.contactName} · ` : ""}
+            <a href={`mailto:${i.email}`} className="text-[#A855F7] hover:underline">{i.email}</a>
+            {i.phone ? ` · ${i.phone}` : ""}
+          </p>
+          {(i.website || i.social) && (
+            <p className="text-xs text-[#E5E7EB]/40 mt-0.5">
+              {i.website ? i.website : ""}
+              {i.website && i.social ? " · " : ""}
+              {i.social ? i.social : ""}
+            </p>
+          )}
+          {i.products.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {i.products.map((p) => (
+                <span key={p} className="px-2 py-0.5 rounded bg-white/5 border border-white/10 text-[11px] text-[#E5E7EB]/60">
+                  {p}
+                </span>
+              ))}
+            </div>
+          )}
+          {i.notes && <p className="text-xs text-[#E5E7EB]/55 mt-2 italic">“{i.notes}”</p>}
+        </div>
+        <div className="text-right shrink-0">
+          <p className="text-[11px] text-[#E5E7EB]/40">
+            {new Date(i.createdAt).toLocaleDateString()}
+          </p>
+          <button
+            onClick={onArchive}
+            disabled={!!busy}
+            className="mt-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-[#E5E7EB]/70 text-xs font-semibold hover:text-white disabled:opacity-50"
+          >
+            Archive
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function ResRow({

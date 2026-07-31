@@ -23,14 +23,37 @@ const products = [
 export default function VendorForm() {
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setError(null);
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    const fd = new FormData(e.currentTarget);
+    const payload = {
+      business: fd.get("business"),
+      contactName: fd.get("contactName"),
+      email: fd.get("email"),
+      phone: fd.get("phone"),
+      products: fd.getAll("products"),
+      tablesRequested: fd.get("tablesRequested"),
+      website: fd.get("website"),
+      social: fd.get("social"),
+      notes: fd.get("notes"),
+    };
+    try {
+      const res = await fetch("/api/inquiries", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error("failed");
       setSubmitted(true);
-    }, 1200);
+    } catch {
+      setError("Something went wrong sending your info — please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -55,7 +78,13 @@ export default function VendorForm() {
             Reserve Your Table
           </h2>
           <p className="text-[#E5E7EB]/60 text-lg">
-            Fill out the form below and we&apos;ll get back to you with table availability and pricing details.
+            Questions or want us to reach out? Drop your info below.
+          </p>
+          <p className="text-sm text-[#E5E7EB]/50 mt-3">
+            Ready to lock in your spot?{" "}
+            <a href="/reserve" className="text-[#A855F7] font-semibold hover:underline">
+              Reserve your exact table →
+            </a>
           </p>
         </motion.div>
 
@@ -90,6 +119,7 @@ export default function VendorForm() {
                 </label>
                 <input
                   type="text"
+                  name="business"
                   required
                   placeholder="Your Business"
                   className="w-full px-4 py-3 rounded-xl bg-[#0B0713] border border-white/10 text-white placeholder-[#E5E7EB]/30 focus:outline-none focus:border-[#A855F7]/50 transition-colors text-sm"
@@ -101,6 +131,7 @@ export default function VendorForm() {
                 </label>
                 <input
                   type="text"
+                  name="contactName"
                   required
                   placeholder="Your Name"
                   className="w-full px-4 py-3 rounded-xl bg-[#0B0713] border border-white/10 text-white placeholder-[#E5E7EB]/30 focus:outline-none focus:border-[#A855F7]/50 transition-colors text-sm"
@@ -116,6 +147,7 @@ export default function VendorForm() {
                 </label>
                 <input
                   type="email"
+                  name="email"
                   required
                   placeholder="you@example.com"
                   className="w-full px-4 py-3 rounded-xl bg-[#0B0713] border border-white/10 text-white placeholder-[#E5E7EB]/30 focus:outline-none focus:border-[#A855F7]/50 transition-colors text-sm"
@@ -127,6 +159,7 @@ export default function VendorForm() {
                 </label>
                 <input
                   type="tel"
+                  name="phone"
                   placeholder="(940) 000-0000"
                   className="w-full px-4 py-3 rounded-xl bg-[#0B0713] border border-white/10 text-white placeholder-[#E5E7EB]/30 focus:outline-none focus:border-[#A855F7]/50 transition-colors text-sm"
                 />
@@ -144,7 +177,7 @@ export default function VendorForm() {
                     key={p}
                     className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#0B0713] border border-white/10 cursor-pointer hover:border-[#A855F7]/40 transition-colors text-sm text-[#E5E7EB]/70 hover:text-white"
                   >
-                    <input type="checkbox" className="accent-[#A855F7]" />
+                    <input type="checkbox" name="products" value={p} className="accent-[#A855F7]" />
                     {p}
                   </label>
                 ))}
@@ -157,7 +190,7 @@ export default function VendorForm() {
                 <label className="block text-sm font-medium text-[#E5E7EB]/70 mb-2">
                   Number of Tables Requested
                 </label>
-                <select className="w-full px-4 py-3 rounded-xl bg-[#0B0713] border border-white/10 text-white focus:outline-none focus:border-[#A855F7]/50 transition-colors text-sm">
+                <select name="tablesRequested" className="w-full px-4 py-3 rounded-xl bg-[#0B0713] border border-white/10 text-white focus:outline-none focus:border-[#A855F7]/50 transition-colors text-sm">
                   <option value="1">1 Table</option>
                   <option value="2">2 Tables</option>
                   <option value="3">3 Tables</option>
@@ -170,6 +203,7 @@ export default function VendorForm() {
                 </label>
                 <input
                   type="url"
+                  name="website"
                   placeholder="https://yoursite.com"
                   className="w-full px-4 py-3 rounded-xl bg-[#0B0713] border border-white/10 text-white placeholder-[#E5E7EB]/30 focus:outline-none focus:border-[#A855F7]/50 transition-colors text-sm"
                 />
@@ -183,6 +217,7 @@ export default function VendorForm() {
               </label>
               <input
                 type="text"
+                name="social"
                 placeholder="@yourhandle (Instagram, Facebook, etc.)"
                 className="w-full px-4 py-3 rounded-xl bg-[#0B0713] border border-white/10 text-white placeholder-[#E5E7EB]/30 focus:outline-none focus:border-[#A855F7]/50 transition-colors text-sm"
               />
@@ -195,6 +230,7 @@ export default function VendorForm() {
               </label>
               <textarea
                 rows={3}
+                name="notes"
                 placeholder="Anything we should know? Corner table preference, accessibility needs, etc."
                 className="w-full px-4 py-3 rounded-xl bg-[#0B0713] border border-white/10 text-white placeholder-[#E5E7EB]/30 focus:outline-none focus:border-[#A855F7]/50 transition-colors text-sm resize-none"
               />
@@ -211,6 +247,12 @@ export default function VendorForm() {
                 I understand this is an application, not a confirmed reservation. The 940 Collectors Expo team will contact me with availability and payment details. Table fees are due upon confirmation.
               </span>
             </label>
+
+            {error && (
+              <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-2.5">
+                {error}
+              </p>
+            )}
 
             <button
               type="submit"
