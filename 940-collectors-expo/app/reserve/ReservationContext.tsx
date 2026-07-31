@@ -13,6 +13,7 @@ import {
   EVENT,
   SEED_RESERVED,
   SEED_BLOCKED,
+  FOUNDER_TABLES,
   computePricing,
   getTable,
   type Pricing,
@@ -88,7 +89,7 @@ export function ReservationProvider({ children }: { children: React.ReactNode })
       };
     }
     setVendors(map);
-    setBlocked(new Set(data.blocked));
+    setBlocked(new Set([...data.blocked, ...FOUNDER_TABLES]));
   }, []);
 
   const refreshBackend = useCallback(async () => {
@@ -108,7 +109,7 @@ export function ReservationProvider({ children }: { children: React.ReactNode })
     } catch {
       setVendors({});
     }
-    setBlocked(new Set(SEED_BLOCKED));
+    setBlocked(new Set([...SEED_BLOCKED, ...FOUNDER_TABLES]));
   }, []);
 
   // Decide mode on mount: backend if the API says it's configured, else localStorage.
@@ -268,7 +269,10 @@ export function ReservationProvider({ children }: { children: React.ReactNode })
             body: JSON.stringify({ tableNumbers: cart, promoCode: promoInput || null, profile }),
           });
           const json = await res.json();
-          if (res.status === 409) return { error: "conflict", tables: json.tables ?? cart };
+          if (res.status === 409) {
+            if (json.error === "promo_exhausted") return { error: "promo_exhausted" };
+            return { error: "conflict", tables: json.tables ?? cart };
+          }
           if (!res.ok || !json.ok) return { error: json.error || "error" };
           await refreshBackend();
           setCart([]);

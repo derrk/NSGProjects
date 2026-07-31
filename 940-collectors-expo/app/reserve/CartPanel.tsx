@@ -127,7 +127,7 @@ export default function CartPanel({ onCheckout }: { onCheckout: () => void }) {
             >
               <Info size={13} className="mt-0.5 shrink-0" />
               <span>
-                Add table {h.options.join(" or ")} to unlock the end-cap bundle discount on #{h.id}.
+                Add table {h.options.join(" or ")} to unlock the $10 corner bundle on #{h.id}.
               </span>
             </div>
           ))}
@@ -164,7 +164,7 @@ export default function CartPanel({ onCheckout }: { onCheckout: () => void }) {
             <Row label={`Tables (${cart.length})`} value={formatUSD(pricing.baseSubtotalCents)} muted />
             {pricing.bundleDiscountCents > 0 && (
               <Row
-                label={`End-cap bundle × ${pricing.bundleCount}`}
+                label={`Corner bundle × ${pricing.bundleCount}`}
                 value={`− ${formatUSD(pricing.bundleDiscountCents)}`}
                 accent
               />

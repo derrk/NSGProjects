@@ -1,6 +1,6 @@
 import "server-only";
 import { getServiceClient } from "./supabase";
-import { computePricing, getTable } from "../reserve/tables";
+import { computePricing, getTable, resolvePromo, FOUNDER_TABLES } from "../reserve/tables";
 
 export class ConflictError extends Error {
   tables: number[];
@@ -8,6 +8,13 @@ export class ConflictError extends Error {
     super(`Tables no longer available: ${tables.join(", ")}`);
     this.name = "ConflictError";
     this.tables = tables;
+  }
+}
+
+export class PromoExhaustedError extends Error {
+  constructor(code: string) {
+    super(`Promo code ${code} has reached its limit.`);
+    this.name = "PromoExhaustedError";
   }
 }
 
@@ -70,7 +77,12 @@ export async function getPublicState(): Promise<{
       photo: (r.photo as string) ?? null,
     };
   });
-  const blocked = (bl ?? []).map((b: { table_number: number }) => b.table_number);
+  const blocked = [
+    ...new Set([
+      ...(bl ?? []).map((b: { table_number: number }) => b.table_number),
+      ...FOUNDER_TABLES,
+    ]),
+  ];
   return { reservations, blocked };
 }
 
@@ -79,8 +91,23 @@ export async function createHold(input: HoldInput): Promise<{ resCode: string; a
   const tableNumbers = [...new Set(input.tableNumbers)].filter((n) => !!getTable(n));
   if (tableNumbers.length === 0) throw new Error("No valid tables selected.");
 
+  // Founder/HQ tables are never bookable.
+  const founderHit = tableNumbers.filter((n) => FOUNDER_TABLES.includes(n));
+  if (founderHit.length) throw new ConflictError(founderHit);
+
   // Server is the source of truth for price (bundle + promo).
   const pricing = computePricing(tableNumbers, input.promoCode);
+
+  // Enforce a limited-use promo code (e.g. early bird) across all reservations.
+  const promo = resolvePromo(input.promoCode);
+  if (promo?.maxUses != null) {
+    const { count } = await sb
+      .from("reservations")
+      .select("id", { count: "exact", head: true })
+      .eq("promo_code", promo.code)
+      .neq("status", "released");
+    if ((count ?? 0) >= promo.maxUses) throw new PromoExhaustedError(promo.code);
+  }
 
   // Pre-check availability (the unique index is the real guard against races).
   const [{ data: taken }, { data: blocked }] = await Promise.all([

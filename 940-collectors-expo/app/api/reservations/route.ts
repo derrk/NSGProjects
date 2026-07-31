@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseConfigured } from "../../lib/supabase";
-import { getPublicState, createHold, ConflictError } from "../../lib/reservations-service";
+import { getPublicState, createHold, ConflictError, PromoExhaustedError } from "../../lib/reservations-service";
 
 export const dynamic = "force-dynamic";
 
@@ -58,6 +58,9 @@ export async function POST(req: Request) {
   } catch (e) {
     if (e instanceof ConflictError) {
       return NextResponse.json({ error: "conflict", tables: e.tables }, { status: 409 });
+    }
+    if (e instanceof PromoExhaustedError) {
+      return NextResponse.json({ error: "promo_exhausted" }, { status: 409 });
     }
     return NextResponse.json({ error: String((e as Error)?.message ?? e) }, { status: 400 });
   }

@@ -121,7 +121,9 @@ export default function CheckoutModal({
           ? `Table${(result.tables?.length ?? 0) > 1 ? "s" : ""} ${(result.tables ?? []).join(", ")} ${
               (result.tables?.length ?? 0) > 1 ? "were" : "was"
             } just taken — please pick again.`
-          : "Something went wrong submitting your request. Please try again."
+          : result.error === "promo_exhausted"
+            ? "The early-bird code is sold out. Remove the code to book at the regular price."
+            : "Something went wrong submitting your request. Please try again."
       );
       return;
     }
@@ -225,7 +227,7 @@ export default function CheckoutModal({
                     <div className="space-y-1 text-sm border-t border-white/5 pt-3">
                       <SummaryRow label={`Tables (${cart.length})`} value={formatUSD(pricing.baseSubtotalCents)} />
                       {pricing.bundleDiscountCents > 0 && (
-                        <SummaryRow label={`End-cap bundle × ${pricing.bundleCount}`} value={`− ${formatUSD(pricing.bundleDiscountCents)}`} accent />
+                        <SummaryRow label={`Corner bundle × ${pricing.bundleCount}`} value={`− ${formatUSD(pricing.bundleDiscountCents)}`} accent />
                       )}
                       {pricing.promoDiscountCents > 0 && (
                         <SummaryRow label={`Code ${pricing.promo?.code}`} value={`− ${formatUSD(pricing.promoDiscountCents)}`} accent />

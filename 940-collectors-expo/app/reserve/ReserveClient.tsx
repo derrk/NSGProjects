@@ -54,11 +54,18 @@ export default function ReserveClient() {
                 <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#FACC15]/10 border border-[#FACC15]/25 text-sm">
                   <Tag size={14} className="text-[#FACC15]" />
                   <span className="text-[#FACC15]">
-                    Bundle a 6′ end cap with its 8′ neighbor and save{" "}
+                    Bundle a 6′ corner with its 8′ neighbor and save{" "}
                     {formatUSD(EVENT.bundle.value)}
                   </span>
                 </div>
               )}
+              <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#A855F7]/10 border border-[#A855F7]/40 text-sm">
+                <Tag size={14} className="text-[#A855F7]" />
+                <span className="text-[#E5E7EB]/80">
+                  Early bird: code{" "}
+                  <span className="font-bold text-[#A855F7]">9FORTY25</span> → $85/table (first 25)
+                </span>
+              </div>
             </div>
           </motion.div>
 

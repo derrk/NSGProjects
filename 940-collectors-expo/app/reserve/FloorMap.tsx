@@ -5,11 +5,18 @@ import { ZoomIn, ZoomOut, Maximize2, Eye, X, AtSign } from "lucide-react";
 import {
   TABLE_LAYOUT,
   CANVAS,
+  FOUNDER_TABLES,
   basePriceCents,
   formatUSD,
   EVENT,
   type VendorProfile,
 } from "./tables";
+
+// Entrance openings in the bottom wall (between tables 30/31 and 34/35).
+const ENTRANCES = [
+  { x0: 27.5, w: 8.2, cx: 31.6 },
+  { x0: 67.0, w: 6.2, cx: 70.1 },
+];
 import { useReservation } from "./ReservationContext";
 
 const ZOOM_STEPS = [1, 1.25, 1.5, 2, 2.5];
@@ -30,7 +37,7 @@ export default function FloorMap() {
           <LegendSwatch className="bg-[#A855F7] border-[#A855F7]" label="Selected" />
           <LegendSwatch className="bg-[#0B0713] border-[#FACC15]/70 ring-1 ring-[#FACC15]/40" label="Held (pending)" />
           <LegendSwatch className="bg-[#0B0713] border-[#A855F7]/70 ring-1 ring-[#A855F7]/40" label="Confirmed vendor" />
-          <LegendSwatch className="bg-white/5 border-white/10" label="Reserved" striped />
+          <LegendSwatch className="bg-[#FACC15]/25 border-[#FACC15]/70" label="Founders HQ" />
           <span className="flex items-center gap-1.5 text-[#E5E7EB]/70">
             <span className="w-4 h-3 rounded-[3px] border border-[#FACC15]/70 bg-[#FACC15]/15" />
             6′ end cap
@@ -70,21 +77,36 @@ export default function FloorMap() {
           }}
         >
           <div className="absolute inset-[3%_9%] border-2 border-white/15 rounded-sm" />
-          <span className="absolute text-[9px] tracking-widest uppercase text-[#FACC15]/70 font-semibold" style={{ left: "42%", bottom: "1%" }}>
-            ⬆ Entrance
-          </span>
+          {/* Two entrances: openings in the bottom wall */}
+          {ENTRANCES.map((e, i) => (
+            <div key={i}>
+              <div
+                className="absolute border-t-[3px] border-dashed border-[#FACC15]"
+                style={{ left: `${e.x0}%`, width: `${e.w}%`, top: "90%" }}
+              />
+              <div
+                className="absolute flex flex-col items-center text-[#FACC15] whitespace-nowrap"
+                style={{ left: `${e.cx}%`, top: "91.5%", transform: "translateX(-50%)" }}
+              >
+                <span className="font-pixel tracking-widest" style={{ fontSize: 8 }}>
+                  ▲ ENTRANCE
+                </span>
+              </div>
+            </div>
+          ))}
 
           {TABLE_LAYOUT.map((t) => {
             const status = statusOf(t.id);
+            const founder = FOUNDER_TABLES.includes(t.id);
             const selectable = canSelect(t.id);
             const isEndcap = t.tableType === "endcap";
-            const vendor = getVendor(t.id);
+            const vendor = founder ? undefined : getVendor(t.id);
             const pending = vendor?.status === "pending";
             const priceLabel = formatUSD(basePriceCents(t));
             const dimLabel = `${t.lengthFt}′ × ${t.depthFt}′`;
 
-            const clickable = selectable || !!vendor;
-            const dim = availableOnly && status !== "available" && status !== "selected";
+            const clickable = !founder && (selectable || !!vendor);
+            const dim = availableOnly && !founder && status !== "available" && status !== "selected";
 
             let cls =
               "absolute rounded-[3px] border flex items-center justify-center font-bold leading-none transition-colors duration-150 select-none overflow-hidden";
@@ -97,7 +119,9 @@ export default function FloorMap() {
               opacity: dim ? 0.12 : 1,
             };
 
-            if (vendor) {
+            if (founder) {
+              cls += " bg-[#FACC15]/25 border-[#FACC15]/70 text-[#FACC15] cursor-not-allowed z-[4]";
+            } else if (vendor) {
               cls += pending
                 ? " border-[#FACC15]/80 text-white cursor-pointer ring-1 ring-[#FACC15]/50 z-[5]"
                 : " border-[#A855F7]/80 text-white cursor-pointer ring-1 ring-[#A855F7]/40 z-[5]";
@@ -121,12 +145,16 @@ export default function FloorMap() {
               cls += " bg-[#0B0713] border-white/25 text-[#E5E7EB]/70 cursor-pointer hover:border-[#A855F7] hover:text-white hover:bg-[#A855F7]/10";
             }
 
-            const label = vendor
-              ? `Table ${t.id}, ${vendor.business}, ${pending ? "held pending payment" : "reserved"}. Click for details.`
-              : `Table ${t.id}, ${t.zone}, ${isEndcap ? "6 foot end cap" : "8 foot"}, ${status}, ${priceLabel}`;
-            const tip = vendor
-              ? `${vendor.business} · Table ${t.id}${pending ? " · held (pending payment)" : ""}`
-              : `Table ${t.id} · ${t.zone} · ${dimLabel} · ${priceLabel} · ${status}`;
+            const label = founder
+              ? `Table ${t.id}, Founders HQ — info, tickets and vending. Not bookable.`
+              : vendor
+                ? `Table ${t.id}, ${vendor.business}, ${pending ? "held pending payment" : "reserved"}. Click for details.`
+                : `Table ${t.id}, ${t.zone}, ${isEndcap ? "6 foot end cap" : "8 foot"}, ${status}, ${priceLabel}`;
+            const tip = founder
+              ? "Founders HQ · info, tickets & vending"
+              : vendor
+                ? `${vendor.business} · Table ${t.id}${pending ? " · held (pending payment)" : ""}`
+                : `Table ${t.id} · ${t.zone} · ${dimLabel} · ${priceLabel} · ${status}`;
 
             return (
               <button
@@ -146,8 +174,8 @@ export default function FloorMap() {
                       whiteSpace: "nowrap",
                     }}
                   >
-                    {vendor ? vendor.business.charAt(0).toUpperCase() : t.id}
-                    {!vendor && isEndcap && <span className="ml-0.5 opacity-70">·6FT</span>}
+                    {founder ? "HQ" : vendor ? vendor.business.charAt(0).toUpperCase() : t.id}
+                    {!vendor && !founder && isEndcap && <span className="ml-0.5 opacity-70">·6FT</span>}
                   </span>
                 )}
               </button>

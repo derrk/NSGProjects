@@ -55,7 +55,7 @@ export const EVENT = {
   bundle: {
     enabled: true,
     type: "fixed" as "fixed" | "percent",
-    value: 4998, // $49.98 off the end cap when bundled -> 8'+6' pair = $150.00
+    value: 1000, // $10 off when a 6' corner is bundled with its adjacent 8' table
   },
   holdMinutes: 10,
   maxTablesPerReservation: 0, // 0 = no limit
@@ -69,21 +69,31 @@ export const EVENT = {
 
 export interface PromoCode {
   code: string;
-  type: "fixed" | "percent";
-  value: number; // cents if fixed, whole percent if percent
+  // fixed = $ off order · percent = % off order · table_price = sets each table's price
+  type: "fixed" | "percent" | "table_price";
+  value: number; // cents (fixed / table_price) or whole percent (percent)
   label: string;
+  maxUses?: number; // total redemptions allowed (enforced server-side)
 }
 
-// Sample codes — replace / extend with the real ones later (admin-editable).
+// Discount codes (admin-editable). Add real codes here.
 export const PROMO_CODES: PromoCode[] = [
-  { code: "VENDOR10", type: "percent", value: 10, label: "10% off your order" },
-  { code: "FRIENDS25", type: "fixed", value: 2500, label: "$25 off your order" },
-  { code: "FOUNDING50", type: "fixed", value: 5000, label: "$50 founding-vendor credit" },
+  {
+    code: "9FORTY25",
+    type: "table_price",
+    value: 8500, // every table becomes $85.00
+    label: "Early bird — $85 per table",
+    maxUses: 25,
+  },
 ];
 
-// A few pre-sold / blocked tables so statuses are visible and testable.
-export const SEED_RESERVED = [12, 20, 47, 55, 82, 99];
-export const SEED_BLOCKED = [7];
+// Organizer HQ tables — reserved for the founders (vending, info, tickets,
+// central speaker). Never bookable by the public.
+export const FOUNDER_TABLES = [31, 32, 33, 34];
+
+// Optional demo seeds (only used in the localStorage fallback, not with Supabase).
+export const SEED_RESERVED: number[] = [];
+export const SEED_BLOCKED: number[] = [];
 
 export const ENDCAP_IDS = [41, 50, 59, 68, 77, 86, 95, 104];
 
@@ -246,9 +256,15 @@ export interface Pricing {
   totalCents: number;
 }
 
-// Pure pricing engine — used by the cart, checkout, and (later) the server.
+// Pure pricing engine — used by the cart, checkout, and the server.
+// Order of operations: full base price → corner bundle (−$10 each) → discount code.
+// A `table_price` code (early bird) resets every table's price; the difference
+// from the full price is surfaced as the code's savings so the cart stays clear.
 export function computePricing(cartIds: number[], promoInput?: string | null): Pricing {
   const cartSet = new Set(cartIds);
+  const promo = resolvePromo(promoInput);
+  const promoInvalid = !!promoInput && promoInput.trim().length > 0 && !promo;
+
   const lines: CartLine[] = [];
   let bundleDiscountCents = 0;
   let bundleCount = 0;
@@ -256,7 +272,7 @@ export function computePricing(cartIds: number[], promoInput?: string | null): P
   for (const id of cartIds) {
     const table = getTable(id);
     if (!table) continue;
-    const baseCents = basePriceCents(table);
+    const baseCents = basePriceCents(table); // full price (shown before discounts)
     let bundledWith: number | null = null;
 
     if (table.tableType === "endcap" && EVENT.bundle.enabled) {
@@ -265,35 +281,37 @@ export function computePricing(cartIds: number[], promoInput?: string | null): P
         bundledWith = partner;
         bundleCount += 1;
         bundleDiscountCents +=
-          EVENT.bundle.type === "fixed"
-            ? Math.min(EVENT.bundle.value, baseCents)
-            : Math.round((baseCents * EVENT.bundle.value) / 100);
+          EVENT.bundle.type === "percent"
+            ? Math.round((baseCents * EVENT.bundle.value) / 100)
+            : EVENT.bundle.value;
       }
     }
     lines.push({ id, table, baseCents, bundledWith });
   }
 
   const baseSubtotalCents = lines.reduce((s, l) => s + l.baseCents, 0);
-  const subtotalAfterBundleCents = baseSubtotalCents - bundleDiscountCents;
+  const afterBundle = baseSubtotalCents - bundleDiscountCents;
 
-  const promo = resolvePromo(promoInput);
-  const promoInvalid = !!promoInput && promoInput.trim().length > 0 && !promo;
   let promoDiscountCents = 0;
   if (promo) {
-    promoDiscountCents =
-      promo.type === "percent"
-        ? Math.round((subtotalAfterBundleCents * promo.value) / 100)
-        : Math.min(promo.value, subtotalAfterBundleCents);
+    if (promo.type === "table_price") {
+      // Sum the per-table savings (full price minus the flat code price).
+      promoDiscountCents = lines.reduce((s, l) => s + Math.max(0, l.baseCents - promo.value), 0);
+    } else if (promo.type === "percent") {
+      promoDiscountCents = Math.round((afterBundle * promo.value) / 100);
+    } else {
+      promoDiscountCents = Math.min(promo.value, afterBundle);
+    }
   }
 
-  const totalCents = Math.max(0, subtotalAfterBundleCents - promoDiscountCents);
+  const totalCents = Math.max(0, baseSubtotalCents - bundleDiscountCents - promoDiscountCents);
 
   return {
     lines,
     bundleCount,
     bundleDiscountCents,
     baseSubtotalCents,
-    subtotalAfterBundleCents,
+    subtotalAfterBundleCents: afterBundle,
     promo,
     promoInvalid,
     promoDiscountCents,
