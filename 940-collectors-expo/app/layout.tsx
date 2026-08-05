@@ -3,6 +3,7 @@ import { Inter, Silkscreen } from "next/font/google";
 import "./globals.css";
 import { SITE_URL, SITE_NAME, SITE_DESCRIPTION, SEO_KEYWORDS } from "./lib/site";
 import StructuredData from "./components/StructuredData";
+import { Analytics } from "@vercel/analytics/next";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const silkscreen = Silkscreen({
@@ -61,6 +62,7 @@ export default function RootLayout({
       <body className="min-h-screen text-[#E5E7EB] antialiased">
         <StructuredData />
         {children}
+        <Analytics />
       </body>
     </html>
   );
