@@ -1,6 +1,7 @@
 import "server-only";
 import { getServiceClient } from "./supabase";
 import { computePricing, getTable, resolvePromo, FOUNDER_TABLES } from "../reserve/tables";
+import { sendVendorAcknowledgement, sendVendorConfirmation, sendAdminNewRequest } from "./email";
 
 export class ConflictError extends Error {
   tables: number[];
@@ -149,6 +150,19 @@ export async function createHold(input: HoldInput): Promise<{ resCode: string; a
     if (e2.code === "23505") throw new ConflictError(tableNumbers); // lost a race
     throw e2;
   }
+
+  // Fire confirmation/acknowledgement emails (no-op if email isn't configured).
+  const info = {
+    resCode,
+    business: input.profile.business,
+    email: input.profile.email,
+    firstName: input.profile.firstName ?? null,
+    tables: tableNumbers,
+    amountCents: pricing.totalCents,
+  };
+  await sendVendorAcknowledgement(info);
+  await sendAdminNewRequest(info);
+
   return { resCode, amountCents: pricing.totalCents };
 }
 
@@ -198,13 +212,55 @@ export async function listReservations(): Promise<AdminReservation[]> {
   }));
 }
 
+export interface ReservationEdit {
+  business?: string;
+  instagram?: string;
+  bio?: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phone?: string;
+  category?: string;
+}
+
+// Admin edit of a reservation's vendor info (e.g. change the displayed business name).
+export async function updateReservation(resCode: string, fields: ReservationEdit): Promise<void> {
+  const sb = getServiceClient();
+  const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (fields.business !== undefined) patch.business = fields.business;
+  if (fields.instagram !== undefined) patch.instagram = fields.instagram || null;
+  if (fields.bio !== undefined) patch.bio = fields.bio || null;
+  if (fields.firstName !== undefined) patch.first_name = fields.firstName || null;
+  if (fields.lastName !== undefined) patch.last_name = fields.lastName || null;
+  if (fields.email !== undefined) patch.email = fields.email;
+  if (fields.phone !== undefined) patch.phone = fields.phone || null;
+  if (fields.category !== undefined) patch.category = fields.category || null;
+  const { error } = await sb.from("reservations").update(patch).eq("res_code", resCode);
+  if (error) throw error;
+}
+
 export async function setReservationStatus(resCode: string, action: "confirm" | "release"): Promise<void> {
   const sb = getServiceClient();
-  const { data: row, error: e0 } = await sb.from("reservations").select("id").eq("res_code", resCode).single();
+  const { data: row, error: e0 } = await sb
+    .from("reservations")
+    .select("id,business,email,first_name,amount_cents,reservation_tables(table_number)")
+    .eq("res_code", resCode)
+    .single();
   if (e0 || !row) throw e0 ?? new Error("Reservation not found.");
   if (action === "confirm") {
     const { error } = await sb.from("reservations").update({ status: "confirmed", updated_at: new Date().toISOString() }).eq("id", row.id);
     if (error) throw error;
+    // Email the vendor that payment was received and their table(s) are locked in.
+    await sendVendorConfirmation({
+      resCode,
+      business: row.business as string,
+      email: row.email as string,
+      firstName: (row.first_name as string) ?? null,
+      tables: ((row.reservation_tables as { table_number: number }[]) ?? [])
+        .map((t) => t.table_number)
+        .sort((a, b) => a - b),
+      amountCents: row.amount_cents as number,
+    });
   } else {
     // Release: free the tables (active=false) so they return to availability.
     const { error: e1 } = await sb.from("reservations").update({ status: "released", updated_at: new Date().toISOString() }).eq("id", row.id);

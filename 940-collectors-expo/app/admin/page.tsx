@@ -43,6 +43,7 @@ export default function AdminPage() {
   const [rows, setRows] = useState<AdminReservation[]>([]);
   const [inquiries, setInquiries] = useState<AdminInquiry[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
+  const [editRes, setEditRes] = useState<AdminReservation | null>(null);
 
   const load = useCallback(async () => {
     const res = await fetch("/api/admin/reservations", { cache: "no-store" });
@@ -161,14 +162,14 @@ export default function AdminPage() {
           <Section title={`Pending payment (${pending.length})`}>
             {pending.length === 0 && <Empty>No pending requests.</Empty>}
             {pending.map((r) => (
-              <ResRow key={r.id} r={r} busy={busy} onConfirm={() => act(r.resCode, "confirm")} onRelease={() => act(r.resCode, "release")} />
+              <ResRow key={r.id} r={r} busy={busy} onEdit={() => setEditRes(r)} onConfirm={() => act(r.resCode, "confirm")} onRelease={() => act(r.resCode, "release")} />
             ))}
           </Section>
 
           <Section title={`Confirmed (${confirmed.length})`}>
             {confirmed.length === 0 && <Empty>None yet.</Empty>}
             {confirmed.map((r) => (
-              <ResRow key={r.id} r={r} busy={busy} onRelease={() => act(r.resCode, "release")} />
+              <ResRow key={r.id} r={r} busy={busy} onEdit={() => setEditRes(r)} onRelease={() => act(r.resCode, "release")} />
             ))}
           </Section>
 
@@ -179,6 +180,17 @@ export default function AdminPage() {
             ))}
           </Section>
         </div>
+      )}
+
+      {editRes && (
+        <EditReservationModal
+          res={editRes}
+          onClose={() => setEditRes(null)}
+          onSaved={async () => {
+            setEditRes(null);
+            await load();
+          }}
+        />
       )}
     </main>
   );
@@ -268,11 +280,13 @@ function ResRow({
   busy,
   onConfirm,
   onRelease,
+  onEdit,
 }: {
   r: AdminReservation;
   busy: string | null;
   onConfirm?: () => void;
   onRelease?: () => void;
+  onEdit?: () => void;
 }) {
   return (
     <div className="retro-panel p-4">
@@ -300,6 +314,15 @@ function ResRow({
           <p className="font-bold text-white tabular-nums">{formatUSD(r.amountCents)}</p>
           <p className="text-[11px] text-[#E5E7EB]/40 font-mono">{r.resCode}</p>
           <div className="flex gap-2 mt-2 justify-end">
+            {onEdit && (
+              <button
+                onClick={onEdit}
+                disabled={!!busy}
+                className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-[#E5E7EB]/70 text-xs font-semibold hover:text-white disabled:opacity-50"
+              >
+                Edit
+              </button>
+            )}
             {onConfirm && (
               <button
                 onClick={onConfirm}
@@ -319,6 +342,113 @@ function ResRow({
               </button>
             )}
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EditField({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="block text-xs font-medium text-[#E5E7EB]/60 mb-1.5">{label}</label>
+      {children}
+    </div>
+  );
+}
+
+function EditReservationModal({
+  res,
+  onClose,
+  onSaved,
+}: {
+  res: AdminReservation;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [form, setForm] = useState({
+    business: res.business ?? "",
+    instagram: res.instagram ?? "",
+    firstName: res.firstName ?? "",
+    lastName: res.lastName ?? "",
+    email: res.email ?? "",
+    phone: res.phone ?? "",
+    category: res.category ?? "",
+  });
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const set =
+    (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
+      setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  const save = async () => {
+    if (!form.business.trim()) {
+      setErr("Business name can't be empty.");
+      return;
+    }
+    setSaving(true);
+    setErr(null);
+    const r = await fetch("/api/admin/reservations/update", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ resCode: res.resCode, fields: form }),
+    });
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      setErr(j.error === "business_required" ? "Business name can't be empty." : "Couldn't save — try again.");
+      setSaving(false);
+      return;
+    }
+    onSaved();
+  };
+
+  const input =
+    "w-full px-3.5 py-2.5 rounded-xl bg-[#0B0713] border border-white/10 text-white text-sm focus:outline-none focus:border-[#A855F7]/50";
+
+  return (
+    <div
+      className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md max-h-[90vh] overflow-y-auto retro-panel p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-bold text-white">Edit reservation</h3>
+          <span className="text-[11px] font-mono text-[#E5E7EB]/40">{res.resCode}</span>
+        </div>
+        <div className="space-y-3">
+          <EditField label="Business name (shown on the map)">
+            <input className={input} value={form.business} onChange={set("business")} />
+          </EditField>
+          <EditField label="Instagram">
+            <input className={input} value={form.instagram} onChange={set("instagram")} placeholder="@handle" />
+          </EditField>
+          <div className="grid grid-cols-2 gap-3">
+            <EditField label="First name">
+              <input className={input} value={form.firstName} onChange={set("firstName")} />
+            </EditField>
+            <EditField label="Last name">
+              <input className={input} value={form.lastName} onChange={set("lastName")} />
+            </EditField>
+          </div>
+          <EditField label="Email">
+            <input className={input} type="email" value={form.email} onChange={set("email")} />
+          </EditField>
+          <EditField label="Phone">
+            <input className={input} value={form.phone} onChange={set("phone")} />
+          </EditField>
+          <EditField label="Category">
+            <input className={input} value={form.category} onChange={set("category")} />
+          </EditField>
+        </div>
+        {err && <p className="text-sm text-red-400 mt-3">{err}</p>}
+        <div className="flex gap-2 mt-5">
+          <button onClick={save} disabled={saving} className="retro-btn flex-1">
+            {saving ? "Saving…" : "Save changes"}
+          </button>
+          <button onClick={onClose} className="retro-btn-outline">
+            Cancel
+          </button>
         </div>
       </div>
     </div>
