@@ -67,9 +67,17 @@ export const SEO_KEYWORDS = [
 export const SITE_DESCRIPTION =
   "The 940 Collector's Expo is North Texas & Texoma's premier collectibles show in Wichita Falls, TX — serving Iowa Park, Burkburnett, Bowie, Lawton and surrounding areas. Buy, sell & trade trading cards, Pokémon, sports cards, Funko Pops, comics, LEGO, action figures, video games, anime figures & memorabilia.";
 
-// Local SEO landing pages (each is a real, unique-content page). Slugs only —
-// content lives in app/<slug>/page.tsx. Listed here so the sitemap stays in sync.
-export const LOCAL_PAGES = ["pokemon-cards-wichita-falls"];
+// Local SEO landing pages (each is a real, unique-content page in app/<slug>/page.tsx).
+// Listed here so the sitemap and footer links stay in sync.
+export const LOCAL_PAGES: { slug: string; label: string }[] = [
+  { slug: "pokemon-cards-wichita-falls", label: "Pokémon Cards in Wichita Falls" },
+  { slug: "sports-cards-wichita-falls", label: "Sports Cards in Wichita Falls" },
+  { slug: "trading-card-show-wichita-falls", label: "Trading Card Show in Wichita Falls" },
+  { slug: "comic-books-wichita-falls", label: "Comic Books in Wichita Falls" },
+  { slug: "funko-pops-wichita-falls", label: "Funko Pops in Wichita Falls" },
+  { slug: "card-show-lawton-ok", label: "Card Show near Lawton, OK" },
+  { slug: "card-show-bowie-tx", label: "Card Show near Bowie, TX" },
+];
 
 export interface Faq {
   q: string;

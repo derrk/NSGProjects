@@ -1,14 +1,15 @@
 "use client";
 
 import { AtSign, MessageCircle, Share2, Mail } from "lucide-react";
+import { LOCAL_PAGES } from "../lib/site";
 
 const navLinks = [
-  { label: "Home", href: "#home" },
-  { label: "About", href: "#about" },
-  { label: "Vendors", href: "#vendors" },
-  { label: "Events", href: "#events" },
-  { label: "FAQ", href: "#faq" },
-  { label: "Contact", href: "#contact" },
+  { label: "Home", href: "/#home" },
+  { label: "About", href: "/#about" },
+  { label: "Vendors", href: "/#vendors" },
+  { label: "Reserve a Table", href: "/reserve" },
+  { label: "FAQ", href: "/#faq" },
+  { label: "Contact", href: "/#contact" },
 ];
 
 const socials = [
@@ -89,6 +90,24 @@ export default function Footer() {
                 Join
               </button>
             </form>
+          </div>
+        </div>
+
+        {/* Popular searches / local guides (internal links for SEO) */}
+        <div className="py-6 border-t border-white/5">
+          <p className="text-xs font-semibold text-[#E5E7EB]/30 uppercase tracking-widest mb-3">
+            Popular searches
+          </p>
+          <div className="flex flex-wrap gap-x-5 gap-y-2">
+            {LOCAL_PAGES.map((p) => (
+              <a
+                key={p.slug}
+                href={`/${p.slug}`}
+                className="text-sm text-[#E5E7EB]/50 hover:text-[#A855F7] transition-colors"
+              >
+                {p.label}
+              </a>
+            ))}
           </div>
         </div>
 
