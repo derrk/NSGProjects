@@ -5,6 +5,8 @@ import {
   CITIES,
   VENUE,
   EVENT_DATE_ISO,
+  EVENT_END_ISO,
+  ADMISSION,
 } from "../lib/site";
 
 // JSON-LD structured data for local + event + FAQ rich results.
@@ -45,6 +47,7 @@ export default function StructuredData() {
         name: SITE_NAME,
         description: SITE_DESCRIPTION,
         startDate: EVENT_DATE_ISO,
+        ...(EVENT_END_ISO ? { endDate: EVENT_END_ISO } : {}),
         eventStatus: "https://schema.org/EventScheduled",
         eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
         image: [`${SITE_URL}/hero-backdrop.jpg`],
@@ -56,11 +59,12 @@ export default function StructuredData() {
         organizer: { "@type": "Organization", name: SITE_NAME, url: SITE_URL },
         offers: {
           "@type": "Offer",
-          name: "Vendor table",
-          price: "99.99",
+          name: "General admission",
+          price: ADMISSION.doorPrice,
           priceCurrency: "USD",
-          url: `${SITE_URL}/reserve`,
+          url: SITE_URL,
           availability: "https://schema.org/InStock",
+          validFrom: EVENT_DATE_ISO,
         },
       }
     : null;

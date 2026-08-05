@@ -50,6 +50,8 @@ export interface PublicReservation {
   instagram: string | null;
   bio: string | null;
   photo: string | null;
+  category: string | null;
+  featured: boolean;
 }
 
 function genCode(): string {
@@ -65,7 +67,7 @@ export async function getPublicState(): Promise<{
   const [{ data: rt, error: e1 }, { data: bl, error: e2 }] = await Promise.all([
     sb
       .from("reservation_tables")
-      .select("table_number, reservations!inner(res_code,status,business,instagram,bio,photo)")
+      .select("table_number, reservations!inner(res_code,status,business,instagram,bio,photo,category,featured)")
       .eq("active", true),
     sb.from("blocked_tables").select("table_number"),
   ]);
@@ -82,6 +84,8 @@ export async function getPublicState(): Promise<{
       instagram: (r.instagram as string) ?? null,
       bio: (r.bio as string) ?? null,
       photo: (r.photo as string) ?? null,
+      category: (r.category as string) ?? null,
+      featured: (r.featured as boolean) ?? false,
     };
   });
   const blocked = [
@@ -185,6 +189,7 @@ export interface AdminReservation {
   category: string | null;
   amountCents: number;
   promoCode: string | null;
+  featured: boolean;
   createdAt: string;
   tables: number[];
 }
@@ -194,7 +199,7 @@ export async function listReservations(): Promise<AdminReservation[]> {
   const { data, error } = await sb
     .from("reservations")
     .select(
-      "id,res_code,status,business,first_name,last_name,email,phone,instagram,category,amount_cents,promo_code,created_at,reservation_tables(table_number)"
+      "id,res_code,status,business,first_name,last_name,email,phone,instagram,category,amount_cents,promo_code,featured,created_at,reservation_tables(table_number)"
     )
     .order("created_at", { ascending: false });
   if (error) throw error;
@@ -211,6 +216,7 @@ export async function listReservations(): Promise<AdminReservation[]> {
     category: (r.category as string) ?? null,
     amountCents: r.amount_cents as number,
     promoCode: (r.promo_code as string) ?? null,
+    featured: (r.featured as boolean) ?? false,
     createdAt: r.created_at as string,
     tables: ((r.reservation_tables as { table_number: number }[]) ?? [])
       .map((t) => t.table_number)
@@ -309,6 +315,28 @@ export async function broadcastToVendors(
   return { sent, failed, total: recipients.length };
 }
 
+// Toggle whether a vendor is featured on the homepage. Only confirmed vendors
+// should be featured (a released/pending one has no business being spotlighted).
+export async function setFeatured(resCode: string, featured: boolean): Promise<void> {
+  const sb = getServiceClient();
+  if (featured) {
+    const { data: row, error: e0 } = await sb
+      .from("reservations")
+      .select("status")
+      .eq("res_code", resCode)
+      .single();
+    if (e0 || !row) throw e0 ?? new Error("Reservation not found.");
+    if (row.status !== "confirmed") {
+      throw new Error("Only confirmed vendors can be featured.");
+    }
+  }
+  const { error } = await sb
+    .from("reservations")
+    .update({ featured, updated_at: new Date().toISOString() })
+    .eq("res_code", resCode);
+  if (error) throw error;
+}
+
 export async function setReservationStatus(resCode: string, action: "confirm" | "release"): Promise<void> {
   const sb = getServiceClient();
   const { data: row, error: e0 } = await sb
@@ -332,10 +360,12 @@ export async function setReservationStatus(resCode: string, action: "confirm" | 
       amountCents: row.amount_cents as number,
     });
   } else {
-    // Release: free the tables (active=false) so they return to availability.
-    const { error: e1 } = await sb.from("reservations").update({ status: "released", updated_at: new Date().toISOString() }).eq("id", row.id);
+    // Release: free the tables FIRST (active=false) so a later failure can't
+    // strand them as "taken"; then mark released + drop featured so a released
+    // vendor never lingers on the homepage.
+    const { error: e1 } = await sb.from("reservation_tables").update({ active: false }).eq("reservation_id", row.id);
     if (e1) throw e1;
-    const { error: e2 } = await sb.from("reservation_tables").update({ active: false }).eq("reservation_id", row.id);
+    const { error: e2 } = await sb.from("reservations").update({ status: "released", featured: false, updated_at: new Date().toISOString() }).eq("id", row.id);
     if (e2) throw e2;
   }
 }

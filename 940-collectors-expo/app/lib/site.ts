@@ -13,14 +13,36 @@ export const VENUE = {
   city: "Wichita Falls",
   region: "TX",
   country: "US",
-  // Fill the street address once confirmed (improves local SEO / map accuracy):
-  streetAddress: "",
-  postalCode: "",
+  streetAddress: "306 Travis St",
+  postalCode: "76301",
 };
 
-// Event date in ISO (e.g. "2026-03-14T10:00:00-05:00"). Leave "" until set —
-// when present it unlocks Event rich-results structured data.
-export const EVENT_DATE_ISO = "";
+// Full one-line address + Google Maps links (the embed needs no API key).
+export const VENUE_ADDRESS = "306 Travis St, Wichita Falls, TX 76301";
+const MAP_Q = encodeURIComponent(`${VENUE.name}, ${VENUE_ADDRESS}`);
+export const MAP_EMBED_SRC = `https://www.google.com/maps?q=${MAP_Q}&output=embed`;
+export const MAP_LINK = `https://www.google.com/maps/search/?api=1&query=${MAP_Q}`;
+
+// --- Debut event (Vol. 1) --------------------------------------------------
+// Wichita Falls is US Central (CDT in September = -05:00).
+export const EVENT_DATE_ISO = "2026-09-05T09:00:00-05:00"; // set -> unlocks Event rich results
+export const EVENT_END_ISO = "2026-09-05T18:00:00-05:00";
+export const EVENT_DATE_LABEL = "September 5, 2026";
+export const EVENT_DATE_SHORT = "Sept 5, 2026";
+export const EVENT_HOURS_LABEL = "10 AM – 6 PM";
+export const EVENT_VIP_LABEL = "VIP early access at 9 AM";
+export const VENDOR_SETUP_LABEL = "7:30 AM – 10 AM";
+
+// Admission (VIP online ticketing not live yet).
+export const ADMISSION = {
+  doorPrice: "5", // numeric string for structured-data offer
+  doorLabel: "$5 at the door",
+  vipLabel: "$10 VIP online — coming soon",
+  kidsLabel: "Kids under 12 free",
+};
+
+// Public "contact us" address shown on the site.
+export const CONTACT_EMAIL = "hello@xeniilvrie.resend.app";
 
 // Cities/areas we serve — used in copy + structured-data areaServed for local SEO.
 export const CITIES = [
@@ -86,12 +108,20 @@ export interface Faq {
 
 export const FAQS: Faq[] = [
   {
+    q: "When is the 940 Collector's Expo?",
+    a: "Our debut show is Saturday, September 5, 2026. General admission runs 10 AM to 6 PM, with VIP early access starting at 9 AM.",
+  },
+  {
+    q: "How much is admission?",
+    a: "General admission is just $5 at the door. Kids under 12 get in free. A $10 VIP online ticket (coming soon) gets you early access at 9 AM, an hour before general admission.",
+  },
+  {
     q: "What kinds of collectibles are welcome?",
     a: "All of them. The 940 Collector's Expo is a full collectibles event — trading cards (sports, Pokémon, Magic, One Piece, Yu-Gi-Oh!), Funko Pops, comics, LEGO, action figures, video games, anime figures, memorabilia, and pretty much anything else worth collecting.",
   },
   {
     q: "Where is the 940 Collector's Expo held?",
-    a: "The show is in Wichita Falls, Texas at the Delta Hotel by Marriott (Shawnee Room), easy to reach from Iowa Park, Burkburnett, Electra, Henrietta, Bowie, Nocona, Vernon, and Lawton, Oklahoma.",
+    a: "The show is at the Delta Hotel by Marriott (Shawnee Room), 306 Travis St, Wichita Falls, TX 76301 — easy to reach from Iowa Park, Burkburnett, Electra, Henrietta, Bowie, Nocona, Vernon, and Lawton, Oklahoma.",
   },
   {
     q: "Can I trade or sell as an attendee?",

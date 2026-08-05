@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { ArrowRight, ChevronDown } from "lucide-react";
+import { EVENT_DATE_SHORT } from "../lib/site";
 
 const categories = [
   "Sports Cards",
@@ -40,7 +41,7 @@ export default function Hero() {
           transition={{ duration: 0.5 }}
           className="pixel-eyebrow text-[#FACC15] mb-5"
         >
-          Wichita Falls, TX · Delta Hotel by Marriott
+          {EVENT_DATE_SHORT} · Wichita Falls, TX · Delta Hotel by Marriott
         </motion.p>
 
         <motion.h1

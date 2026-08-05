@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { Calendar, MapPin, Clock } from "lucide-react";
+import { EVENT_DATE_LABEL, VENUE } from "../lib/site";
 
 const events: {
   title: string;
@@ -12,12 +13,12 @@ const events: {
   badge: string;
 }[] = [
   {
-    title: "940 Collectors Expo — Vol. 1",
-    date: "Date TBA",
-    time: "Time TBA",
-    location: "Wichita Falls, TX",
-    status: "coming-soon",
-    badge: "Coming Soon",
+    title: "940 Collectors Expo — Debut Show (Vol. 1)",
+    date: EVENT_DATE_LABEL,
+    time: "10 AM – 6 PM · VIP 9 AM",
+    location: `${VENUE.name} · Wichita Falls, TX`,
+    status: "open",
+    badge: "Debut",
   },
 ];
 
@@ -41,7 +42,7 @@ export default function UpcomingEvents() {
             Upcoming Events
           </h2>
           <p className="text-lg text-[#E5E7EB]/60 max-w-xl mx-auto">
-            Our first show is on its way. Follow us on social media to be first when the date drops.
+            Our debut show is locked in. Mark your calendar — and vendors, reserve a table before spots fill up.
           </p>
         </motion.div>
 
@@ -63,6 +64,9 @@ export default function UpcomingEvents() {
                   <div>
                     <h3 className="font-bold text-white text-lg">{event.title}</h3>
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1">
+                      <span className="flex items-center gap-1 text-sm font-semibold text-[#FACC15]">
+                        <Calendar size={13} /> {event.date}
+                      </span>
                       <span className="flex items-center gap-1 text-sm text-[#E5E7EB]/50">
                         <Clock size={13} /> {event.time}
                       </span>
@@ -98,7 +102,7 @@ export default function UpcomingEvents() {
           className="mt-6 max-w-3xl mx-auto rounded-2xl border border-dashed border-white/10 p-6 text-center"
         >
           <p className="text-[#E5E7EB]/30 text-sm font-medium">
-            More shows coming in 2025 & 2026 — this calendar will fill up fast
+            After our debut, future 940 Collector&apos;s Expo dates will be announced right here
           </p>
         </motion.div>
       </div>

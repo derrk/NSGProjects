@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { isAdmin } from "../../../../lib/admin-auth";
 import { supabaseConfigured } from "../../../../lib/supabase";
-import { setReservationStatus, resendConfirmation } from "../../../../lib/reservations-service";
+import { setReservationStatus, resendConfirmation, setFeatured } from "../../../../lib/reservations-service";
 
-type Action = "confirm" | "release" | "resend";
-const ACTIONS: Action[] = ["confirm", "release", "resend"];
+type Action = "confirm" | "release" | "resend" | "feature" | "unfeature";
+const ACTIONS: Action[] = ["confirm", "release", "resend", "feature", "unfeature"];
 
 export async function POST(req: Request) {
   if (!(await isAdmin())) {
@@ -30,6 +30,10 @@ export async function POST(req: Request) {
       // Throws if not configured, not confirmed, or the send is rejected — the
       // catch below surfaces the reason to the admin UI as a 400.
       await resendConfirmation(resCode);
+      return NextResponse.json({ ok: true });
+    }
+    if (action === "feature" || action === "unfeature") {
+      await setFeatured(resCode, action === "feature");
       return NextResponse.json({ ok: true });
     }
     await setReservationStatus(resCode, action);

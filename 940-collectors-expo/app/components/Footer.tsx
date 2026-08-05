@@ -1,7 +1,7 @@
 "use client";
 
 import { AtSign, MessageCircle, Share2, Mail } from "lucide-react";
-import { LOCAL_PAGES } from "../lib/site";
+import { LOCAL_PAGES, CONTACT_EMAIL } from "../lib/site";
 
 const navLinks = [
   { label: "Home", href: "/#home" },
@@ -16,7 +16,7 @@ const socials = [
   { icon: AtSign, href: "#", label: "Instagram" },
   { icon: MessageCircle, href: "#", label: "Facebook" },
   { icon: Share2, href: "#", label: "Twitter / X" },
-  { icon: Mail, href: "mailto:hello@940collectorsexpo.com", label: "Email" },
+  { icon: Mail, href: `mailto:${CONTACT_EMAIL}`, label: "Email" },
 ];
 
 export default function Footer() {

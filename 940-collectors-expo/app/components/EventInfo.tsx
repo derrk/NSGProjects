@@ -10,25 +10,48 @@ import {
   Ticket,
   Truck,
 } from "lucide-react";
+import {
+  VENUE,
+  VENUE_ADDRESS,
+  EVENT_DATE_LABEL,
+  EVENT_HOURS_LABEL,
+  EVENT_VIP_LABEL,
+  VENDOR_SETUP_LABEL,
+  ADMISSION,
+  MAP_EMBED_SRC,
+  MAP_LINK,
+} from "../lib/site";
 
 const details = [
   {
     icon: Calendar,
     label: "Date",
-    value: "Coming Soon",
-    sub: "Check back for the official announcement",
+    value: EVENT_DATE_LABEL,
+    sub: "Our debut show — Vol. 1",
   },
   {
     icon: Clock,
     label: "Hours",
-    value: "TBA",
-    sub: "Doors open to the public",
+    value: EVENT_HOURS_LABEL,
+    sub: EVENT_VIP_LABEL,
   },
   {
     icon: MapPin,
     label: "Venue",
-    value: "TBA — Wichita Falls, TX",
-    sub: "Full address announced with event date",
+    value: VENUE.name,
+    sub: VENUE_ADDRESS,
+  },
+  {
+    icon: Ticket,
+    label: "Admission",
+    value: ADMISSION.doorLabel,
+    sub: `${ADMISSION.kidsLabel} · ${ADMISSION.vipLabel}`,
+  },
+  {
+    icon: Truck,
+    label: "Vendor Setup",
+    value: VENDOR_SETUP_LABEL,
+    sub: "Load-in for registered vendors",
   },
   {
     icon: ParkingCircle,
@@ -41,18 +64,6 @@ const details = [
     label: "Food",
     value: "On-Site Options",
     sub: "Food vendors and nearby restaurants",
-  },
-  {
-    icon: Ticket,
-    label: "Admission",
-    value: "TBA",
-    sub: "Affordable entry for collectors of all ages",
-  },
-  {
-    icon: Truck,
-    label: "Vendor Setup",
-    value: "Morning of Event",
-    sub: "Early load-in for registered vendors",
   },
 ];
 
@@ -76,7 +87,7 @@ export default function EventInfo() {
             Plan Your Visit
           </h2>
           <p className="text-lg text-[#E5E7EB]/60 max-w-xl mx-auto">
-            Full event details will be announced as the show date approaches. Sign up below to be the first to know.
+            {`Saturday, ${EVENT_DATE_LABEL} at the ${VENUE.name} in Wichita Falls. Here's everything you need to plan your visit.`}
           </p>
         </motion.div>
 
@@ -104,23 +115,41 @@ export default function EventInfo() {
           ))}
         </div>
 
-        {/* Map placeholder */}
+        {/* Venue map */}
         <motion.div
           initial={{ opacity: 0, y: 24 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
-          className="rounded-3xl bg-[#0B0713] border border-white/5 overflow-hidden h-[280px] flex items-center justify-center"
+          className="rounded-3xl bg-[#0B0713] border border-white/5 overflow-hidden"
         >
-          <div className="text-center">
-            <MapPin size={36} className="text-[#A855F7]/40 mx-auto mb-3" />
-            <p className="text-[#E5E7EB]/40 font-medium">
-              Map will appear here once venue is announced
-            </p>
-            <p className="text-[#E5E7EB]/25 text-sm mt-1">
-              Wichita Falls, Texas
-            </p>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 px-6 py-4 border-b border-white/5">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-[#A855F7]/10 flex items-center justify-center shrink-0">
+                <MapPin size={18} className="text-[#A855F7]" />
+              </div>
+              <div>
+                <p className="font-bold text-white text-sm">{VENUE.name}</p>
+                <p className="text-xs text-[#E5E7EB]/40">{VENUE_ADDRESS}</p>
+              </div>
+            </div>
+            <a
+              href={MAP_LINK}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-4 py-2 rounded-full bg-[#A855F7] text-white text-xs font-semibold hover:bg-[#9333EA] transition-colors whitespace-nowrap"
+            >
+              Get directions →
+            </a>
           </div>
+          <iframe
+            title={`Map to ${VENUE.name}, ${VENUE_ADDRESS}`}
+            src={MAP_EMBED_SRC}
+            className="w-full h-[320px] border-0"
+            loading="lazy"
+            referrerPolicy="no-referrer-when-downgrade"
+            allowFullScreen
+          />
         </motion.div>
       </div>
     </section>

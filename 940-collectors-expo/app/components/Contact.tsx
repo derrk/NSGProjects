@@ -3,18 +3,44 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Send, CheckCircle, Mail, AtSign, MessageCircle } from "lucide-react";
+import { CONTACT_EMAIL } from "../lib/site";
 
 export default function Contact() {
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [form, setForm] = useState({ name: "", email: "", phone: "", message: "" });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const set =
+    (k: keyof typeof form) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+      setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      const res = await fetch("/api/inquiries", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          contactName: form.name,
+          email: form.email,
+          phone: form.phone,
+          notes: form.message,
+        }),
+      });
+      if (!res.ok) {
+        setError("Something went wrong — please email us directly.");
+        setLoading(false);
+        return;
+      }
       setSubmitted(true);
-    }, 1000);
+    } catch {
+      setError("Couldn't send — check your connection and try again.");
+    }
+    setLoading(false);
   };
 
   return (
@@ -47,7 +73,9 @@ export default function Contact() {
                 </div>
                 <div>
                   <p className="text-xs text-[#E5E7EB]/40 font-medium uppercase tracking-widest">Email</p>
-                  <p className="text-white font-medium text-sm">hello@940collectorsexpo.com</p>
+                  <a href={`mailto:${CONTACT_EMAIL}`} className="text-white font-medium text-sm hover:text-[#A855F7] transition-colors break-all">
+                    {CONTACT_EMAIL}
+                  </a>
                 </div>
               </div>
 
@@ -97,6 +125,8 @@ export default function Contact() {
                     <input
                       type="text"
                       required
+                      value={form.name}
+                      onChange={set("name")}
                       placeholder="Your Name"
                       className="w-full px-4 py-3 rounded-xl bg-[#171022] border border-white/10 text-white placeholder-[#E5E7EB]/25 focus:outline-none focus:border-[#A855F7]/50 transition-colors text-sm"
                     />
@@ -106,6 +136,8 @@ export default function Contact() {
                     <input
                       type="email"
                       required
+                      value={form.email}
+                      onChange={set("email")}
                       placeholder="you@example.com"
                       className="w-full px-4 py-3 rounded-xl bg-[#171022] border border-white/10 text-white placeholder-[#E5E7EB]/25 focus:outline-none focus:border-[#A855F7]/50 transition-colors text-sm"
                     />
@@ -116,6 +148,8 @@ export default function Contact() {
                   <label className="block text-sm font-medium text-[#E5E7EB]/60 mb-2">Phone</label>
                   <input
                     type="tel"
+                    value={form.phone}
+                    onChange={set("phone")}
                     placeholder="(940) 000-0000"
                     className="w-full px-4 py-3 rounded-xl bg-[#171022] border border-white/10 text-white placeholder-[#E5E7EB]/25 focus:outline-none focus:border-[#A855F7]/50 transition-colors text-sm"
                   />
@@ -126,11 +160,14 @@ export default function Contact() {
                   <textarea
                     required
                     rows={5}
+                    value={form.message}
+                    onChange={set("message")}
                     placeholder="How can we help?"
                     className="w-full px-4 py-3 rounded-xl bg-[#171022] border border-white/10 text-white placeholder-[#E5E7EB]/25 focus:outline-none focus:border-[#A855F7]/50 transition-colors text-sm resize-none"
                   />
                 </div>
 
+                {error && <p className="text-sm text-red-400">{error}</p>}
                 <button
                   type="submit"
                   disabled={loading}

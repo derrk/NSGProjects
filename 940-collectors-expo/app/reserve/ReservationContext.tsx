@@ -95,8 +95,9 @@ export function ReservationProvider({ children }: { children: React.ReactNode })
   const refreshBackend = useCallback(async () => {
     try {
       const res = await fetch("/api/reservations", { cache: "no-store" });
+      if (!res.ok) return; // keep last-known-good state on a transient/server error
       const json = await res.json();
-      if (json?.configured) applyPublic(json);
+      if (json?.configured && !json.error) applyPublic(json);
     } catch {
       /* ignore transient */
     }
@@ -120,9 +121,17 @@ export function ReservationProvider({ children }: { children: React.ReactNode })
         const res = await fetch("/api/reservations", { cache: "no-store" });
         const json = await res.json();
         if (cancelled) return;
-        if (json?.configured) {
+        if (res.ok && json?.configured && !json.error) {
           setMode("backend");
           applyPublic(json);
+          return;
+        }
+        if (json?.configured) {
+          // Backend IS configured but errored — don't render a misleading
+          // "all available" map. Stay in backend mode (polling will recover),
+          // and keep founder tables blocked in the meantime.
+          setMode("backend");
+          setBlocked(new Set(FOUNDER_TABLES));
           return;
         }
       } catch {

@@ -16,6 +16,7 @@ interface AdminReservation {
   category: string | null;
   amountCents: number;
   promoCode: string | null;
+  featured: boolean;
   createdAt: string;
   tables: number[];
 }
@@ -51,6 +52,15 @@ export default function AdminPage() {
     const res = await fetch("/api/admin/reservations", { cache: "no-store" });
     if (res.status === 401) {
       setAuthed(false);
+      return;
+    }
+    if (!res.ok) {
+      // Don't silently blank the list on a server error — say something.
+      setAuthed(true);
+      setFlash({
+        text: "Couldn't load reservations — the server returned an error. If you just deployed, make sure the database migration has been run.",
+        kind: "error",
+      });
       return;
     }
     const json = await res.json();
@@ -124,6 +134,28 @@ export default function AdminPage() {
       }
     } catch {
       setFlash({ text: "Couldn't resend — try again.", kind: "error" });
+    }
+    setBusy(null);
+  };
+
+  const toggleFeature = async (resCode: string, next: boolean) => {
+    setBusy(resCode + "feature");
+    try {
+      const res = await fetch("/api/admin/reservations/action", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ resCode, action: next ? "feature" : "unfeature" }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        setFlash({
+          text: typeof j.error === "string" ? `Couldn't update: ${j.error}` : "Couldn't update featured.",
+          kind: "error",
+        });
+      }
+      await load();
+    } catch {
+      setFlash({ text: "Couldn't update featured.", kind: "error" });
     }
     setBusy(null);
   };
@@ -226,7 +258,15 @@ export default function AdminPage() {
           <Section title={`Confirmed (${confirmed.length})`}>
             {confirmed.length === 0 && <Empty>None yet.</Empty>}
             {confirmed.map((r) => (
-              <ResRow key={r.id} r={r} busy={busy} onEdit={() => setEditRes(r)} onResend={() => resendEmail(r.resCode)} onRelease={() => act(r.resCode, "release")} />
+              <ResRow
+                key={r.id}
+                r={r}
+                busy={busy}
+                onEdit={() => setEditRes(r)}
+                onResend={() => resendEmail(r.resCode)}
+                onToggleFeature={() => toggleFeature(r.resCode, !r.featured)}
+                onRelease={() => act(r.resCode, "release")}
+              />
             ))}
           </Section>
 
@@ -350,6 +390,7 @@ function ResRow({
   onRelease,
   onEdit,
   onResend,
+  onToggleFeature,
 }: {
   r: AdminReservation;
   busy: string | null;
@@ -357,6 +398,7 @@ function ResRow({
   onRelease?: () => void;
   onEdit?: () => void;
   onResend?: () => void;
+  onToggleFeature?: () => void;
 }) {
   return (
     <div className="retro-panel p-4">
@@ -383,7 +425,21 @@ function ResRow({
         <div className="text-right shrink-0">
           <p className="font-bold text-white tabular-nums">{formatUSD(r.amountCents)}</p>
           <p className="text-[11px] text-[#E5E7EB]/40 font-mono">{r.resCode}</p>
-          <div className="flex gap-2 mt-2 justify-end">
+          <div className="flex flex-wrap gap-2 mt-2 justify-end">
+            {onToggleFeature && (
+              <button
+                onClick={onToggleFeature}
+                disabled={!!busy}
+                title={r.featured ? "Featured on homepage — click to remove" : "Feature this vendor on the homepage"}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold border disabled:opacity-50 transition-colors ${
+                  r.featured
+                    ? "bg-[#FACC15]/20 border-[#FACC15]/50 text-[#FACC15]"
+                    : "bg-white/5 border-white/10 text-[#E5E7EB]/70 hover:text-white"
+                }`}
+              >
+                {busy === r.resCode + "feature" ? "…" : r.featured ? "★ Featured" : "☆ Feature"}
+              </button>
+            )}
             {onEdit && (
               <button
                 onClick={onEdit}
