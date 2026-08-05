@@ -1,7 +1,13 @@
 import "server-only";
 import { getServiceClient } from "./supabase";
 import { computePricing, getTable, resolvePromo, FOUNDER_TABLES } from "../reserve/tables";
-import { sendVendorAcknowledgement, sendVendorConfirmation, sendAdminNewRequest } from "./email";
+import {
+  sendVendorAcknowledgement,
+  sendVendorConfirmation,
+  sendAdminNewRequest,
+  sendVendorBroadcast,
+  type BroadcastRecipient,
+} from "./email";
 
 export class ConflictError extends Error {
   tables: number[];
@@ -237,6 +243,70 @@ export async function updateReservation(resCode: string, fields: ReservationEdit
   if (fields.category !== undefined) patch.category = fields.category || null;
   const { error } = await sb.from("reservations").update(patch).eq("res_code", resCode);
   if (error) throw error;
+}
+
+// Re-send the standard confirmation email for an already-confirmed reservation
+// (e.g. vendors confirmed before email was wired up). No status change.
+export async function resendConfirmation(resCode: string): Promise<void> {
+  const sb = getServiceClient();
+  const { data: row, error } = await sb
+    .from("reservations")
+    .select("status,business,email,first_name,amount_cents,reservation_tables(table_number)")
+    .eq("res_code", resCode)
+    .single();
+  if (error || !row) throw error ?? new Error("Reservation not found.");
+  // Never send a "you're confirmed" email for a reservation that isn't confirmed
+  // (e.g. it was released in another tab) — that would list freed tables as booked.
+  if (row.status !== "confirmed") {
+    throw new Error("Only confirmed reservations can have their confirmation re-sent.");
+  }
+  const res = await sendVendorConfirmation({
+    resCode,
+    business: row.business as string,
+    email: row.email as string,
+    firstName: (row.first_name as string) ?? null,
+    tables: ((row.reservation_tables as { table_number: number }[]) ?? [])
+      .map((t) => t.table_number)
+      .sort((a, b) => a - b),
+    amountCents: row.amount_cents as number,
+  });
+  if (!res.ok) throw new Error(res.error || "Email failed to send.");
+}
+
+// Distinct vendor recipients (by email) whose reservation is in one of the
+// given statuses — used for the admin broadcast tool.
+export async function getVendorRecipients(statuses: string[]): Promise<BroadcastRecipient[]> {
+  const sb = getServiceClient();
+  const { data, error } = await sb
+    .from("reservations")
+    .select("email,first_name,business,status")
+    .in("status", statuses);
+  if (error) throw error;
+  const byEmail = new Map<string, BroadcastRecipient>();
+  for (const r of (data ?? []) as Record<string, unknown>[]) {
+    const email = (r.email as string)?.trim();
+    if (!email) continue;
+    const key = email.toLowerCase();
+    if (!byEmail.has(key)) {
+      byEmail.set(key, {
+        email,
+        firstName: (r.first_name as string) ?? null,
+        business: (r.business as string) ?? null,
+      });
+    }
+  }
+  return [...byEmail.values()];
+}
+
+// Send a custom announcement to every distinct vendor in the given statuses.
+export async function broadcastToVendors(
+  statuses: string[],
+  subject: string,
+  message: string
+): Promise<{ sent: number; failed: number; total: number }> {
+  const recipients = await getVendorRecipients(statuses);
+  const { sent, failed } = await sendVendorBroadcast(recipients, subject, message);
+  return { sent, failed, total: recipients.length };
 }
 
 export async function setReservationStatus(resCode: string, action: "confirm" | "release"): Promise<void> {

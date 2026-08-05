@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { isAdmin } from "../../../../lib/admin-auth";
 import { supabaseConfigured } from "../../../../lib/supabase";
-import { setReservationStatus } from "../../../../lib/reservations-service";
+import { setReservationStatus, resendConfirmation } from "../../../../lib/reservations-service";
+
+type Action = "confirm" | "release" | "resend";
+const ACTIONS: Action[] = ["confirm", "release", "resend"];
 
 export async function POST(req: Request) {
   if (!(await isAdmin())) {
@@ -11,7 +14,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "not_configured" }, { status: 503 });
   }
   let resCode = "";
-  let action: "confirm" | "release" = "confirm";
+  let action: Action = "confirm";
   try {
     const body = await req.json();
     resCode = body.resCode;
@@ -19,10 +22,16 @@ export async function POST(req: Request) {
   } catch {
     return NextResponse.json({ error: "bad_request" }, { status: 400 });
   }
-  if (!resCode || (action !== "confirm" && action !== "release")) {
+  if (!resCode || !ACTIONS.includes(action)) {
     return NextResponse.json({ error: "bad_request" }, { status: 400 });
   }
   try {
+    if (action === "resend") {
+      // Throws if not configured, not confirmed, or the send is rejected — the
+      // catch below surfaces the reason to the admin UI as a 400.
+      await resendConfirmation(resCode);
+      return NextResponse.json({ ok: true });
+    }
     await setReservationStatus(resCode, action);
     return NextResponse.json({ ok: true });
   } catch (e) {

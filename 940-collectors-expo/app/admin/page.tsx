@@ -44,6 +44,8 @@ export default function AdminPage() {
   const [inquiries, setInquiries] = useState<AdminInquiry[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [editRes, setEditRes] = useState<AdminReservation | null>(null);
+  const [broadcastOpen, setBroadcastOpen] = useState(false);
+  const [flash, setFlash] = useState<{ text: string; kind: "ok" | "error" } | null>(null);
 
   const load = useCallback(async () => {
     const res = await fetch("/api/admin/reservations", { cache: "no-store" });
@@ -65,6 +67,12 @@ export default function AdminPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    if (!flash) return;
+    const t = setTimeout(() => setFlash(null), 5000);
+    return () => clearTimeout(t);
+  }, [flash]);
 
   const login = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -91,6 +99,32 @@ export default function AdminPage() {
       body: JSON.stringify({ resCode, action }),
     });
     await load();
+    setBusy(null);
+  };
+
+  const resendEmail = async (resCode: string) => {
+    setBusy(resCode + "resend");
+    try {
+      const res = await fetch("/api/admin/reservations/action", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ resCode, action: "resend" }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setFlash({ text: `Confirmation email re-sent (${resCode}).`, kind: "ok" });
+      } else {
+        const msg =
+          j.error === "email_not_configured"
+            ? "Email isn't set up on the server yet — nothing sent."
+            : typeof j.error === "string" && j.error
+            ? `Couldn't resend: ${j.error}`
+            : "Couldn't resend — try again.";
+        setFlash({ text: msg, kind: "error" });
+      }
+    } catch {
+      setFlash({ text: "Couldn't resend — try again.", kind: "error" });
+    }
     setBusy(null);
   };
 
@@ -151,6 +185,29 @@ export default function AdminPage() {
 
       {authed && configured && (
         <div className="space-y-8">
+          {/* Toolbar */}
+          <div className="flex items-center justify-between gap-3">
+            {flash ? (
+              <p
+                className={`text-sm rounded-lg px-3 py-2 border ${
+                  flash.kind === "ok"
+                    ? "text-green-300 bg-green-500/10 border-green-500/25"
+                    : "text-red-300 bg-red-500/10 border-red-500/30"
+                }`}
+              >
+                {flash.text}
+              </p>
+            ) : (
+              <span />
+            )}
+            <button
+              onClick={() => setBroadcastOpen(true)}
+              className="retro-btn-outline text-xs px-4 py-2 whitespace-nowrap"
+            >
+              ✉ Email vendors
+            </button>
+          </div>
+
           {/* Stats */}
           <div className="grid grid-cols-4 gap-3">
             <Stat label="Pending" value={String(pending.length)} />
@@ -169,7 +226,7 @@ export default function AdminPage() {
           <Section title={`Confirmed (${confirmed.length})`}>
             {confirmed.length === 0 && <Empty>None yet.</Empty>}
             {confirmed.map((r) => (
-              <ResRow key={r.id} r={r} busy={busy} onEdit={() => setEditRes(r)} onRelease={() => act(r.resCode, "release")} />
+              <ResRow key={r.id} r={r} busy={busy} onEdit={() => setEditRes(r)} onResend={() => resendEmail(r.resCode)} onRelease={() => act(r.resCode, "release")} />
             ))}
           </Section>
 
@@ -189,6 +246,17 @@ export default function AdminPage() {
           onSaved={async () => {
             setEditRes(null);
             await load();
+          }}
+        />
+      )}
+
+      {broadcastOpen && (
+        <BroadcastModal
+          rows={rows}
+          onClose={() => setBroadcastOpen(false)}
+          onSent={(text, kind) => {
+            setBroadcastOpen(false);
+            setFlash({ text, kind });
           }}
         />
       )}
@@ -281,12 +349,14 @@ function ResRow({
   onConfirm,
   onRelease,
   onEdit,
+  onResend,
 }: {
   r: AdminReservation;
   busy: string | null;
   onConfirm?: () => void;
   onRelease?: () => void;
   onEdit?: () => void;
+  onResend?: () => void;
 }) {
   return (
     <div className="retro-panel p-4">
@@ -330,6 +400,15 @@ function ResRow({
                 className="px-3 py-1.5 rounded-lg bg-green-500/20 border border-green-500/40 text-green-300 text-xs font-semibold hover:bg-green-500/30 disabled:opacity-50"
               >
                 Confirm paid
+              </button>
+            )}
+            {onResend && (
+              <button
+                onClick={onResend}
+                disabled={!!busy}
+                className="px-3 py-1.5 rounded-lg bg-[#A855F7]/15 border border-[#A855F7]/30 text-[#A855F7] text-xs font-semibold hover:bg-[#A855F7]/25 disabled:opacity-50"
+              >
+                {busy === r.resCode + "resend" ? "Sending…" : "Resend email"}
               </button>
             )}
             {onRelease && (
@@ -445,6 +524,155 @@ function EditReservationModal({
         <div className="flex gap-2 mt-5">
           <button onClick={save} disabled={saving} className="retro-btn flex-1">
             {saving ? "Saving…" : "Save changes"}
+          </button>
+          <button onClick={onClose} className="retro-btn-outline">
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BroadcastModal({
+  rows,
+  onClose,
+  onSent,
+}: {
+  rows: AdminReservation[];
+  onClose: () => void;
+  onSent: (msg: string, kind: "ok" | "error") => void;
+}) {
+  const [toConfirmed, setToConfirmed] = useState(true);
+  const [toPending, setToPending] = useState(false);
+  const [subject, setSubject] = useState("");
+  const [message, setMessage] = useState("");
+  const [sending, setSending] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const statuses = [
+    ...(toConfirmed ? ["confirmed"] : []),
+    ...(toPending ? ["pending"] : []),
+  ];
+
+  // Distinct recipients (by email) across the selected groups.
+  const recipientCount = (() => {
+    const set = new Set<string>();
+    for (const r of rows) {
+      if (statuses.includes(r.status) && r.email) set.add(r.email.toLowerCase());
+    }
+    return set.size;
+  })();
+
+  const send = async () => {
+    setErr(null);
+    if (statuses.length === 0) return setErr("Pick at least one group to send to.");
+    if (!subject.trim() || !message.trim()) return setErr("Add a subject and a message.");
+    if (recipientCount === 0) return setErr("No vendors match the selected groups yet.");
+    setSending(true);
+    try {
+      const res = await fetch("/api/admin/broadcast", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ statuses, subject, message }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const map: Record<string, string> = {
+          email_not_configured: "Email isn't set up on the server (RESEND_API_KEY missing).",
+          not_configured: "Backend isn't configured.",
+          no_recipients_selected: "Pick at least one group to send to.",
+          subject_and_message_required: "Add a subject and a message.",
+        };
+        setErr(map[j.error as string] ?? "Couldn't send — try again.");
+        setSending(false);
+        return;
+      }
+      // A 200 can still mean every message was rejected (batch errored) — treat
+      // a total failure as an error and keep the modal open.
+      if (j.total > 0 && j.sent === 0) {
+        setErr(`Couldn't send — all ${j.total} failed. Check the email setup and try again.`);
+        setSending(false);
+        return;
+      }
+      const failNote = j.failed ? `, ${j.failed} failed` : "";
+      onSent(`Sent to ${j.sent} of ${j.total} vendor(s)${failNote}.`, j.failed ? "error" : "ok");
+    } catch {
+      setErr("Couldn't send — try again.");
+      setSending(false);
+    }
+  };
+
+  const input =
+    "w-full px-3.5 py-2.5 rounded-xl bg-[#0B0713] border border-white/10 text-white text-sm focus:outline-none focus:border-[#A855F7]/50";
+
+  return (
+    <div
+      className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md max-h-[90vh] overflow-y-auto retro-panel p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-bold text-white">Email vendors</h3>
+          <button onClick={onClose} className="text-[#E5E7EB]/40 hover:text-white text-sm">✕</button>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-xs font-medium text-[#E5E7EB]/60 mb-2">Send to</label>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setToConfirmed((v) => !v)}
+                className={`flex-1 px-3 py-2 rounded-lg border text-xs font-semibold ${
+                  toConfirmed
+                    ? "bg-[#A855F7]/20 border-[#A855F7]/50 text-white"
+                    : "bg-white/5 border-white/10 text-[#E5E7EB]/60"
+                }`}
+              >
+                Confirmed ({rows.filter((r) => r.status === "confirmed").length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setToPending((v) => !v)}
+                className={`flex-1 px-3 py-2 rounded-lg border text-xs font-semibold ${
+                  toPending
+                    ? "bg-[#A855F7]/20 border-[#A855F7]/50 text-white"
+                    : "bg-white/5 border-white/10 text-[#E5E7EB]/60"
+                }`}
+              >
+                Pending ({rows.filter((r) => r.status === "pending").length})
+              </button>
+            </div>
+            <p className="text-[11px] text-[#E5E7EB]/40 mt-2">
+              {recipientCount} unique recipient{recipientCount === 1 ? "" : "s"} · each gets their own private email.
+            </p>
+          </div>
+
+          <EditField label="Subject">
+            <input className={input} value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="An update from the 940 Collector's Expo" />
+          </EditField>
+
+          <EditField label="Message">
+            <textarea
+              className={`${input} min-h-[150px] resize-y`}
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder={"Hey! Quick update for our vendors…\n\nLinks (https://…) become clickable. Blank lines start new paragraphs."}
+            />
+          </EditField>
+          <p className="text-[11px] text-[#E5E7EB]/40">
+            Sent from your branded address with the 940 Collector&apos;s Expo header. Heads up: the free
+            Resend tier caps at 100 emails/day — shared with automatic confirmation emails — so a large
+            blast can use up the day&apos;s quota.
+          </p>
+        </div>
+
+        {err && <p className="text-sm text-red-400 mt-3">{err}</p>}
+
+        <div className="flex gap-2 mt-5">
+          <button onClick={send} disabled={sending} className="retro-btn flex-1">
+            {sending ? "Sending…" : `Send${recipientCount ? ` to ${recipientCount}` : ""}`}
           </button>
           <button onClick={onClose} className="retro-btn-outline">
             Cancel
