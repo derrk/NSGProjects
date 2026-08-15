@@ -6,6 +6,7 @@ import {
   TABLE_LAYOUT,
   CANVAS,
   FOUNDER_TABLES,
+  SEATING_TABLES,
   basePriceCents,
   formatUSD,
   EVENT,
@@ -38,6 +39,7 @@ export default function FloorMap() {
           <LegendSwatch className="bg-[#0B0713] border-[#FACC15]/70 ring-1 ring-[#FACC15]/40" label="Held (pending)" />
           <LegendSwatch className="bg-[#0B0713] border-[#A855F7]/70 ring-1 ring-[#A855F7]/40" label="Confirmed vendor" />
           <LegendSwatch className="bg-[#FACC15]/25 border-[#FACC15]/70" label="Founders HQ" />
+          <LegendSwatch className="bg-white/5 border-white/20" label="Seating / ripping" striped />
           <span className="flex items-center gap-1.5 text-[#E5E7EB]/70">
             <span className="w-4 h-3 rounded-[3px] border border-[#FACC15]/70 bg-[#FACC15]/15" />
             6′ end cap
@@ -98,15 +100,16 @@ export default function FloorMap() {
           {TABLE_LAYOUT.map((t) => {
             const status = statusOf(t.id);
             const founder = FOUNDER_TABLES.includes(t.id);
+            const seating = SEATING_TABLES.includes(t.id);
             const selectable = canSelect(t.id);
             const isEndcap = t.tableType === "endcap";
-            const vendor = founder ? undefined : getVendor(t.id);
+            const vendor = founder || seating ? undefined : getVendor(t.id);
             const pending = vendor?.status === "pending";
             const priceLabel = formatUSD(basePriceCents(t));
             const dimLabel = `${t.lengthFt}′ × ${t.depthFt}′`;
 
-            const clickable = !founder && (selectable || !!vendor);
-            const dim = availableOnly && !founder && status !== "available" && status !== "selected";
+            const clickable = !founder && !seating && (selectable || !!vendor);
+            const dim = availableOnly && !founder && !seating && status !== "available" && status !== "selected";
 
             let cls =
               "absolute rounded-[3px] border flex items-center justify-center font-bold leading-none transition-colors duration-150 select-none overflow-hidden";
@@ -121,6 +124,8 @@ export default function FloorMap() {
 
             if (founder) {
               cls += " bg-[#FACC15]/25 border-[#FACC15]/70 text-[#FACC15] cursor-not-allowed z-[4]";
+            } else if (seating) {
+              cls += " border-white/15 text-[#E5E7EB]/25 cursor-not-allowed z-[3] seating-fill";
             } else if (vendor) {
               cls += pending
                 ? " border-[#FACC15]/80 text-white cursor-pointer ring-1 ring-[#FACC15]/50 z-[5]"
@@ -147,14 +152,18 @@ export default function FloorMap() {
 
             const label = founder
               ? `Table ${t.id}, Founders HQ — info, tickets and vending. Not bookable.`
-              : vendor
-                ? `Table ${t.id}, ${vendor.business}, ${pending ? "held pending payment" : "reserved"}. Click for details.`
-                : `Table ${t.id}, ${t.zone}, ${isEndcap ? "6 foot end cap" : "8 foot"}, ${status}, ${priceLabel}`;
+              : seating
+                ? `Seating and ripping area. Not a vendor table.`
+                : vendor
+                  ? `Table ${t.id}, ${vendor.business}, ${pending ? "held pending payment" : "reserved"}. Click for details.`
+                  : `Table ${t.id}, ${t.zone}, ${isEndcap ? "6 foot end cap" : "8 foot"}, ${status}, ${priceLabel}`;
             const tip = founder
               ? "Founders HQ · info, tickets & vending"
-              : vendor
-                ? `${vendor.business} · Table ${t.id}${pending ? " · held (pending payment)" : ""}`
-                : `Table ${t.id} · ${t.zone} · ${dimLabel} · ${priceLabel} · ${status}`;
+              : seating
+                ? "Seating / ripping area · not for sale"
+                : vendor
+                  ? `${vendor.business} · Table ${t.id}${pending ? " · held (pending payment)" : ""}`
+                  : `Table ${t.id} · ${t.zone} · ${dimLabel} · ${priceLabel} · ${status}`;
 
             return (
               <button
@@ -174,19 +183,29 @@ export default function FloorMap() {
                       whiteSpace: "nowrap",
                     }}
                   >
-                    {founder ? "HQ" : vendor ? vendor.business.charAt(0).toUpperCase() : t.id}
-                    {!vendor && !founder && isEndcap && <span className="ml-0.5 opacity-70">·6FT</span>}
+                    {founder ? "HQ" : seating ? "" : vendor ? vendor.business.charAt(0).toUpperCase() : t.id}
+                    {!vendor && !founder && !seating && isEndcap && <span className="ml-0.5 opacity-70">·6FT</span>}
                   </span>
                 )}
               </button>
             );
           })}
+
+          {/* Seating / ripping zone label beside the left-side seating tiles */}
+          <div
+            className="absolute pointer-events-none flex items-center justify-center z-[3]"
+            style={{ left: "15.5%", top: "46%", transform: "translate(-50%,-50%) rotate(-90deg)" }}
+          >
+            <span className="font-pixel tracking-widest text-[#E5E7EB]/45 whitespace-nowrap" style={{ fontSize: 8 }}>
+              SEATING / RIPPING
+            </span>
+          </div>
         </div>
       </div>
 
       <p className="text-xs text-[#E5E7EB]/40 mt-3">
-        {EVENT.name} · {EVENT.venueName} · {TABLE_LAYOUT.length} tables (100 × 8′ + 8 × 6′
-        end caps). Tap an open table to add it. Reserved tables show the vendor&apos;s photo —
+        {EVENT.name} · {EVENT.venueName}. Tap an open table to add it — the left wall is a
+        seating / ripping area (not for sale). Reserved tables show the vendor&apos;s photo —
         tap one to see who&apos;s there.
       </p>
 
@@ -199,6 +218,10 @@ export default function FloorMap() {
         }
         .blocked-fill {
           background-image: repeating-linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.06) 2px, rgba(0,0,0,0) 2px, rgba(0,0,0,0) 5px);
+        }
+        .seating-fill {
+          background-color: rgba(255,255,255,0.04);
+          background-image: repeating-linear-gradient(45deg, rgba(255,255,255,0.10), rgba(255,255,255,0.10) 2px, rgba(0,0,0,0) 2px, rgba(0,0,0,0) 5px);
         }
       `}</style>
     </div>

@@ -7,7 +7,9 @@ import { ReservationProvider, useReservation } from "./ReservationContext";
 import FloorMap from "./FloorMap";
 import CartPanel from "./CartPanel";
 import CheckoutModal from "./CheckoutModal";
-import { EVENT, TABLE_LAYOUT, formatUSD } from "./tables";
+import { EVENT, TABLE_LAYOUT, FOUNDER_TABLES, SEATING_TABLES, formatUSD } from "./tables";
+
+const BOOKABLE_TABLE_COUNT = TABLE_LAYOUT.length - FOUNDER_TABLES.length - SEATING_TABLES.length;
 
 export default function ReserveClient() {
   const [checkoutOpen, setCheckoutOpen] = useState(false);
@@ -47,7 +49,7 @@ export default function ReserveClient() {
               <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#171022] border border-white/10 text-sm">
                 <Info size={14} className="text-[#A855F7]" />
                 <span className="text-[#E5E7EB]/60">
-                  {TABLE_LAYOUT.length} tables · {EVENT.roomFt.w}′ × {EVENT.roomFt.h}′
+                  {BOOKABLE_TABLE_COUNT} vendor tables · {EVENT.roomFt.w}′ × {EVENT.roomFt.h}′
                 </span>
               </div>
               {EVENT.bundle.enabled && (

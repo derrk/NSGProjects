@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { formatUSD } from "../reserve/tables";
+import { formatUSD, getTable, SEATING_TABLES } from "../reserve/tables";
 
 interface AdminReservation {
   id: string;
@@ -415,12 +415,28 @@ function ResRow({
             {r.promoCode ? ` · code ${r.promoCode}` : ""}
           </p>
           <div className="flex flex-wrap gap-1.5 mt-2">
-            {r.tables.map((t) => (
-              <span key={t} className="px-2 py-0.5 rounded bg-[#A855F7]/15 border border-[#A855F7]/30 text-[11px] font-bold text-[#A855F7]">
-                {t}
-              </span>
-            ))}
+            {r.tables.map((t) => {
+              const stranded = !getTable(t) || SEATING_TABLES.includes(t);
+              return (
+                <span
+                  key={t}
+                  className={
+                    stranded
+                      ? "px-2 py-0.5 rounded bg-red-500/15 border border-red-500/40 text-[11px] font-bold text-red-300"
+                      : "px-2 py-0.5 rounded bg-[#A855F7]/15 border border-[#A855F7]/30 text-[11px] font-bold text-[#A855F7]"
+                  }
+                >
+                  {t}
+                  {stranded ? " ⚠" : ""}
+                </span>
+              );
+            })}
           </div>
+          {r.tables.some((t) => !getTable(t) || SEATING_TABLES.includes(t)) && (
+            <p className="text-[11px] text-red-300/80 mt-1">
+              ⚠ On a table that no longer exists in the new layout — use Edit to reassign.
+            </p>
+          )}
         </div>
         <div className="text-right shrink-0">
           <p className="font-bold text-white tabular-nums">{formatUSD(r.amountCents)}</p>
@@ -509,6 +525,8 @@ function EditReservationModal({
     email: res.email ?? "",
     phone: res.phone ?? "",
     category: res.category ?? "",
+    amountPaid: res.amountCents != null ? (res.amountCents / 100).toString() : "",
+    tables: res.tables.join(", "),
   });
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -522,12 +540,45 @@ function EditReservationModal({
       setErr("Business name can't be empty.");
       return;
     }
+    // Amount collected (dollars -> cents). Blank = leave unchanged.
+    let amountCents: number | undefined;
+    if (form.amountPaid.trim() !== "") {
+      const dollars = Number(form.amountPaid);
+      if (!Number.isFinite(dollars) || dollars < 0) {
+        setErr("Amount paid must be a positive number.");
+        return;
+      }
+      amountCents = Math.round(dollars * 100);
+    }
+    // Table numbers.
+    const parsedTables = form.tables
+      .split(",")
+      .map((s) => parseInt(s.trim(), 10))
+      .filter((n) => !Number.isNaN(n));
+    if (parsedTables.length === 0) {
+      setErr("Enter at least one table number.");
+      return;
+    }
+
     setSaving(true);
     setErr(null);
+
+    // 1) Vendor info + amount.
+    const fields: Record<string, unknown> = {
+      business: form.business,
+      instagram: form.instagram,
+      firstName: form.firstName,
+      lastName: form.lastName,
+      email: form.email,
+      phone: form.phone,
+      category: form.category,
+    };
+    if (amountCents !== undefined) fields.amountCents = amountCents;
+
     const r = await fetch("/api/admin/reservations/update", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ resCode: res.resCode, fields: form }),
+      body: JSON.stringify({ resCode: res.resCode, fields }),
     });
     if (!r.ok) {
       const j = await r.json().catch(() => ({}));
@@ -535,6 +586,32 @@ function EditReservationModal({
       setSaving(false);
       return;
     }
+
+    // 2) Table reassignment (only if changed).
+    const origTables = [...res.tables].sort((a, b) => a - b).join(",");
+    const nextTables = [...parsedTables].sort((a, b) => a - b).join(",");
+    if (origTables !== nextTables) {
+      const t = await fetch("/api/admin/reservations/tables", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ resCode: res.resCode, tables: parsedTables }),
+      });
+      if (!t.ok) {
+        const j = await t.json().catch(() => ({}));
+        if (j.error === "conflict") {
+          setErr(`Table(s) ${(j.tables ?? []).join(", ")} are already taken or blocked. Vendor info was saved; the table move was not.`);
+        } else {
+          setErr(
+            typeof j.error === "string" && j.error
+              ? `Vendor info saved, but the table move failed: ${j.error}`
+              : "Vendor info saved, but the table move failed."
+          );
+        }
+        setSaving(false);
+        return;
+      }
+    }
+
     onSaved();
   };
 
@@ -575,6 +652,30 @@ function EditReservationModal({
           <EditField label="Category">
             <input className={input} value={form.category} onChange={set("category")} />
           </EditField>
+          <div className="grid grid-cols-2 gap-3">
+            <EditField label="Amount paid ($)">
+              <input
+                className={input}
+                type="number"
+                min="0"
+                step="0.01"
+                value={form.amountPaid}
+                onChange={set("amountPaid")}
+                placeholder="e.g. 85"
+              />
+            </EditField>
+            <EditField label="Table number(s)">
+              <input
+                className={input}
+                value={form.tables}
+                onChange={set("tables")}
+                placeholder="e.g. 45, 46"
+              />
+            </EditField>
+          </div>
+          <p className="text-[11px] text-[#E5E7EB]/40 -mt-1">
+            Comma-separate multiple tables. Changing these moves the vendor on the public map.
+          </p>
         </div>
         {err && <p className="text-sm text-red-400 mt-3">{err}</p>}
         <div className="flex gap-2 mt-5">

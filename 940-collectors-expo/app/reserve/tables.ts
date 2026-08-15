@@ -91,6 +91,11 @@ export const PROMO_CODES: PromoCode[] = [
 // central speaker). Never bookable by the public.
 export const FOUNDER_TABLES = [31, 32, 33, 34];
 
+// Ripping / attendee-seating tiles on the left (ids 201-203) — NOT vendor tables.
+// Non-bookable; shown as a labeled zone on the map. The old left wall (9-18) was
+// removed entirely in the new hotel layout.
+export const SEATING_TABLES = [201, 202, 203];
+
 // Optional demo seeds (only used in the localStorage fallback, not with Supabase).
 export const SEED_RESERVED: number[] = [];
 export const SEED_BLOCKED: number[] = [];
@@ -103,23 +108,8 @@ export const ENDCAP_IDS = [41, 50, 59, 68, 77, 86, 95, 104];
 export const TABLE_LAYOUT: TableDef[] = [
   { id: 1, zone: "Top Wall", x: 17.8506, y: 7.0513, w: 7.6503, h: 1.7399, orientation: "horizontal", lengthFt: 8, depthFt: 4, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
   { id: 2, zone: "Top Wall", x: 25.7741, y: 7.0513, w: 7.6503, h: 1.7399, orientation: "horizontal", lengthFt: 8, depthFt: 4, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 3, zone: "Top Wall", x: 33.6976, y: 7.0513, w: 7.6503, h: 1.7399, orientation: "horizontal", lengthFt: 8, depthFt: 4, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 4, zone: "Top Wall", x: 41.6211, y: 7.0513, w: 7.6503, h: 1.7399, orientation: "horizontal", lengthFt: 8, depthFt: 4, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 5, zone: "Top Wall", x: 51.4572, y: 7.0513, w: 7.6503, h: 1.7399, orientation: "horizontal", lengthFt: 8, depthFt: 4, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 6, zone: "Top Wall", x: 59.3807, y: 7.0513, w: 7.6503, h: 1.7399, orientation: "horizontal", lengthFt: 8, depthFt: 4, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
   { id: 7, zone: "Top Wall", x: 67.3042, y: 7.0513, w: 7.6503, h: 1.7399, orientation: "horizontal", lengthFt: 8, depthFt: 4, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
   { id: 8, zone: "Top Wall", x: 75.2277, y: 7.0513, w: 7.6503, h: 1.7399, orientation: "horizontal", lengthFt: 8, depthFt: 4, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 9, zone: "Left Wall", x: 11.9308, y: 6.044, w: 1.7304, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 4, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 10, zone: "Left Wall", x: 11.9308, y: 14.011, w: 1.7304, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 4, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 11, zone: "Left Wall", x: 11.9308, y: 21.978, w: 1.7304, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 4, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 12, zone: "Left Wall", x: 11.9308, y: 29.9451, w: 1.7304, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 4, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 13, zone: "Left Wall", x: 11.9308, y: 37.9121, w: 1.7304, h: 7.6007, orientation: "vertical", lengthFt: 8, depthFt: 4, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 14, zone: "Left Wall", x: 11.9308, y: 48.8095, w: 1.7304, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 4, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 15, zone: "Left Wall", x: 11.9308, y: 56.7766, w: 1.7304, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 4, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 16, zone: "Left Wall", x: 11.9308, y: 64.7436, w: 1.7304, h: 7.6007, orientation: "vertical", lengthFt: 8, depthFt: 4, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 17, zone: "Left Wall", x: 11.9308, y: 72.619, w: 1.7304, h: 7.7839, orientation: "vertical", lengthFt: 8, depthFt: 4, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 18, zone: "Left Wall", x: 11.9308, y: 80.5861, w: 1.7304, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 4, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 19, zone: "Right Wall", x: 87.0674, y: 6.044, w: 1.7304, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 4, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
   { id: 20, zone: "Right Wall", x: 87.0674, y: 14.011, w: 1.7304, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 4, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
   { id: 21, zone: "Right Wall", x: 87.0674, y: 21.978, w: 1.7304, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 4, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
   { id: 22, zone: "Right Wall", x: 87.0674, y: 29.9451, w: 1.7304, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 4, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
@@ -129,14 +119,12 @@ export const TABLE_LAYOUT: TableDef[] = [
   { id: 26, zone: "Right Wall", x: 87.0674, y: 64.7436, w: 1.7304, h: 7.6007, orientation: "vertical", lengthFt: 8, depthFt: 4, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
   { id: 27, zone: "Right Wall", x: 87.0674, y: 72.619, w: 1.7304, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 4, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
   { id: 28, zone: "Right Wall", x: 87.0674, y: 80.5861, w: 1.7304, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 4, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 29, zone: "Bottom Wall", x: 11.9308, y: 88.5531, w: 7.6503, h: 1.7399, orientation: "horizontal", lengthFt: 8, depthFt: 4, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
   { id: 30, zone: "Bottom Wall", x: 19.8543, y: 88.5531, w: 7.6503, h: 1.7399, orientation: "horizontal", lengthFt: 8, depthFt: 4, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
   { id: 31, zone: "Bottom Wall", x: 35.7013, y: 88.5531, w: 7.6503, h: 1.7399, orientation: "horizontal", lengthFt: 8, depthFt: 4, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
   { id: 32, zone: "Bottom Wall", x: 43.6248, y: 88.5531, w: 7.5592, h: 1.7399, orientation: "horizontal", lengthFt: 8, depthFt: 4, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
   { id: 33, zone: "Bottom Wall", x: 51.4572, y: 88.5531, w: 7.6503, h: 1.7399, orientation: "horizontal", lengthFt: 8, depthFt: 4, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
   { id: 34, zone: "Bottom Wall", x: 59.3807, y: 88.5531, w: 7.6503, h: 1.7399, orientation: "horizontal", lengthFt: 8, depthFt: 4, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
   { id: 35, zone: "Bottom Wall", x: 73.224, y: 88.5531, w: 7.6503, h: 1.7399, orientation: "horizontal", lengthFt: 8, depthFt: 4, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 36, zone: "Bottom Wall", x: 81.1475, y: 88.5531, w: 7.6503, h: 1.7399, orientation: "horizontal", lengthFt: 8, depthFt: 4, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
   { id: 37, zone: "Top Island 1", x: 20.8561, y: 14.011, w: 1.7304, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 4, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
   { id: 38, zone: "Top Island 1", x: 20.8561, y: 21.978, w: 1.7304, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 4, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
   { id: 39, zone: "Top Island 1", x: 20.8561, y: 29.9451, w: 1.7304, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 4, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
@@ -209,6 +197,10 @@ export const TABLE_LAYOUT: TableDef[] = [
   { id: 106, zone: "Bottom Island 4", x: 78.2332, y: 57.7839, w: 1.6393, h: 7.6007, orientation: "vertical", lengthFt: 8, depthFt: 4, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
   { id: 107, zone: "Bottom Island 4", x: 78.2332, y: 65.6593, w: 1.6393, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 4, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
   { id: 108, zone: "Bottom Island 4", x: 78.2332, y: 73.6264, w: 1.6393, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 4, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
+  // Left-side ripping / attendee-seating area (NOT vendor tables — non-bookable).
+  { id: 201, zone: "Ripping / Seating", x: 9.4, y: 33.0, w: 3.6, h: 2.3, orientation: "horizontal", lengthFt: 6, depthFt: 2, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
+  { id: 202, zone: "Ripping / Seating", x: 9.4, y: 39.5, w: 3.6, h: 2.3, orientation: "horizontal", lengthFt: 6, depthFt: 2, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
+  { id: 203, zone: "Ripping / Seating", x: 9.4, y: 60.0, w: 3.6, h: 2.3, orientation: "horizontal", lengthFt: 6, depthFt: 2, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
 ];
 
 export const TABLE_BY_ID: Record<number, TableDef> = Object.fromEntries(

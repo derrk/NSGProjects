@@ -1,6 +1,9 @@
 import "server-only";
 import { getServiceClient } from "./supabase";
-import { computePricing, getTable, resolvePromo, FOUNDER_TABLES } from "../reserve/tables";
+import { computePricing, getTable, resolvePromo, FOUNDER_TABLES, SEATING_TABLES } from "../reserve/tables";
+
+// Tables that can never be booked by a vendor (organizer HQ + the seating/ripping zone).
+const NON_VENDOR_TABLES = [...FOUNDER_TABLES, ...SEATING_TABLES];
 import {
   sendVendorAcknowledgement,
   sendVendorConfirmation,
@@ -91,7 +94,7 @@ export async function getPublicState(): Promise<{
   const blocked = [
     ...new Set([
       ...(bl ?? []).map((b: { table_number: number }) => b.table_number),
-      ...FOUNDER_TABLES,
+      ...NON_VENDOR_TABLES,
     ]),
   ];
   return { reservations, blocked };
@@ -102,8 +105,8 @@ export async function createHold(input: HoldInput): Promise<{ resCode: string; a
   const tableNumbers = [...new Set(input.tableNumbers)].filter((n) => !!getTable(n));
   if (tableNumbers.length === 0) throw new Error("No valid tables selected.");
 
-  // Founder/HQ tables are never bookable.
-  const founderHit = tableNumbers.filter((n) => FOUNDER_TABLES.includes(n));
+  // Founder/HQ + seating/ripping tables are never bookable.
+  const founderHit = tableNumbers.filter((n) => NON_VENDOR_TABLES.includes(n));
   if (founderHit.length) throw new ConflictError(founderHit);
 
   // Server is the source of truth for price (bundle + promo).
@@ -199,7 +202,7 @@ export async function listReservations(): Promise<AdminReservation[]> {
   const { data, error } = await sb
     .from("reservations")
     .select(
-      "id,res_code,status,business,first_name,last_name,email,phone,instagram,category,amount_cents,promo_code,featured,created_at,reservation_tables(table_number)"
+      "id,res_code,status,business,first_name,last_name,email,phone,instagram,category,amount_cents,promo_code,featured,created_at,reservation_tables(table_number,active)"
     )
     .order("created_at", { ascending: false });
   if (error) throw error;
@@ -218,7 +221,8 @@ export async function listReservations(): Promise<AdminReservation[]> {
     promoCode: (r.promo_code as string) ?? null,
     featured: (r.featured as boolean) ?? false,
     createdAt: r.created_at as string,
-    tables: ((r.reservation_tables as { table_number: number }[]) ?? [])
+    tables: ((r.reservation_tables as { table_number: number; active: boolean }[]) ?? [])
+      .filter((t) => t.active)
       .map((t) => t.table_number)
       .sort((a, b) => a - b),
   }));
@@ -233,6 +237,7 @@ export interface ReservationEdit {
   email?: string;
   phone?: string;
   category?: string;
+  amountCents?: number; // admin override of the amount actually collected
 }
 
 // Admin edit of a reservation's vendor info (e.g. change the displayed business name).
@@ -247,8 +252,87 @@ export async function updateReservation(resCode: string, fields: ReservationEdit
   if (fields.email !== undefined) patch.email = fields.email;
   if (fields.phone !== undefined) patch.phone = fields.phone || null;
   if (fields.category !== undefined) patch.category = fields.category || null;
+  if (fields.amountCents !== undefined) patch.amount_cents = fields.amountCents;
   const { error } = await sb.from("reservations").update(patch).eq("res_code", resCode);
   if (error) throw error;
+}
+
+// Admin reassignment of which physical table(s) a reservation holds — this also
+// moves the vendor on the public map. Validates against the layout, founder/HQ,
+// blocked tables, and tables already held by ANOTHER active reservation.
+export async function changeReservationTables(resCode: string, newTables: number[]): Promise<void> {
+  const sb = getServiceClient();
+  const desired = [...new Set(newTables)].filter((n) => Number.isInteger(n));
+  if (desired.length === 0) throw new Error("At least one table is required.");
+  const unknown = desired.filter((n) => !getTable(n));
+  if (unknown.length) throw new Error(`Not a real table: ${unknown.join(", ")}`);
+  const founderHit = desired.filter((n) => NON_VENDOR_TABLES.includes(n));
+  if (founderHit.length) throw new Error(`These tables aren't vendor tables (HQ or seating): ${founderHit.join(", ")}`);
+
+  const { data: row, error: e0 } = await sb
+    .from("reservations")
+    .select("id,reservation_tables(table_number,active)")
+    .eq("res_code", resCode)
+    .single();
+  if (e0 || !row) throw e0 ?? new Error("Reservation not found.");
+  const resId = row.id as string;
+  const current = ((row.reservation_tables as { table_number: number; active: boolean }[]) ?? [])
+    .filter((t) => t.active)
+    .map((t) => t.table_number);
+  const currentSet = new Set(current);
+  const desiredSet = new Set(desired);
+  const toAdd = desired.filter((n) => !currentSet.has(n));
+  const toRemove = current.filter((n) => !desiredSet.has(n));
+  if (toAdd.length === 0 && toRemove.length === 0) return; // no change
+
+  // Only the tables we're newly claiming can conflict (a table already held by
+  // THIS reservation is fine).
+  if (toAdd.length) {
+    const [{ data: taken }, { data: blocked }] = await Promise.all([
+      sb.from("reservation_tables").select("table_number,reservation_id").eq("active", true).in("table_number", toAdd),
+      sb.from("blocked_tables").select("table_number").in("table_number", toAdd),
+    ]);
+    const conflicts = [
+      ...(taken ?? []).filter((t) => t.reservation_id !== resId).map((t: { table_number: number }) => t.table_number),
+      ...(blocked ?? []).map((b: { table_number: number }) => b.table_number),
+    ];
+    if (conflicts.length) throw new ConflictError([...new Set(conflicts)]);
+  }
+
+  // Free removed tables first so a shuffle within the same set can't self-conflict.
+  if (toRemove.length) {
+    const { error } = await sb
+      .from("reservation_tables")
+      .update({ active: false })
+      .eq("reservation_id", resId)
+      .in("table_number", toRemove);
+    if (error) throw error;
+  }
+  // Claim the added tables (the unique index is the real race guard).
+  if (toAdd.length) {
+    const rows = toAdd.map((n) => ({ reservation_id: resId, table_number: n, active: true }));
+    const { error } = await sb.from("reservation_tables").insert(rows);
+    if (error) {
+      // Roll back the frees so we never strand the vendor with fewer tables.
+      if (toRemove.length) {
+        const { error: rollbackErr } = await sb
+          .from("reservation_tables")
+          .update({ active: true })
+          .eq("reservation_id", resId)
+          .in("table_number", toRemove);
+        // If the rollback itself failed (e.g. a concurrent hold grabbed a freed
+        // table), the vendor is now short those tables — surface it loudly.
+        if (rollbackErr) {
+          throw new Error(
+            `Table move failed and could not be fully undone. Please re-check reservation ${resCode}; tables ${toRemove.join(", ")} may need to be re-assigned.`
+          );
+        }
+      }
+      if ((error as { code?: string }).code === "23505") throw new ConflictError(toAdd);
+      throw error;
+    }
+  }
+  await sb.from("reservations").update({ updated_at: new Date().toISOString() }).eq("id", resId);
 }
 
 // Re-send the standard confirmation email for an already-confirmed reservation
@@ -257,7 +341,7 @@ export async function resendConfirmation(resCode: string): Promise<void> {
   const sb = getServiceClient();
   const { data: row, error } = await sb
     .from("reservations")
-    .select("status,business,email,first_name,amount_cents,reservation_tables(table_number)")
+    .select("status,business,email,first_name,amount_cents,reservation_tables(table_number,active)")
     .eq("res_code", resCode)
     .single();
   if (error || !row) throw error ?? new Error("Reservation not found.");
@@ -271,7 +355,8 @@ export async function resendConfirmation(resCode: string): Promise<void> {
     business: row.business as string,
     email: row.email as string,
     firstName: (row.first_name as string) ?? null,
-    tables: ((row.reservation_tables as { table_number: number }[]) ?? [])
+    tables: ((row.reservation_tables as { table_number: number; active: boolean }[]) ?? [])
+      .filter((t) => t.active)
       .map((t) => t.table_number)
       .sort((a, b) => a - b),
     amountCents: row.amount_cents as number,
@@ -341,7 +426,7 @@ export async function setReservationStatus(resCode: string, action: "confirm" | 
   const sb = getServiceClient();
   const { data: row, error: e0 } = await sb
     .from("reservations")
-    .select("id,business,email,first_name,amount_cents,reservation_tables(table_number)")
+    .select("id,business,email,first_name,amount_cents,reservation_tables(table_number,active)")
     .eq("res_code", resCode)
     .single();
   if (e0 || !row) throw e0 ?? new Error("Reservation not found.");
@@ -354,7 +439,8 @@ export async function setReservationStatus(resCode: string, action: "confirm" | 
       business: row.business as string,
       email: row.email as string,
       firstName: (row.first_name as string) ?? null,
-      tables: ((row.reservation_tables as { table_number: number }[]) ?? [])
+      tables: ((row.reservation_tables as { table_number: number; active: boolean }[]) ?? [])
+        .filter((t) => t.active)
         .map((t) => t.table_number)
         .sort((a, b) => a - b),
       amountCents: row.amount_cents as number,

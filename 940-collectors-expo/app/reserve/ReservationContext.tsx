@@ -14,6 +14,7 @@ import {
   SEED_RESERVED,
   SEED_BLOCKED,
   FOUNDER_TABLES,
+  SEATING_TABLES,
   computePricing,
   getTable,
   type Pricing,
@@ -89,7 +90,7 @@ export function ReservationProvider({ children }: { children: React.ReactNode })
       };
     }
     setVendors(map);
-    setBlocked(new Set([...data.blocked, ...FOUNDER_TABLES]));
+    setBlocked(new Set([...data.blocked, ...FOUNDER_TABLES, ...SEATING_TABLES]));
   }, []);
 
   const refreshBackend = useCallback(async () => {
@@ -110,7 +111,7 @@ export function ReservationProvider({ children }: { children: React.ReactNode })
     } catch {
       setVendors({});
     }
-    setBlocked(new Set([...SEED_BLOCKED, ...FOUNDER_TABLES]));
+    setBlocked(new Set([...SEED_BLOCKED, ...FOUNDER_TABLES, ...SEATING_TABLES]));
   }, []);
 
   // Decide mode on mount: backend if the API says it's configured, else localStorage.
@@ -131,7 +132,7 @@ export function ReservationProvider({ children }: { children: React.ReactNode })
           // "all available" map. Stay in backend mode (polling will recover),
           // and keep founder tables blocked in the meantime.
           setMode("backend");
-          setBlocked(new Set(FOUNDER_TABLES));
+          setBlocked(new Set([...FOUNDER_TABLES, ...SEATING_TABLES]));
           return;
         }
       } catch {

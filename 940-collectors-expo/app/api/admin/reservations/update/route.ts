@@ -3,7 +3,9 @@ import { isAdmin } from "../../../../lib/admin-auth";
 import { supabaseConfigured } from "../../../../lib/supabase";
 import { updateReservation, type ReservationEdit } from "../../../../lib/reservations-service";
 
-const ALLOWED: (keyof ReservationEdit)[] = [
+// String-valued fields only (amountCents is a number, handled separately below).
+type StringField = "business" | "instagram" | "bio" | "firstName" | "lastName" | "email" | "phone" | "category";
+const ALLOWED: StringField[] = [
   "business",
   "instagram",
   "bio",
@@ -33,6 +35,14 @@ export async function POST(req: Request) {
   const fields: ReservationEdit = {};
   for (const k of ALLOWED) {
     if (typeof fieldsIn[k] === "string") fields[k] = fieldsIn[k] as string;
+  }
+  // Amount collected is a number (cents), handled separately from the string fields.
+  if (
+    typeof fieldsIn.amountCents === "number" &&
+    Number.isFinite(fieldsIn.amountCents) &&
+    fieldsIn.amountCents >= 0
+  ) {
+    fields.amountCents = Math.round(fieldsIn.amountCents);
   }
   if (fields.business !== undefined && !fields.business.trim()) {
     return NextResponse.json({ error: "business_required" }, { status: 400 });

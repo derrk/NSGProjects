@@ -197,7 +197,7 @@ export default function FeaturedVendors() {
               ))
             : placeholders.map((v, i) => (
                 <motion.div
-                  key={v.name}
+                  key={`placeholder-${i}`}
                   initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
