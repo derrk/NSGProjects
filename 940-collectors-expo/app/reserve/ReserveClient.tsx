@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Info, Tag, ShoppingCart, X } from "lucide-react";
 import { ReservationProvider, useReservation } from "./ReservationContext";
@@ -13,12 +13,30 @@ const BOOKABLE_TABLE_COUNT = TABLE_LAYOUT.length - FOUNDER_TABLES.length - SEATI
 
 export default function ReserveClient() {
   const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [canceled, setCanceled] = useState(false);
   const price = formatUSD(EVENT.standardPriceCents);
+
+  // Returning from a canceled Stripe checkout (?canceled=1) — let them know.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("canceled")) {
+      setCanceled(true);
+      window.history.replaceState({}, "", "/reserve"); // don't re-show on refresh
+    }
+  }, []);
 
   return (
     <ReservationProvider>
       <main className="min-h-screen pt-24 pb-28 lg:pb-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          {canceled && (
+            <div className="mb-6 flex items-start gap-3 rounded-xl border border-[#FACC15]/40 bg-[#FACC15]/10 px-4 py-3">
+              <Info size={16} className="text-[#FACC15] mt-0.5 shrink-0" />
+              <p className="text-sm text-[#FACC15]/90">
+                Card checkout was canceled — you weren&apos;t charged. Your tables will reopen
+                shortly; pick them again to retry, or choose Zelle at checkout.
+              </p>
+            </div>
+          )}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}

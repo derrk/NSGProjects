@@ -110,8 +110,11 @@ export async function sendVendorAcknowledgement(r: ResEmailInfo) {
         ${row("Hold #", r.resCode)}
       </table>
     </div>
+    <div style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.35);border-radius:12px;padding:12px 16px;margin:0 0 16px;">
+      <p style="color:#fca5a5;font-size:13px;line-height:1.6;margin:0;"><strong>Please send your Zelle within ${EVENT.zelleHoldHours} hours.</strong> If we haven't received payment by then, the hold is released and your ${r.tables.length > 1 ? "tables reopen" : "table reopens"} to other vendors — you'd need to reserve again.</p>
+    </div>
     <p style="color:#9ca3af;font-size:13px;line-height:1.6;margin:0;">Once we confirm your payment, you'll get a confirmation email and your spot is locked. Reply to this email with any questions.</p>`;
-  await send({ to: r.email, subject: `Your 940 Collector's Expo table is held — send Zelle to confirm`, html: shell("Almost there — send your Zelle", body) });
+  await send({ to: r.email, subject: `Your 940 Collector's Expo table is held — send Zelle within ${EVENT.zelleHoldHours}h`, html: shell("Almost there — send your Zelle", body) });
 }
 
 // --- 2) Confirmation once admin verifies payment ---------------------------

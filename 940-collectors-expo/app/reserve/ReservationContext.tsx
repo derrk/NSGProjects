@@ -28,7 +28,9 @@ const POLL_MS = 15000;
 
 type VendorMap = Record<number, VendorProfile>;
 type Mode = "loading" | "local" | "backend";
-type SubmitResult = { resCode: string } | { error: string; tables?: number[] };
+type SubmitResult =
+  | { resCode: string; checkoutUrl?: string; paymentMethod?: "zelle" | "stripe" }
+  | { error: string; tables?: number[] };
 
 interface ReservationState {
   vendors: VendorMap;
@@ -40,6 +42,7 @@ interface ReservationState {
   pricing: Pricing;
   maxTables: number;
   mode: Mode;
+  stripeEnabled: boolean;
   statusOf: (id: number) => TableStatus;
   inCart: (id: number) => boolean;
   canSelect: (id: number) => boolean;
@@ -49,7 +52,10 @@ interface ReservationState {
   removeFromCart: (id: number) => void;
   clearCart: () => void;
   setPromoInput: (v: string) => void;
-  submitReservation: (profile: Omit<VendorProfile, "resId" | "status">) => Promise<SubmitResult>;
+  submitReservation: (
+    profile: Omit<VendorProfile, "resId" | "status">,
+    paymentMethod: "zelle" | "stripe"
+  ) => Promise<SubmitResult>;
 }
 
 const Ctx = createContext<ReservationState | null>(null);
@@ -66,6 +72,7 @@ interface PublicRes {
 
 export function ReservationProvider({ children }: { children: React.ReactNode }) {
   const [mode, setMode] = useState<Mode>("loading");
+  const [stripeEnabled, setStripeEnabled] = useState(false);
   const [vendors, setVendors] = useState<VendorMap>({});
   const [blocked, setBlocked] = useState<Set<number>>(new Set());
   const [cart, setCart] = useState<number[]>([]);
@@ -122,6 +129,7 @@ export function ReservationProvider({ children }: { children: React.ReactNode })
         const res = await fetch("/api/reservations", { cache: "no-store" });
         const json = await res.json();
         if (cancelled) return;
+        setStripeEnabled(!!json?.stripeEnabled);
         if (res.ok && json?.configured && !json.error) {
           setMode("backend");
           applyPublic(json);
@@ -268,7 +276,10 @@ export function ReservationProvider({ children }: { children: React.ReactNode })
   const pricing = useMemo(() => computePricing(cart, promoInput), [cart, promoInput]);
 
   const submitReservation = useCallback(
-    async (profile: Omit<VendorProfile, "resId" | "status">): Promise<SubmitResult> => {
+    async (
+      profile: Omit<VendorProfile, "resId" | "status">,
+      paymentMethod: "zelle" | "stripe"
+    ): Promise<SubmitResult> => {
       if (cart.length === 0) return { error: "empty" };
 
       if (modeRef.current === "backend") {
@@ -276,7 +287,7 @@ export function ReservationProvider({ children }: { children: React.ReactNode })
           const res = await fetch("/api/reservations", {
             method: "POST",
             headers: { "content-type": "application/json" },
-            body: JSON.stringify({ tableNumbers: cart, promoCode: promoInput || null, profile }),
+            body: JSON.stringify({ tableNumbers: cart, promoCode: promoInput || null, paymentMethod, profile }),
           });
           const json = await res.json();
           if (res.status === 409) {
@@ -288,7 +299,11 @@ export function ReservationProvider({ children }: { children: React.ReactNode })
           setCart([]);
           setHoldExpiresAt(null);
           setPromoInput("");
-          return { resCode: json.resCode as string };
+          return {
+            resCode: json.resCode as string,
+            checkoutUrl: json.checkoutUrl as string | undefined,
+            paymentMethod: json.paymentMethod as "zelle" | "stripe" | undefined,
+          };
         } catch {
           return { error: "network" };
         }
@@ -325,6 +340,7 @@ export function ReservationProvider({ children }: { children: React.ReactNode })
         pricing,
         maxTables,
         mode,
+        stripeEnabled,
         statusOf,
         inCart,
         canSelect,

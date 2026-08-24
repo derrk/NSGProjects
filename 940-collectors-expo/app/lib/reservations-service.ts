@@ -1,6 +1,7 @@
 import "server-only";
 import { getServiceClient } from "./supabase";
-import { computePricing, getTable, resolvePromo, FOUNDER_TABLES, SEATING_TABLES } from "../reserve/tables";
+import { computePricing, getTable, resolvePromo, FOUNDER_TABLES, SEATING_TABLES, EVENT } from "../reserve/tables";
+import { createCheckoutSession, stripeConfigured } from "./stripe";
 
 // Tables that can never be booked by a vendor (organizer HQ + the seating/ripping zone).
 const NON_VENDOR_TABLES = [...FOUNDER_TABLES, ...SEATING_TABLES];
@@ -31,6 +32,8 @@ export class PromoExhaustedError extends Error {
 export interface HoldInput {
   tableNumbers: number[];
   promoCode?: string | null;
+  paymentMethod?: "zelle" | "stripe";
+  origin?: string; // request origin, for Stripe success/cancel URLs
   profile: {
     business: string;
     firstName?: string;
@@ -62,11 +65,34 @@ function genCode(): string {
   return `940CE-${n}`;
 }
 
+// Release Zelle holds whose deadline (expires_at) has passed: free their tables
+// (active=false) and mark the reservation released so the tables become bookable
+// again. Called on the hot read/write paths so expiry needs no separate cron.
+// Rows with a null expires_at (created before this feature) are left untouched.
+async function expirePendingHolds(sb: ReturnType<typeof getServiceClient>): Promise<void> {
+  const nowIso = new Date().toISOString();
+  // Only Zelle holds are swept here. Stripe holds are released solely by the
+  // checkout.session.expired webhook (which can only fire once the session is
+  // terminally unpaid), so a paid-but-not-yet-confirmed card hold can never be
+  // released out from under the vendor.
+  const { data: expired, error } = await sb
+    .from("reservations")
+    .select("id")
+    .eq("status", "pending")
+    .eq("payment_method", "zelle")
+    .lt("expires_at", nowIso);
+  if (error || !expired?.length) return;
+  const ids = (expired as { id: string }[]).map((r) => r.id);
+  await sb.from("reservation_tables").update({ active: false }).in("reservation_id", ids);
+  await sb.from("reservations").update({ status: "released", updated_at: nowIso }).in("id", ids);
+}
+
 export async function getPublicState(): Promise<{
   reservations: PublicReservation[];
   blocked: number[];
 }> {
   const sb = getServiceClient();
+  await expirePendingHolds(sb);
   const [{ data: rt, error: e1 }, { data: bl, error: e2 }] = await Promise.all([
     sb
       .from("reservation_tables")
@@ -100,8 +126,11 @@ export async function getPublicState(): Promise<{
   return { reservations, blocked };
 }
 
-export async function createHold(input: HoldInput): Promise<{ resCode: string; amountCents: number }> {
+export async function createHold(
+  input: HoldInput
+): Promise<{ resCode: string; amountCents: number; paymentMethod: "zelle" | "stripe"; checkoutUrl?: string }> {
   const sb = getServiceClient();
+  await expirePendingHolds(sb); // free any lapsed Zelle holds before checking availability
   const tableNumbers = [...new Set(input.tableNumbers)].filter((n) => !!getTable(n));
   if (tableNumbers.length === 0) throw new Error("No valid tables selected.");
 
@@ -135,6 +164,16 @@ export async function createHold(input: HoldInput): Promise<{ resCode: string; a
   if (conflicts.length) throw new ConflictError([...new Set(conflicts)]);
 
   const resCode = genCode();
+  // Card only if the vendor chose it AND Stripe is configured; otherwise Zelle.
+  const method: "zelle" | "stripe" =
+    input.paymentMethod === "stripe" && stripeConfigured() ? "stripe" : "zelle";
+  // Zelle holds get a hard 12h deadline; Stripe holds live as long as the
+  // Checkout Session (expiry is updated to the session's once it's created).
+  const expiresAt =
+    method === "stripe"
+      ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+      : new Date(Date.now() + EVENT.zelleHoldHours * 60 * 60 * 1000).toISOString();
+
   const { data: resRow, error: e1 } = await sb
     .from("reservations")
     .insert({
@@ -151,6 +190,8 @@ export async function createHold(input: HoldInput): Promise<{ resCode: string; a
       photo: input.profile.photo ?? null,
       amount_cents: pricing.totalCents,
       promo_code: input.promoCode || null,
+      payment_method: method,
+      expires_at: expiresAt,
     })
     .select("id")
     .single();
@@ -164,7 +205,6 @@ export async function createHold(input: HoldInput): Promise<{ resCode: string; a
     throw e2;
   }
 
-  // Fire confirmation/acknowledgement emails (no-op if email isn't configured).
   const info = {
     resCode,
     business: input.profile.business,
@@ -173,10 +213,38 @@ export async function createHold(input: HoldInput): Promise<{ resCode: string; a
     tables: tableNumbers,
     amountCents: pricing.totalCents,
   };
+
+  if (method === "stripe") {
+    // Start hosted Checkout and hand the URL back to the client to redirect.
+    try {
+      const session = await createCheckoutSession({
+        resCode,
+        reservationId: resRow.id as string,
+        amountCents: pricing.totalCents,
+        businessName: input.profile.business,
+        email: input.profile.email,
+        origin: input.origin || "",
+      });
+      if (!session?.url) throw new Error("no_session_url");
+      const { error: e3 } = await sb
+        .from("reservations")
+        .update({ stripe_session_id: session.sessionId, expires_at: session.expiresAtIso })
+        .eq("id", resRow.id);
+      if (e3) throw e3; // fall to cleanup below rather than strand the hold at 24h
+      return { resCode, amountCents: pricing.totalCents, paymentMethod: "stripe", checkoutUrl: session.url };
+    } catch (err) {
+      // Payment couldn't be started — free the tables so they don't sit stuck.
+      await sb.from("reservation_tables").update({ active: false }).eq("reservation_id", resRow.id);
+      await sb.from("reservations").update({ status: "released" }).eq("id", resRow.id);
+      console.error("[stripe] checkout session failed:", (err as Error)?.message ?? err);
+      throw new Error("payment_init_failed");
+    }
+  }
+
+  // Zelle: acknowledge the vendor (with the 12h warning) + notify the organizer.
   await sendVendorAcknowledgement(info);
   await sendAdminNewRequest(info);
-
-  return { resCode, amountCents: pricing.totalCents };
+  return { resCode, amountCents: pricing.totalCents, paymentMethod: "zelle" };
 }
 
 export interface AdminReservation {
@@ -422,17 +490,37 @@ export async function setFeatured(resCode: string, featured: boolean): Promise<v
   if (error) throw error;
 }
 
-export async function setReservationStatus(resCode: string, action: "confirm" | "release"): Promise<void> {
+export async function setReservationStatus(
+  resCode: string,
+  action: "confirm" | "release",
+  opts?: { source?: "zelle" | "stripe" }
+): Promise<void> {
   const sb = getServiceClient();
   const { data: row, error: e0 } = await sb
     .from("reservations")
-    .select("id,business,email,first_name,amount_cents,reservation_tables(table_number,active)")
+    .select("id,status,business,email,first_name,amount_cents,reservation_tables(table_number,active)")
     .eq("res_code", resCode)
     .single();
   if (e0 || !row) throw e0 ?? new Error("Reservation not found.");
   if (action === "confirm") {
-    const { error } = await sb.from("reservations").update({ status: "confirmed", updated_at: new Date().toISOString() }).eq("id", row.id);
+    // Idempotent: a retried/concurrent confirm (Stripe webhooks can fire more
+    // than once) must not re-send the confirmation email or overwrite paid_at.
+    if (row.status === "confirmed") return;
+    const patch: Record<string, unknown> = {
+      status: "confirmed",
+      paid_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    if (opts?.source) patch.payment_method = opts.source;
+    // Only the delivery that actually flips pending -> confirmed proceeds to email.
+    const { data: won, error } = await sb
+      .from("reservations")
+      .update(patch)
+      .eq("id", row.id)
+      .neq("status", "confirmed")
+      .select("id");
     if (error) throw error;
+    if (!won || won.length === 0) return; // a concurrent delivery already confirmed it
     // Email the vendor that payment was received and their table(s) are locked in.
     await sendVendorConfirmation({
       resCode,
@@ -454,4 +542,31 @@ export async function setReservationStatus(resCode: string, action: "confirm" | 
     const { error: e2 } = await sb.from("reservations").update({ status: "released", featured: false, updated_at: new Date().toISOString() }).eq("id", row.id);
     if (e2) throw e2;
   }
+}
+
+// Release a hold ONLY if it's still pending (used by the Stripe
+// checkout.session.expired webhook to free an abandoned card hold). Never
+// touches a confirmed reservation.
+export async function releaseIfPending(resCode: string): Promise<void> {
+  const sb = getServiceClient();
+  const { data: row } = await sb
+    .from("reservations")
+    .select("id,status")
+    .eq("res_code", resCode)
+    .maybeSingle();
+  if (!row || row.status !== "pending") return;
+  await sb.from("reservation_tables").update({ active: false }).eq("reservation_id", row.id);
+  await sb.from("reservations").update({ status: "released", updated_at: new Date().toISOString() }).eq("id", row.id);
+}
+
+// Webhook fallback: resolve a reservation code from its Stripe Checkout Session id
+// (used only if the session's client_reference_id/metadata is somehow missing).
+export async function getResCodeByStripeSession(sessionId: string): Promise<string | null> {
+  const sb = getServiceClient();
+  const { data } = await sb
+    .from("reservations")
+    .select("res_code")
+    .eq("stripe_session_id", sessionId)
+    .maybeSingle();
+  return (data?.res_code as string) ?? null;
 }

@@ -57,7 +57,8 @@ export const EVENT = {
     type: "fixed" as "fixed" | "percent",
     value: 1000, // $10 off when a 6' corner is bundled with its adjacent 8' table
   },
-  holdMinutes: 10,
+  holdMinutes: 10, // client-side checkout countdown (UX only)
+  zelleHoldHours: 12, // server-side deadline to complete a Zelle payment before the hold is released
   maxTablesPerReservation: 0, // 0 = no limit
   // Payment: online processor not live yet — collect via Zelle, hold the table,
   // organizer confirms once payment lands. EDIT these with the real Zelle details.

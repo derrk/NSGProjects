@@ -1,20 +1,21 @@
 import { NextResponse } from "next/server";
 import { supabaseConfigured } from "../../lib/supabase";
 import { getPublicState, createHold, ConflictError, PromoExhaustedError } from "../../lib/reservations-service";
+import { stripeConfigured } from "../../lib/stripe";
 
 export const dynamic = "force-dynamic";
 
 // Public map state (no contact PII).
 export async function GET() {
   if (!supabaseConfigured()) {
-    return NextResponse.json({ configured: false, reservations: [], blocked: [] });
+    return NextResponse.json({ configured: false, stripeEnabled: false, reservations: [], blocked: [] });
   }
   try {
     const state = await getPublicState();
-    return NextResponse.json({ configured: true, ...state });
+    return NextResponse.json({ configured: true, stripeEnabled: stripeConfigured(), ...state });
   } catch (e) {
     return NextResponse.json(
-      { configured: true, error: String((e as Error)?.message ?? e), reservations: [], blocked: [] },
+      { configured: true, stripeEnabled: stripeConfigured(), error: String((e as Error)?.message ?? e), reservations: [], blocked: [] },
       { status: 500 }
     );
   }
@@ -28,6 +29,7 @@ export async function POST(req: Request) {
   let body: {
     tableNumbers?: number[];
     promoCode?: string | null;
+    paymentMethod?: string;
     profile?: Record<string, unknown>;
   };
   try {
@@ -52,8 +54,10 @@ export async function POST(req: Request) {
   if (!tableNumbers.length || !profile?.business || !profile?.email) {
     return NextResponse.json({ error: "missing_fields" }, { status: 400 });
   }
+  const paymentMethod = body.paymentMethod === "stripe" ? "stripe" : "zelle";
+  const origin = req.headers.get("origin") ?? undefined;
   try {
-    const result = await createHold({ tableNumbers, promoCode: body.promoCode ?? null, profile });
+    const result = await createHold({ tableNumbers, promoCode: body.promoCode ?? null, profile, paymentMethod, origin });
     return NextResponse.json({ ok: true, ...result });
   } catch (e) {
     if (e instanceof ConflictError) {

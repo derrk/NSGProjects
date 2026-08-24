@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Clock, CheckCircle, DollarSign, AlertTriangle, Upload, ImageIcon } from "lucide-react";
+import { X, Clock, CheckCircle, DollarSign, AlertTriangle, Upload, ImageIcon, CreditCard } from "lucide-react";
 import { useReservation } from "./ReservationContext";
 import { formatUSD, EVENT } from "./tables";
 
@@ -53,12 +53,26 @@ export default function CheckoutModal({
   open: boolean;
   onClose: () => void;
 }) {
-  const { cart, pricing, remainingMs, holdExpiresAt, submitReservation } = useReservation();
+  const { cart, pricing, remainingMs, holdExpiresAt, submitReservation, stripeEnabled } = useReservation();
   const [step, setStep] = useState<Step>("form");
   const [confirmation, setConfirmation] = useState<{ code: string; tables: number[]; total: number }>();
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({ ...EMPTY });
+  const [payMethod, setPayMethod] = useState<"card" | "zelle">("card");
   const fileRef = useRef<HTMLInputElement>(null);
+  const resetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Card only if Stripe is configured; otherwise everyone pays by Zelle.
+  const method: "card" | "zelle" = stripeEnabled ? payMethod : "zelle";
+
+  // If the modal reopens before the post-close reset fires, cancel that reset so
+  // it can't wipe freshly-entered data.
+  useEffect(() => {
+    if (open && resetTimer.current) {
+      clearTimeout(resetTimer.current);
+      resetTimer.current = null;
+    }
+  }, [open]);
 
   const expired = holdExpiresAt == null && step === "form";
 
@@ -102,18 +116,21 @@ export default function CheckoutModal({
     setStep("processing");
     const tables = [...cart];
     const total = pricing.totalCents;
-    const result = await submitReservation({
-      business: form.business,
-      instagram: form.instagram || undefined,
-      bio: form.bio || undefined,
-      photo: form.photo || undefined,
-      email: form.email,
-      firstName: form.firstName || undefined,
-      lastName: form.lastName || undefined,
-      phone: form.phone || undefined,
-      category: form.category,
-      amountCents: total,
-    });
+    const result = await submitReservation(
+      {
+        business: form.business,
+        instagram: form.instagram || undefined,
+        bio: form.bio || undefined,
+        photo: form.photo || undefined,
+        email: form.email,
+        firstName: form.firstName || undefined,
+        lastName: form.lastName || undefined,
+        phone: form.phone || undefined,
+        category: form.category,
+        amountCents: total,
+      },
+      method === "card" ? "stripe" : "zelle"
+    );
     if ("error" in result) {
       setStep("form");
       setError(
@@ -123,21 +140,32 @@ export default function CheckoutModal({
             } just taken — please pick again.`
           : result.error === "promo_exhausted"
             ? "The early-bird code is sold out. Remove the code to book at the regular price."
-            : "Something went wrong submitting your request. Please try again."
+            : result.error === "payment_init_failed"
+              ? "We couldn't start card checkout. Please try again, or choose Zelle."
+              : "Something went wrong submitting your request. Please try again."
       );
       return;
     }
+    // Trust the server's actual method: if it created a Stripe session, redirect;
+    // otherwise (incl. card requested but Stripe unavailable) fall through to Zelle.
+    if (result.paymentMethod === "stripe" && result.checkoutUrl) {
+      window.location.href = result.checkoutUrl;
+      return; // stay on "processing" while the browser redirects
+    }
+    // Zelle path → show the hold + payment instructions.
     setConfirmation({ code: result.resCode, tables, total });
     setStep("done");
   };
 
   const close = () => {
     onClose();
-    setTimeout(() => {
+    resetTimer.current = setTimeout(() => {
       setStep("form");
       setConfirmation(undefined);
       setError(null);
       setForm({ ...EMPTY });
+      setPayMethod("card");
+      resetTimer.current = null;
     }, 250);
   };
 
@@ -348,44 +376,96 @@ export default function CheckoutModal({
                     </div>
                   </div>
 
+                  {/* Payment method */}
+                  {stripeEnabled && (
+                    <div>
+                      <p className="text-xs font-semibold text-[#A855F7] uppercase tracking-widest mb-2">Payment</p>
+                      <div className="grid grid-cols-2 gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setPayMethod("card")}
+                          className={`flex flex-col items-start gap-0.5 p-3 rounded-xl border text-left transition-colors ${
+                            method === "card" ? "bg-[#A855F7]/15 border-[#A855F7]/60" : "bg-[#0B0713] border-white/10 hover:border-white/20"
+                          }`}
+                        >
+                          <span className="flex items-center gap-1.5 text-sm font-bold text-white">
+                            <CreditCard size={15} /> Card
+                          </span>
+                          <span className="text-[11px] text-[#E5E7EB]/50">Instant — confirmed on payment</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPayMethod("zelle")}
+                          className={`flex flex-col items-start gap-0.5 p-3 rounded-xl border text-left transition-colors ${
+                            method === "zelle" ? "bg-[#FACC15]/15 border-[#FACC15]/60" : "bg-[#0B0713] border-white/10 hover:border-white/20"
+                          }`}
+                        >
+                          <span className="flex items-center gap-1.5 text-sm font-bold text-white">
+                            <DollarSign size={15} /> Zelle
+                          </span>
+                          <span className="text-[11px] text-[#E5E7EB]/50">Free — pay within {EVENT.zelleHoldHours}h</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Terms */}
                   <label className="flex items-start gap-3 cursor-pointer">
                     <input type="checkbox" required checked={form.agree} onChange={set("agree")} className="mt-0.5 accent-[#A855F7] w-4 h-4" />
                     <span className="text-xs text-[#E5E7EB]/60 leading-relaxed">
-                      I agree to the {EVENT.name} vendor terms and understand my table(s) are held pending my Zelle payment and confirmed once it&apos;s received.
+                      {method === "card"
+                        ? `I agree to the ${EVENT.name} vendor terms. My table(s) are confirmed once payment succeeds.`
+                        : `I agree to the ${EVENT.name} vendor terms and understand my table(s) are held pending my Zelle payment and confirmed once it's received.`}
                     </span>
                   </label>
 
-                  {/* Zelle payment instructions */}
-                  <div className="rounded-xl border-2 border-[#FACC15]/40 bg-[#FACC15]/[0.06] p-4">
-                    <p className="flex items-center gap-2 text-[#FACC15] font-bold text-sm mb-2">
-                      <DollarSign size={16} /> Pay by Zelle to hold your table
-                    </p>
-                    <div className="space-y-1.5 text-sm">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[#E5E7EB]/60">Send exactly</span>
+                  {method === "card" ? (
+                    /* Card checkout note */
+                    <div className="rounded-xl border-2 border-[#A855F7]/40 bg-[#A855F7]/[0.06] p-4">
+                      <p className="flex items-center gap-2 text-[#A855F7] font-bold text-sm mb-2">
+                        <CreditCard size={16} /> Secure card checkout
+                      </p>
+                      <div className="flex items-center justify-between text-sm mb-2">
+                        <span className="text-[#E5E7EB]/60">You&apos;ll pay</span>
                         <span className="font-bold text-white tabular-nums">{formatUSD(pricing.totalCents)}</span>
                       </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-[#E5E7EB]/60">Zelle to</span>
-                        <span className="font-medium text-white">{EVENT.zelle.name}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-[#E5E7EB]/60">Phone</span>
-                        <span className="font-medium text-white">{EVENT.zelle.phone}</span>
-                      </div>
-                      <div className="flex items-start justify-between gap-3">
-                        <span className="text-[#E5E7EB]/60 shrink-0">Memo</span>
-                        <span className="font-medium text-white text-right">
-                          {form.business ? `"${form.business}"` : "your business name"}
-                        </span>
-                      </div>
+                      <p className="text-[11px] text-[#E5E7EB]/45 leading-snug">
+                        You&apos;ll be taken to Stripe&apos;s secure checkout to pay by card. Your table locks in
+                        the moment payment succeeds — no waiting for confirmation.
+                      </p>
                     </div>
-                    <p className="text-[11px] text-[#E5E7EB]/45 mt-3 leading-snug">
-                      Submitting holds your table(s). Send the Zelle now with your business name in
-                      the memo — once we confirm payment, your spot is locked in. Online card
-                      checkout is coming soon.
-                    </p>
-                  </div>
+                  ) : (
+                    /* Zelle payment instructions */
+                    <div className="rounded-xl border-2 border-[#FACC15]/40 bg-[#FACC15]/[0.06] p-4">
+                      <p className="flex items-center gap-2 text-[#FACC15] font-bold text-sm mb-2">
+                        <DollarSign size={16} /> Pay by Zelle to hold your table
+                      </p>
+                      <div className="space-y-1.5 text-sm">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[#E5E7EB]/60">Send exactly</span>
+                          <span className="font-bold text-white tabular-nums">{formatUSD(pricing.totalCents)}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[#E5E7EB]/60">Zelle to</span>
+                          <span className="font-medium text-white">{EVENT.zelle.name}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[#E5E7EB]/60">Phone</span>
+                          <span className="font-medium text-white">{EVENT.zelle.phone}</span>
+                        </div>
+                        <div className="flex items-start justify-between gap-3">
+                          <span className="text-[#E5E7EB]/60 shrink-0">Memo</span>
+                          <span className="font-medium text-white text-right">
+                            {form.business ? `"${form.business}"` : "your business name"}
+                          </span>
+                        </div>
+                      </div>
+                      <p className="text-[11px] text-[#FACC15]/90 mt-3 leading-snug font-medium">
+                        ⚠ You have {EVENT.zelleHoldHours} hours to send the Zelle. If payment isn&apos;t received
+                        by then, the hold is released and your table(s) reopen — you&apos;d need to reserve again.
+                      </p>
+                    </div>
+                  )}
 
                   {error && (
                     <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-2.5">
@@ -394,7 +474,9 @@ export default function CheckoutModal({
                   )}
 
                   <button type="submit" className="retro-btn w-full">
-                    Submit &amp; Hold My {cart.length > 1 ? "Tables" : "Table"}
+                    {method === "card"
+                      ? "Continue to secure payment"
+                      : `Submit & Hold My ${cart.length > 1 ? "Tables" : "Table"}`}
                   </button>
                 </form>
               )}
@@ -441,6 +523,10 @@ export default function CheckoutModal({
                     </div>
                   </div>
 
+                  <p className="text-xs text-[#FACC15]/90 font-medium mb-3">
+                    ⚠ Send your Zelle within {EVENT.zelleHoldHours} hours — otherwise the hold is
+                    released and your table(s) reopen to other vendors.
+                  </p>
                   <p className="text-xs text-[#E5E7EB]/40 mb-5">
                     Your spot shows as <span className="text-[#FACC15] font-semibold">held / pending</span> on the
                     map until we confirm payment — then your {form.photo ? "photo" : "table"} locks it in.
