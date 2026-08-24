@@ -189,7 +189,9 @@ export async function createHold(
       category: input.profile.category ?? null,
       photo: input.profile.photo ?? null,
       amount_cents: pricing.totalCents,
-      promo_code: input.promoCode || null,
+      // Store the CANONICAL code (not raw input) so a maxUses cap counts every
+      // redemption regardless of the casing the vendor typed. Invalid/absent -> null.
+      promo_code: promo ? promo.code : null,
       payment_method: method,
       expires_at: expiresAt,
     })

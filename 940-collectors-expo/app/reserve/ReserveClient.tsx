@@ -7,9 +7,20 @@ import { ReservationProvider, useReservation } from "./ReservationContext";
 import FloorMap from "./FloorMap";
 import CartPanel from "./CartPanel";
 import CheckoutModal from "./CheckoutModal";
-import { EVENT, TABLE_LAYOUT, FOUNDER_TABLES, SEATING_TABLES, formatUSD } from "./tables";
+import { EVENT, formatUSD } from "./tables";
 
-const BOOKABLE_TABLE_COUNT = TABLE_LAYOUT.length - FOUNDER_TABLES.length - SEATING_TABLES.length;
+// Live "X of Y tables available" chip — must be a child of ReservationProvider.
+function AvailabilityChip() {
+  const { availableCount, bookableCount } = useReservation();
+  return (
+    <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#171022] border border-white/10 text-sm">
+      <Info size={14} className="text-[#A855F7]" />
+      <span className="text-[#E5E7EB]/70">
+        <span className="font-bold text-white">{availableCount}</span> of {bookableCount} tables available
+      </span>
+    </div>
+  );
+}
 
 export default function ReserveClient() {
   const [checkoutOpen, setCheckoutOpen] = useState(false);
@@ -64,12 +75,7 @@ export default function ReserveClient() {
                 <span className="text-[#E5E7EB]/50">Tables from</span>
                 <span className="font-bold text-white">{price}</span>
               </div>
-              <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#171022] border border-white/10 text-sm">
-                <Info size={14} className="text-[#A855F7]" />
-                <span className="text-[#E5E7EB]/60">
-                  {BOOKABLE_TABLE_COUNT} vendor tables · {EVENT.roomFt.w}′ × {EVENT.roomFt.h}′
-                </span>
-              </div>
+              <AvailabilityChip />
               {EVENT.bundle.enabled && (
                 <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#FACC15]/10 border border-[#FACC15]/25 text-sm">
                   <Tag size={14} className="text-[#FACC15]" />
@@ -79,13 +85,6 @@ export default function ReserveClient() {
                   </span>
                 </div>
               )}
-              <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#A855F7]/10 border border-[#A855F7]/40 text-sm">
-                <Tag size={14} className="text-[#A855F7]" />
-                <span className="text-[#E5E7EB]/80">
-                  Early bird: code{" "}
-                  <span className="font-bold text-[#A855F7]">9FORTY25</span> → $85/table (first 25)
-                </span>
-              </div>
             </div>
           </motion.div>
 

@@ -15,12 +15,19 @@ import {
   SEED_BLOCKED,
   FOUNDER_TABLES,
   SEATING_TABLES,
+  TABLE_LAYOUT,
   computePricing,
   getTable,
   type Pricing,
   type TableStatus,
   type VendorProfile,
 } from "./tables";
+
+// Bookable vendor tables (excludes founder HQ + seating). Used for the
+// "X of Y available" indicator.
+const BOOKABLE_IDS = TABLE_LAYOUT.filter(
+  (t) => !FOUNDER_TABLES.includes(t.id) && !SEATING_TABLES.includes(t.id)
+).map((t) => t.id);
 
 const STORAGE_KEY = "940expo.vendors.v4";
 const HOLD_MS = EVENT.holdMinutes * 60 * 1000;
@@ -43,6 +50,8 @@ interface ReservationState {
   maxTables: number;
   mode: Mode;
   stripeEnabled: boolean;
+  availableCount: number;
+  bookableCount: number;
   statusOf: (id: number) => TableStatus;
   inCart: (id: number) => boolean;
   canSelect: (id: number) => boolean;
@@ -275,6 +284,14 @@ export function ReservationProvider({ children }: { children: React.ReactNode })
 
   const pricing = useMemo(() => computePricing(cart, promoInput), [cart, promoInput]);
 
+  // Live availability for the "X of Y tables available" indicator (ignores the
+  // current user's cart selections — reflects tables actually held/blocked).
+  const bookableCount = BOOKABLE_IDS.length;
+  const availableCount = useMemo(
+    () => BOOKABLE_IDS.filter((id) => !vendors[id] && !blocked.has(id)).length,
+    [vendors, blocked]
+  );
+
   const submitReservation = useCallback(
     async (
       profile: Omit<VendorProfile, "resId" | "status">,
@@ -341,6 +358,8 @@ export function ReservationProvider({ children }: { children: React.ReactNode })
         maxTables,
         mode,
         stripeEnabled,
+        availableCount,
+        bookableCount,
         statusOf,
         inCart,
         canSelect,
