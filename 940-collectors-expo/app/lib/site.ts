@@ -1,8 +1,11 @@
 // Central SEO / site config. Safe to import from server or client (no secrets).
 
-// Production URL — set NEXT_PUBLIC_SITE_URL in Vercel to your real domain.
+// Production URL — MUST match the host the site actually serves on so that the
+// sitemap, canonical tags, and OpenGraph URLs don't point at a redirecting host
+// (the apex 940collectorsexpo.com 308-redirects to www). Default is www; a
+// NEXT_PUBLIC_SITE_URL env var (if set in Vercel) overrides — keep it on www too.
 export const SITE_URL = (
-  process.env.NEXT_PUBLIC_SITE_URL || "https://940collectorsexpo.com"
+  process.env.NEXT_PUBLIC_SITE_URL || "https://www.940collectorsexpo.com"
 ).replace(/\/$/, "");
 
 export const SITE_NAME = "940 Collector's Expo";
