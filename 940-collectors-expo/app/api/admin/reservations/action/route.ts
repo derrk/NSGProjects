@@ -3,8 +3,8 @@ import { isAdmin } from "../../../../lib/admin-auth";
 import { supabaseConfigured } from "../../../../lib/supabase";
 import { setReservationStatus, resendConfirmation, setFeatured } from "../../../../lib/reservations-service";
 
-type Action = "confirm" | "release" | "resend" | "feature" | "unfeature";
-const ACTIONS: Action[] = ["confirm", "release", "resend", "feature", "unfeature"];
+type Action = "confirm" | "release" | "pending" | "resend" | "feature" | "unfeature";
+const ACTIONS: Action[] = ["confirm", "release", "pending", "resend", "feature", "unfeature"];
 
 export async function POST(req: Request) {
   if (!(await isAdmin())) {

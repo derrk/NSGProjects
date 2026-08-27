@@ -182,36 +182,66 @@ function messageToHtml(message: string): string {
     .join("");
 }
 
-// Sends ONE individual, branded email per recipient via Resend's batch API
-// (up to 100 per call — chunked for safety). Returns how many went out.
+// A file to attach to a broadcast (content is base64, no data: prefix).
+export interface BroadcastAttachment {
+  filename: string;
+  content: string;
+}
+
+// Sends ONE individual, branded email per recipient. Without an attachment it
+// uses Resend's batch API (up to 100 per call). With an attachment it loops
+// single sends (Resend's batch API doesn't support attachments), throttled to
+// stay under the rate limit. Returns how many went out.
 export async function sendVendorBroadcast(
   recipients: BroadcastRecipient[],
   subject: string,
-  message: string
+  message: string,
+  attachment?: BroadcastAttachment | null
 ): Promise<{ sent: number; failed: number }> {
   if (!resend) return { sent: 0, failed: recipients.length };
   const core = messageToHtml(message);
   const unsub = `<mailto:${replyAddress()}?subject=Unsubscribe>`;
+  const build = (r: BroadcastRecipient) => {
+    const hi = r.firstName ? `Hi ${escapeHtml(r.firstName)},` : "Hi there,";
+    const greeting = `<p style="color:#d1d5db;font-size:15px;line-height:1.6;margin:0 0 16px;">${hi}</p>`;
+    return {
+      from: FROM,
+      to: r.email,
+      subject,
+      html: shell(subject, greeting + core),
+      // Standard two-click unsubscribe. (One-Click / RFC 8058 would need an
+      // HTTPS endpoint + suppression list — overkill for a small vendor list.)
+      headers: { "List-Unsubscribe": unsub },
+    };
+  };
+
   let sent = 0;
   let failed = 0;
 
+  if (attachment) {
+    // Attachments aren't supported by batch.send — loop single sends, throttled.
+    for (const r of recipients) {
+      try {
+        const { error } = await resend.emails.send({ ...build(r), attachments: [attachment] });
+        if (error) {
+          console.error("[email] broadcast+attach error:", error);
+          failed += 1;
+        } else {
+          sent += 1;
+        }
+      } catch (e) {
+        console.error("[email] broadcast+attach failed:", (e as Error)?.message ?? e);
+        failed += 1;
+      }
+      await new Promise((res) => setTimeout(res, 120)); // ~8/sec, under Resend's 10/sec
+    }
+    return { sent, failed };
+  }
+
   for (let i = 0; i < recipients.length; i += 100) {
     const chunk = recipients.slice(i, i + 100);
-    const batch = chunk.map((r) => {
-      const hi = r.firstName ? `Hi ${escapeHtml(r.firstName)},` : "Hi there,";
-      const greeting = `<p style="color:#d1d5db;font-size:15px;line-height:1.6;margin:0 0 16px;">${hi}</p>`;
-      return {
-        from: FROM,
-        to: r.email,
-        subject,
-        html: shell(subject, greeting + core),
-        // Standard two-click unsubscribe. (One-Click / RFC 8058 would need an
-        // HTTPS endpoint + suppression list — overkill for a small vendor list.)
-        headers: { "List-Unsubscribe": unsub },
-      };
-    });
     try {
-      const res = await resend.batch.send(batch);
+      const res = await resend.batch.send(chunk.map(build));
       if ((res as { error?: unknown })?.error) {
         console.error("[email] broadcast chunk error:", (res as { error?: unknown }).error);
         failed += chunk.length;

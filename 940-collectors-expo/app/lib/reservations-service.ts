@@ -11,6 +11,7 @@ import {
   sendAdminNewRequest,
   sendVendorBroadcast,
   type BroadcastRecipient,
+  type BroadcastAttachment,
 } from "./email";
 
 export class ConflictError extends Error {
@@ -448,10 +449,11 @@ export async function getVendorRecipients(statuses: string[]): Promise<Broadcast
 export async function broadcastToVendors(
   statuses: string[],
   subject: string,
-  message: string
+  message: string,
+  attachment?: BroadcastAttachment | null
 ): Promise<{ sent: number; failed: number; total: number }> {
   const recipients = await getVendorRecipients(statuses);
-  const { sent, failed } = await sendVendorBroadcast(recipients, subject, message);
+  const { sent, failed } = await sendVendorBroadcast(recipients, subject, message, attachment);
   return { sent, failed, total: recipients.length };
 }
 
@@ -479,7 +481,7 @@ export async function setFeatured(resCode: string, featured: boolean): Promise<v
 
 export async function setReservationStatus(
   resCode: string,
-  action: "confirm" | "release",
+  action: "confirm" | "release" | "pending",
   opts?: { source?: "zelle" | "stripe" }
 ): Promise<void> {
   const sb = getServiceClient();
@@ -490,9 +492,10 @@ export async function setReservationStatus(
     .single();
   if (e0 || !row) throw e0 ?? new Error("Reservation not found.");
   if (action === "confirm") {
-    // Idempotent: a retried/concurrent confirm (Stripe webhooks can fire more
-    // than once) must not re-send the confirmation email or overwrite paid_at.
-    if (row.status === "confirmed") return;
+    // Only a PENDING reservation can be confirmed. This keeps confirm idempotent
+    // (a duplicate/retried Stripe webhook is a no-op) AND prevents a released or
+    // refunded reservation from being resurrected by a late webhook.
+    if (row.status !== "pending") return;
     const patch: Record<string, unknown> = {
       status: "confirmed",
       paid_at: new Date().toISOString(),
@@ -504,7 +507,7 @@ export async function setReservationStatus(
       .from("reservations")
       .update(patch)
       .eq("id", row.id)
-      .neq("status", "confirmed")
+      .eq("status", "pending")
       .select("id");
     if (error) throw error;
     if (!won || won.length === 0) return; // a concurrent delivery already confirmed it
@@ -520,6 +523,17 @@ export async function setReservationStatus(
         .sort((a, b) => a - b),
       amountCents: row.amount_cents as number,
     });
+  } else if (action === "pending") {
+    // Move a CONFIRMED reservation back to pending (admin mistake, or reworking a
+    // payment). Only from confirmed — never resurrect a released one. Tables stay
+    // held (active unchanged); clear paid_at.
+    if (row.status !== "confirmed") return;
+    const { error } = await sb
+      .from("reservations")
+      .update({ status: "pending", paid_at: null, updated_at: new Date().toISOString() })
+      .eq("id", row.id)
+      .eq("status", "confirmed");
+    if (error) throw error;
   } else {
     // Release: free the tables FIRST (active=false) so a later failure can't
     // strand them as "taken"; then mark released + drop featured so a released

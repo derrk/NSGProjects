@@ -1,7 +1,13 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { formatUSD, getTable, SEATING_TABLES } from "../reserve/tables";
+import { formatUSD, getTable, SEATING_TABLES, FOUNDER_TABLES, TABLE_LAYOUT } from "../reserve/tables";
+import { EVENT_DATE_ISO, EVENT_DATE_LABEL } from "../lib/site";
+
+// Bookable vendor tables (excludes founder HQ + seating).
+const BOOKABLE_TABLE_COUNT = TABLE_LAYOUT.filter(
+  (t) => !FOUNDER_TABLES.includes(t.id) && !SEATING_TABLES.includes(t.id)
+).length;
 
 interface AdminReservation {
   id: string;
@@ -102,7 +108,7 @@ export default function AdminPage() {
     await load();
   };
 
-  const act = async (resCode: string, action: "confirm" | "release") => {
+  const act = async (resCode: string, action: "confirm" | "release" | "pending") => {
     setBusy(resCode + action);
     await fetch("/api/admin/reservations/action", {
       method: "POST",
@@ -176,7 +182,18 @@ export default function AdminPage() {
   const pending = rows.filter((r) => r.status === "pending");
   const confirmed = rows.filter((r) => r.status === "confirmed");
   const totalConfirmed = confirmed.reduce((s, r) => s + r.amountCents, 0);
-  const tablesSold = confirmed.reduce((s, r) => s + r.tables.length, 0);
+  // Count TABLES, not reservations (a vendor may hold multiple), and only tables
+  // that are actually part of the bookable pool (exclude any stranded on removed
+  // / founder / seating tables so availability math stays correct).
+  const bookableTables = (ts: number[]) =>
+    ts.filter((t) => getTable(t) && !FOUNDER_TABLES.includes(t) && !SEATING_TABLES.includes(t));
+  const tablesSold = confirmed.reduce((s, r) => s + bookableTables(r.tables).length, 0);
+  const pendingTables = pending.reduce((s, r) => s + bookableTables(r.tables).length, 0);
+  const availableTables = Math.max(0, BOOKABLE_TABLE_COUNT - tablesSold - pendingTables);
+  const daysUntilShow = Math.max(
+    0,
+    Math.ceil((new Date(EVENT_DATE_ISO).getTime() - Date.now()) / 86_400_000)
+  );
 
   return (
     <main className="min-h-screen px-4 sm:px-8 py-10 max-w-4xl mx-auto">
@@ -241,22 +258,37 @@ export default function AdminPage() {
             </button>
           </div>
 
-          {/* Stats */}
-          <div className="grid grid-cols-4 gap-3">
-            <Stat label="Pending" value={String(pending.length)} />
-            <Stat label="Tables sold" value={String(tablesSold)} />
-            <Stat label="Confirmed $" value={formatUSD(totalConfirmed)} />
+          {/* Countdown to show day */}
+          <div className="retro-panel p-4 flex items-center justify-between gap-3">
+            <div>
+              <p className="pixel-eyebrow text-[#A855F7]" style={{ fontSize: 9 }}>Countdown</p>
+              <p className="text-white mt-1">
+                <span className="text-3xl font-black tabular-nums">{daysUntilShow}</span>{" "}
+                <span className="text-sm text-[#E5E7EB]/70">
+                  {daysUntilShow === 1 ? "day" : "days"} until the show
+                </span>
+              </p>
+            </div>
+            <p className="text-sm text-[#E5E7EB]/50 text-right shrink-0">{EVENT_DATE_LABEL}</p>
+          </div>
+
+          {/* Stats (all table counts, not reservation counts) */}
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+            <Stat label="Available" value={String(availableTables)} />
+            <Stat label="Pending" value={String(pendingTables)} />
+            <Stat label="Sold" value={String(tablesSold)} />
+            <Stat label="Revenue" value={formatUSD(totalConfirmed)} />
             <Stat label="Inquiries" value={String(newInquiries.length)} />
           </div>
 
-          <Section title={`Pending payment (${pending.length})`}>
+          <Section title={`Pending payment (${pending.length} ${pending.length === 1 ? "vendor" : "vendors"} · ${pendingTables} ${pendingTables === 1 ? "table" : "tables"})`}>
             {pending.length === 0 && <Empty>No pending requests.</Empty>}
             {pending.map((r) => (
               <ResRow key={r.id} r={r} busy={busy} onEdit={() => setEditRes(r)} onConfirm={() => act(r.resCode, "confirm")} onRelease={() => act(r.resCode, "release")} />
             ))}
           </Section>
 
-          <Section title={`Confirmed (${confirmed.length})`}>
+          <Section title={`Confirmed (${confirmed.length} ${confirmed.length === 1 ? "vendor" : "vendors"} · ${tablesSold} ${tablesSold === 1 ? "table" : "tables"})`}>
             {confirmed.length === 0 && <Empty>None yet.</Empty>}
             {confirmed.map((r) => (
               <ResRow
@@ -266,6 +298,7 @@ export default function AdminPage() {
                 onEdit={() => setEditRes(r)}
                 onResend={() => resendEmail(r.resCode)}
                 onToggleFeature={() => toggleFeature(r.resCode, !r.featured)}
+                onUnconfirm={() => act(r.resCode, "pending")}
                 onRelease={() => act(r.resCode, "release")}
               />
             ))}
@@ -392,6 +425,7 @@ function ResRow({
   onEdit,
   onResend,
   onToggleFeature,
+  onUnconfirm,
 }: {
   r: AdminReservation;
   busy: string | null;
@@ -400,6 +434,7 @@ function ResRow({
   onEdit?: () => void;
   onResend?: () => void;
   onToggleFeature?: () => void;
+  onUnconfirm?: () => void;
 }) {
   return (
     <div className="retro-panel p-4">
@@ -484,13 +519,24 @@ function ResRow({
                 {busy === r.resCode + "resend" ? "Sending…" : "Resend email"}
               </button>
             )}
+            {onUnconfirm && (
+              <button
+                onClick={onUnconfirm}
+                disabled={!!busy}
+                title="Move back to pending payment"
+                className="px-3 py-1.5 rounded-lg bg-[#FACC15]/15 border border-[#FACC15]/40 text-[#FACC15] text-xs font-semibold hover:bg-[#FACC15]/25 disabled:opacity-50"
+              >
+                {busy === r.resCode + "pending" ? "…" : "↩ Pending"}
+              </button>
+            )}
             {onRelease && (
               <button
                 onClick={onRelease}
                 disabled={!!busy}
+                title={onUnconfirm ? "Cancel this reservation and free the table(s)" : "Release the held table(s)"}
                 className="px-3 py-1.5 rounded-lg bg-red-500/15 border border-red-500/30 text-red-300 text-xs font-semibold hover:bg-red-500/25 disabled:opacity-50"
               >
-                Release
+                {onUnconfirm ? "Cancel" : "Release"}
               </button>
             )}
           </div>
@@ -680,6 +726,15 @@ function EditReservationModal({
                     {form.photo ? "Change image" : "Upload image"}
                   </button>
                   {form.photo && (
+                    <a
+                      href={form.photo}
+                      download={`${(form.business || "vendor").replace(/[^a-z0-9]+/gi, "-").toLowerCase() || "vendor"}-logo.jpg`}
+                      className="text-xs text-[#A855F7] hover:underline"
+                    >
+                      Save image
+                    </a>
+                  )}
+                  {form.photo && (
                     <button
                       type="button"
                       onClick={() => setForm((f) => ({ ...f, photo: "" }))}
@@ -772,6 +827,19 @@ function BroadcastModal({
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [attach, setAttach] = useState<{ filename: string; content: string } | null>(null);
+  const attachRef = useRef<HTMLInputElement>(null);
+
+  const onAttach = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      setAttach({ filename: file.name, content: dataUrl.split(",")[1] ?? "" });
+    };
+    reader.readAsDataURL(file);
+  };
 
   const statuses = [
     ...(toConfirmed ? ["confirmed"] : []),
@@ -792,12 +860,14 @@ function BroadcastModal({
     if (statuses.length === 0) return setErr("Pick at least one group to send to.");
     if (!subject.trim() || !message.trim()) return setErr("Add a subject and a message.");
     if (recipientCount === 0) return setErr("No vendors match the selected groups yet.");
+    if (attach && attach.content.length > 3_500_000)
+      return setErr("That image is too large — please use one under ~2.5MB.");
     setSending(true);
     try {
       const res = await fetch("/api/admin/broadcast", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ statuses, subject, message }),
+        body: JSON.stringify({ statuses, subject, message, attachment: attach }),
       });
       const j = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -806,6 +876,7 @@ function BroadcastModal({
           not_configured: "Backend isn't configured.",
           no_recipients_selected: "Pick at least one group to send to.",
           subject_and_message_required: "Add a subject and a message.",
+          attachment_too_large: "That image is too large — please use one under ~2.5MB.",
         };
         setErr(map[j.error as string] ?? "Couldn't send — try again.");
         setSending(false);
@@ -884,6 +955,31 @@ function BroadcastModal({
               placeholder={"Hey! Quick update for our vendors…\n\nLinks (https://…) become clickable. Blank lines start new paragraphs."}
             />
           </EditField>
+
+          <EditField label="Attach an image (optional)">
+            <input ref={attachRef} type="file" accept="image/*" onChange={onAttach} className="hidden" />
+            {attach ? (
+              <div className="flex items-center gap-3 text-sm">
+                <span className="text-[#E5E7EB]/80 truncate">📎 {attach.filename}</span>
+                <button type="button" onClick={() => setAttach(null)} className="text-xs text-[#E5E7EB]/40 hover:text-red-400 shrink-0">
+                  Remove
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => attachRef.current?.click()}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#0B0713] border border-white/10 text-[#E5E7EB]/80 hover:text-white hover:border-[#A855F7]/40 text-xs font-medium"
+              >
+                Choose image
+              </button>
+            )}
+            <p className="text-[11px] text-[#E5E7EB]/40 mt-1.5 leading-snug">
+              Attaches to the email (e.g. a flyer). Keep it under ~2.5MB. Attaching sends individually,
+              so a large list takes a little longer.
+            </p>
+          </EditField>
+
           <p className="text-[11px] text-[#E5E7EB]/40">
             Sent from your branded address with the 940 Collector&apos;s Expo header. Heads up: the free
             Resend tier caps at 100 emails/day — shared with automatic confirmation emails — so a large
