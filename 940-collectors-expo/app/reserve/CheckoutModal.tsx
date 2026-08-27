@@ -461,8 +461,8 @@ export default function CheckoutModal({
                         </div>
                       </div>
                       <p className="text-[11px] text-[#FACC15]/90 mt-3 leading-snug font-medium">
-                        ⚠ You have {EVENT.zelleHoldHours} hours to send the Zelle. If payment isn&apos;t received
-                        by then, the hold is released and your table(s) reopen — you&apos;d need to reserve again.
+                        ⚠ Please send your Zelle within {EVENT.zelleHoldHours} hours to secure your table —
+                        after that we may release the hold to make room for other vendors.
                       </p>
                     </div>
                   )}
@@ -524,8 +524,8 @@ export default function CheckoutModal({
                   </div>
 
                   <p className="text-xs text-[#FACC15]/90 font-medium mb-3">
-                    ⚠ Send your Zelle within {EVENT.zelleHoldHours} hours — otherwise the hold is
-                    released and your table(s) reopen to other vendors.
+                    ⚠ Please send your Zelle within {EVENT.zelleHoldHours} hours to secure your table —
+                    after that we may release the hold to make room for other vendors.
                   </p>
                   <p className="text-xs text-[#E5E7EB]/40 mb-5">
                     Your spot shows as <span className="text-[#FACC15] font-semibold">held / pending</span> on the

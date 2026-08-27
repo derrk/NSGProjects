@@ -4,7 +4,7 @@ import { supabaseConfigured } from "../../../../lib/supabase";
 import { updateReservation, type ReservationEdit } from "../../../../lib/reservations-service";
 
 // String-valued fields only (amountCents is a number, handled separately below).
-type StringField = "business" | "instagram" | "bio" | "firstName" | "lastName" | "email" | "phone" | "category";
+type StringField = "business" | "instagram" | "bio" | "firstName" | "lastName" | "email" | "phone" | "category" | "photo";
 const ALLOWED: StringField[] = [
   "business",
   "instagram",
@@ -14,6 +14,7 @@ const ALLOWED: StringField[] = [
   "email",
   "phone",
   "category",
+  "photo",
 ];
 
 export async function POST(req: Request) {

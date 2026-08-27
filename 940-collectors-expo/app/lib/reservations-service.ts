@@ -65,34 +65,16 @@ function genCode(): string {
   return `940CE-${n}`;
 }
 
-// Release Zelle holds whose deadline (expires_at) has passed: free their tables
-// (active=false) and mark the reservation released so the tables become bookable
-// again. Called on the hot read/write paths so expiry needs no separate cron.
-// Rows with a null expires_at (created before this feature) are left untouched.
-async function expirePendingHolds(sb: ReturnType<typeof getServiceClient>): Promise<void> {
-  const nowIso = new Date().toISOString();
-  // Only Zelle holds are swept here. Stripe holds are released solely by the
-  // checkout.session.expired webhook (which can only fire once the session is
-  // terminally unpaid), so a paid-but-not-yet-confirmed card hold can never be
-  // released out from under the vendor.
-  const { data: expired, error } = await sb
-    .from("reservations")
-    .select("id")
-    .eq("status", "pending")
-    .eq("payment_method", "zelle")
-    .lt("expires_at", nowIso);
-  if (error || !expired?.length) return;
-  const ids = (expired as { id: string }[]).map((r) => r.id);
-  await sb.from("reservation_tables").update({ active: false }).in("reservation_id", ids);
-  await sb.from("reservations").update({ status: "released", updated_at: nowIso }).in("id", ids);
-}
+// NOTE: The 12-hour Zelle window is a VISUAL warning only — Zelle holds are NOT
+// auto-released. An unpaid hold stays until an admin releases it via /admin.
+// (Abandoned Stripe card holds are still freed by the checkout.session.expired
+// webhook — that's independent of the Zelle window.)
 
 export async function getPublicState(): Promise<{
   reservations: PublicReservation[];
   blocked: number[];
 }> {
   const sb = getServiceClient();
-  await expirePendingHolds(sb);
   const [{ data: rt, error: e1 }, { data: bl, error: e2 }] = await Promise.all([
     sb
       .from("reservation_tables")
@@ -130,7 +112,6 @@ export async function createHold(
   input: HoldInput
 ): Promise<{ resCode: string; amountCents: number; paymentMethod: "zelle" | "stripe"; checkoutUrl?: string }> {
   const sb = getServiceClient();
-  await expirePendingHolds(sb); // free any lapsed Zelle holds before checking availability
   const tableNumbers = [...new Set(input.tableNumbers)].filter((n) => !!getTable(n));
   if (tableNumbers.length === 0) throw new Error("No valid tables selected.");
 
@@ -260,6 +241,7 @@ export interface AdminReservation {
   phone: string | null;
   instagram: string | null;
   category: string | null;
+  photo: string | null;
   amountCents: number;
   promoCode: string | null;
   featured: boolean;
@@ -272,7 +254,7 @@ export async function listReservations(): Promise<AdminReservation[]> {
   const { data, error } = await sb
     .from("reservations")
     .select(
-      "id,res_code,status,business,first_name,last_name,email,phone,instagram,category,amount_cents,promo_code,featured,created_at,reservation_tables(table_number,active)"
+      "id,res_code,status,business,first_name,last_name,email,phone,instagram,category,photo,amount_cents,promo_code,featured,created_at,reservation_tables(table_number,active)"
     )
     .order("created_at", { ascending: false });
   if (error) throw error;
@@ -287,6 +269,7 @@ export async function listReservations(): Promise<AdminReservation[]> {
     phone: (r.phone as string) ?? null,
     instagram: (r.instagram as string) ?? null,
     category: (r.category as string) ?? null,
+    photo: (r.photo as string) ?? null,
     amountCents: r.amount_cents as number,
     promoCode: (r.promo_code as string) ?? null,
     featured: (r.featured as boolean) ?? false,
@@ -307,6 +290,7 @@ export interface ReservationEdit {
   email?: string;
   phone?: string;
   category?: string;
+  photo?: string; // vendor's table image (data URL); "" clears it
   amountCents?: number; // admin override of the amount actually collected
 }
 
@@ -322,6 +306,7 @@ export async function updateReservation(resCode: string, fields: ReservationEdit
   if (fields.email !== undefined) patch.email = fields.email;
   if (fields.phone !== undefined) patch.phone = fields.phone || null;
   if (fields.category !== undefined) patch.category = fields.category || null;
+  if (fields.photo !== undefined) patch.photo = fields.photo || null;
   if (fields.amountCents !== undefined) patch.amount_cents = fields.amountCents;
   const { error } = await sb.from("reservations").update(patch).eq("res_code", resCode);
   if (error) throw error;

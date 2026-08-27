@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { formatUSD, getTable, SEATING_TABLES } from "../reserve/tables";
 
 interface AdminReservation {
@@ -14,6 +14,7 @@ interface AdminReservation {
   phone: string | null;
   instagram: string | null;
   category: string | null;
+  photo: string | null;
   amountCents: number;
   promoCode: string | null;
   featured: boolean;
@@ -525,15 +526,43 @@ function EditReservationModal({
     email: res.email ?? "",
     phone: res.phone ?? "",
     category: res.category ?? "",
+    photo: res.photo ?? "",
     amountPaid: res.amountCents != null ? (res.amountCents / 100).toString() : "",
     tables: res.tables.join(", "),
   });
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const set =
     (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
       setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  // Downscale an admin-uploaded vendor logo to a ~200px square JPEG data URL
+  // (same treatment as the vendor's own checkout upload) so it renders on the map.
+  const onPhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new window.Image();
+      img.onload = () => {
+        const size = 200;
+        const canvas = document.createElement("canvas");
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return;
+        const scale = Math.max(size / img.width, size / img.height);
+        const w = img.width * scale;
+        const h = img.height * scale;
+        ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+        setForm((f) => ({ ...f, photo: canvas.toDataURL("image/jpeg", 0.82) }));
+      };
+      img.src = reader.result as string;
+    };
+    reader.readAsDataURL(file);
+  };
 
   const save = async () => {
     if (!form.business.trim()) {
@@ -572,6 +601,7 @@ function EditReservationModal({
       email: form.email,
       phone: form.phone,
       category: form.category,
+      photo: form.photo,
     };
     if (amountCents !== undefined) fields.amountCents = amountCents;
 
@@ -629,6 +659,42 @@ function EditReservationModal({
           <span className="text-[11px] font-mono text-[#E5E7EB]/40">{res.resCode}</span>
         </div>
         <div className="space-y-3">
+          <EditField label="Table image (logo shown on the map)">
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 rounded-xl overflow-hidden bg-[#0B0713] border border-white/10 flex items-center justify-center shrink-0">
+                {form.photo ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={form.photo} alt="Vendor" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-[10px] text-[#E5E7EB]/30 text-center px-1">No image</span>
+                )}
+              </div>
+              <div className="min-w-0">
+                <input ref={fileRef} type="file" accept="image/*" onChange={onPhoto} className="hidden" />
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => fileRef.current?.click()}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#0B0713] border border-white/10 text-[#E5E7EB]/80 hover:text-white hover:border-[#A855F7]/40 transition-colors text-xs font-medium"
+                  >
+                    {form.photo ? "Change image" : "Upload image"}
+                  </button>
+                  {form.photo && (
+                    <button
+                      type="button"
+                      onClick={() => setForm((f) => ({ ...f, photo: "" }))}
+                      className="text-xs text-[#E5E7EB]/40 hover:text-red-400 transition-colors"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+                <p className="text-[11px] text-[#E5E7EB]/40 mt-1.5 leading-snug">
+                  Replaces the table number on the map. A square logo works best.
+                </p>
+              </div>
+            </div>
+          </EditField>
           <EditField label="Business name (shown on the map)">
             <input className={input} value={form.business} onChange={set("business")} />
           </EditField>
