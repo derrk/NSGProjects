@@ -7,6 +7,7 @@ const navLinks = [
   { label: "Home", href: "/#home" },
   { label: "About", href: "/#about" },
   { label: "Vendors", href: "/#vendors" },
+  { label: "Buy Tickets", href: "/tickets" },
   { label: "Reserve a Table", href: "/reserve" },
   { label: "FAQ", href: "/#faq" },
   { label: "Contact", href: "/#contact" },

@@ -43,6 +43,29 @@ interface AdminInquiry {
   createdAt: string;
 }
 
+interface AdminTicket {
+  id: string;
+  orderCode: string;
+  name: string;
+  phone: string;
+  email: string;
+  vipQty: number;
+  gaQty: number;
+  extraEntries: number;
+  giveawayEntries: number;
+  amountCents: number;
+  status: string;
+  paidAt: string | null;
+  createdAt: string;
+}
+
+function csvCell(v: unknown): string {
+  let s = String(v ?? "");
+  // Neutralize spreadsheet formula injection (=, +, -, @, tab, CR lead chars).
+  if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+  return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
 export default function AdminPage() {
   const [authed, setAuthed] = useState<boolean | null>(null);
   const [configured, setConfigured] = useState(true);
@@ -50,6 +73,8 @@ export default function AdminPage() {
   const [loginError, setLoginError] = useState<string | null>(null);
   const [rows, setRows] = useState<AdminReservation[]>([]);
   const [inquiries, setInquiries] = useState<AdminInquiry[]>([]);
+  const [tickets, setTickets] = useState<AdminTicket[]>([]);
+  const [ticketSearch, setTicketSearch] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [editRes, setEditRes] = useState<AdminReservation | null>(null);
   const [broadcastOpen, setBroadcastOpen] = useState(false);
@@ -78,6 +103,16 @@ export default function AdminPage() {
     if (iq.ok) {
       const ij = await iq.json();
       setInquiries(ij.inquiries ?? []);
+    }
+    const tk = await fetch("/api/admin/tickets", { cache: "no-store" });
+    if (tk.ok) {
+      const tj = await tk.json();
+      setTickets(tj.tickets ?? []);
+    } else {
+      setFlash({
+        text: "Couldn't load online ticket orders — the server returned an error. If you just deployed, make sure the ticket_orders migration (0005) has been run.",
+        kind: "error",
+      });
     }
   }, []);
 
@@ -167,6 +202,21 @@ export default function AdminPage() {
     setBusy(null);
   };
 
+  const exportTicketsCsv = () => {
+    const header = ["Order", "Name", "Phone", "Email", "VIP", "General", "ExtraEntries", "GiveawayEntries", "AmountUSD", "PaidAt"];
+    const lines = paidTickets.map((t) => [
+      t.orderCode, t.name, t.phone, t.email, t.vipQty, t.gaQty, t.extraEntries, t.giveawayEntries,
+      (t.amountCents / 100).toFixed(2), t.paidAt ?? "",
+    ]);
+    const csv = [header, ...lines].map((r) => r.map(csvCell).join(",")).join("\r\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "940-expo-tickets.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const archiveInquiry = async (id: string, status: "new" | "archived") => {
     setBusy(id);
     await fetch("/api/admin/inquiries/action", {
@@ -194,6 +244,16 @@ export default function AdminPage() {
     0,
     Math.ceil((new Date(EVENT_DATE_ISO).getTime() - Date.now()) / 86_400_000)
   );
+
+  // Online tickets.
+  const paidTickets = tickets.filter((t) => t.status === "paid");
+  const ticketRevenue = paidTickets.reduce((s, t) => s + t.amountCents, 0);
+  const vipSold = paidTickets.reduce((s, t) => s + t.vipQty, 0);
+  const gaSold = paidTickets.reduce((s, t) => s + t.gaQty, 0);
+  const entriesTotal = paidTickets.reduce((s, t) => s + t.giveawayEntries, 0);
+  const ticketMatches = ticketSearch.trim()
+    ? paidTickets.filter((t) => t.name.toLowerCase().includes(ticketSearch.trim().toLowerCase()))
+    : paidTickets;
 
   return (
     <main className="min-h-screen px-4 sm:px-8 py-10 max-w-4xl mx-auto">
@@ -301,6 +361,64 @@ export default function AdminPage() {
                 onUnconfirm={() => act(r.resCode, "pending")}
                 onRelease={() => act(r.resCode, "release")}
               />
+            ))}
+          </Section>
+
+          <Section title={`Online tickets (${paidTickets.length} ${paidTickets.length === 1 ? "order" : "orders"})`}>
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+              <Stat label="Orders" value={String(paidTickets.length)} />
+              <Stat label="VIP" value={String(vipSold)} />
+              <Stat label="General" value={String(gaSold)} />
+              <Stat label="Entries" value={String(entriesTotal)} />
+              <Stat label="Ticket $" value={formatUSD(ticketRevenue)} />
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                value={ticketSearch}
+                onChange={(e) => setTicketSearch(e.target.value)}
+                placeholder="Search by name (door check-in)…"
+                className="flex-1 min-w-[180px] px-3.5 py-2 rounded-xl bg-[#0B0713] border border-white/10 text-white text-sm focus:outline-none focus:border-[#A855F7]/50"
+              />
+              <button
+                onClick={exportTicketsCsv}
+                disabled={paidTickets.length === 0}
+                className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-[#E5E7EB]/70 text-xs font-semibold hover:text-white disabled:opacity-50"
+              >
+                Export CSV
+              </button>
+            </div>
+            {paidTickets.length === 0 && <Empty>No paid ticket orders yet.</Empty>}
+            {paidTickets.length > 0 && ticketMatches.length === 0 && (
+              <Empty>No matches for &ldquo;{ticketSearch}&rdquo;.</Empty>
+            )}
+            {ticketMatches.map((t) => (
+              <div key={t.id} className="retro-panel p-4 flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-bold text-white">{t.name}</p>
+                  <p className="text-xs text-[#E5E7EB]/50">
+                    {t.phone}
+                    {t.email ? ` · ${t.email}` : ""}
+                  </p>
+                  <div className="flex flex-wrap gap-1.5 mt-2 text-[11px]">
+                    {t.vipQty > 0 && (
+                      <span className="px-2 py-0.5 rounded bg-[#FACC15]/15 border border-[#FACC15]/40 text-[#FACC15] font-bold">VIP × {t.vipQty}</span>
+                    )}
+                    {t.gaQty > 0 && (
+                      <span className="px-2 py-0.5 rounded bg-[#A855F7]/15 border border-[#A855F7]/30 text-[#A855F7] font-bold">GA × {t.gaQty}</span>
+                    )}
+                    {t.extraEntries > 0 && (
+                      <span className="px-2 py-0.5 rounded bg-white/5 border border-white/10 text-[#E5E7EB]/70 font-bold">+{t.extraEntries} extra</span>
+                    )}
+                    <span className="px-2 py-0.5 rounded bg-[#A855F7]/10 border border-[#A855F7]/20 text-[#A855F7]">
+                      {t.giveawayEntries} giveaway {t.giveawayEntries === 1 ? "entry" : "entries"}
+                    </span>
+                  </div>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="font-bold text-white tabular-nums">{formatUSD(t.amountCents)}</p>
+                  <p className="text-[11px] text-[#E5E7EB]/40 font-mono">{t.orderCode}</p>
+                </div>
+              </div>
             ))}
           </Section>
 

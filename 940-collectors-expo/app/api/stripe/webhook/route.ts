@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { getStripe } from "../../../lib/stripe";
 import { setReservationStatus, getResCodeByStripeSession, releaseIfPending } from "../../../lib/reservations-service";
+import { markTicketPaid, getTicketOrderCodeByStripeSession } from "../../../lib/tickets-service";
 
 // Must run on the Node runtime (Stripe uses Node crypto) and never be cached.
 export const runtime = "nodejs";
@@ -31,25 +32,37 @@ export async function POST(req: Request) {
     if (event.type === "checkout.session.completed") {
       const session = event.data.object as Stripe.Checkout.Session;
       if (session.payment_status === "paid") {
+        if (session.metadata?.type === "ticket") {
+          // Attendee ticket order — mark paid + send the proof email (idempotent).
+          const orderCode =
+            (session.metadata?.orderCode as string | undefined) ||
+            session.client_reference_id ||
+            (await getTicketOrderCodeByStripeSession(session.id));
+          if (orderCode) await markTicketPaid(orderCode);
+          else console.error("[stripe] no ticket order for session", session.id);
+        } else {
+          // Vendor table reservation.
+          const resCode =
+            session.client_reference_id ||
+            (session.metadata?.resCode as string | undefined) ||
+            (await getResCodeByStripeSession(session.id));
+          if (resCode) {
+            await setReservationStatus(resCode, "confirm", { source: "stripe" });
+          } else {
+            console.error("[stripe] no reservation found for session", session.id);
+          }
+        }
+      }
+    } else if (event.type === "checkout.session.expired") {
+      // Only reservation holds occupy inventory; tickets don't, so nothing to free.
+      const session = event.data.object as Stripe.Checkout.Session;
+      if (session.metadata?.type !== "ticket") {
         const resCode =
           session.client_reference_id ||
           (session.metadata?.resCode as string | undefined) ||
           (await getResCodeByStripeSession(session.id));
-        if (resCode) {
-          // Idempotent — a retried delivery won't double-confirm or double-email.
-          await setReservationStatus(resCode, "confirm", { source: "stripe" });
-        } else {
-          console.error("[stripe] no reservation found for session", session.id);
-        }
+        if (resCode) await releaseIfPending(resCode);
       }
-    } else if (event.type === "checkout.session.expired") {
-      // The card session lapsed unpaid — free the abandoned hold's tables.
-      const session = event.data.object as Stripe.Checkout.Session;
-      const resCode =
-        session.client_reference_id ||
-        (session.metadata?.resCode as string | undefined) ||
-        (await getResCodeByStripeSession(session.id));
-      if (resCode) await releaseIfPending(resCode);
     }
     return NextResponse.json({ received: true });
   } catch (err) {

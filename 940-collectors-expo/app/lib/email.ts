@@ -255,3 +255,33 @@ export async function sendVendorBroadcast(
   }
   return { sent, failed };
 }
+
+// --- 5) Attendee ticket proof-of-purchase ----------------------------------
+export async function sendTicketConfirmation(t: {
+  orderCode: string;
+  name: string;
+  email: string;
+  vipQty: number;
+  gaQty: number;
+  extraEntries: number;
+  giveawayEntries: number;
+  amountCents: number;
+}) {
+  const hi = t.name ? `Hi ${escapeHtml(t.name.split(" ")[0])},` : "Hi there,";
+  const lines: string[] = [];
+  if (t.vipQty > 0) lines.push(row(`VIP × ${t.vipQty}`, "9:00 AM early entry"));
+  if (t.gaQty > 0) lines.push(row(`General × ${t.gaQty}`, "10:00 AM"));
+  if (t.extraEntries > 0) lines.push(row(`Extra entries × ${t.extraEntries}`, ""));
+  const body = `
+    <p style="color:#d1d5db;font-size:15px;line-height:1.6;margin:0 0 16px;">${hi} you're in! Here's your proof of purchase for the 940 Collector's Expo — show this email at the door.</p>
+    <div style="background:rgba(168,85,247,0.10);border:1px solid rgba(168,85,247,0.4);border-radius:12px;padding:16px;margin:0 0 16px;">
+      <table style="width:100%;border-collapse:collapse;">
+        ${lines.join("")}
+        ${row("Giveaway entries", String(t.giveawayEntries))}
+        ${row("Total paid", formatUSD(t.amountCents))}
+        ${row("Order #", t.orderCode)}
+      </table>
+    </div>
+    <p style="color:#9ca3af;font-size:13px;line-height:1.6;margin:0;">At the door, just show this email or give your name — we'll have your order (${t.orderCode}) on the list. ${EVENT.venueName}, Wichita Falls, TX. See you there!</p>`;
+  return send({ to: t.email, subject: `Your 940 Collector's Expo tickets — ${t.orderCode}`, html: shell("You're in! 🎟️", body) });
+}

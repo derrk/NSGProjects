@@ -1,6 +1,6 @@
 import "server-only";
 import Stripe from "stripe";
-import { SITE_NAME, SITE_URL } from "./site";
+import { SITE_NAME, SITE_URL, TICKETS } from "./site";
 
 // Stripe card payments via hosted Checkout. Gated on STRIPE_SECRET_KEY — if it's
 // absent, card checkout is disabled and the site falls back to Zelle only.
@@ -64,7 +64,7 @@ export async function createCheckoutSession(opts: {
     customer_email: opts.email || undefined,
     client_reference_id: opts.resCode,
     // The webhook reconciles the payment back to the reservation via metadata.
-    metadata: { resCode: opts.resCode, reservationId: opts.reservationId },
+    metadata: { type: "reservation", resCode: opts.resCode, reservationId: opts.reservationId },
     success_url: `${origin}/reserve/success?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${origin}/reserve?canceled=1`,
   });
@@ -76,5 +76,65 @@ export async function createCheckoutSession(opts: {
     url: session.url,
     sessionId: session.id,
     expiresAtIso: new Date(holdUntilUnix * 1000).toISOString(),
+  };
+}
+
+// Hosted Checkout for an online attendee ticket order (VIP / General / extra
+// giveaway entries). Amounts come from TICKETS (server-authoritative).
+export async function createTicketCheckoutSession(opts: {
+  orderCode: string;
+  email: string;
+  vipQty: number;
+  gaQty: number;
+  extraEntries: number;
+  origin: string;
+}): Promise<CheckoutSessionInfo | null> {
+  if (!stripe) return null;
+  const origin = opts.origin || SITE_URL;
+  const line_items: Stripe.Checkout.SessionCreateParams.LineItem[] = [];
+  if (opts.vipQty > 0)
+    line_items.push({
+      quantity: opts.vipQty,
+      price_data: {
+        currency: "usd",
+        unit_amount: TICKETS.vip.priceCents,
+        product_data: { name: `${SITE_NAME} — VIP Ticket (9 AM early entry · 2 giveaway entries)` },
+      },
+    });
+  if (opts.gaQty > 0)
+    line_items.push({
+      quantity: opts.gaQty,
+      price_data: {
+        currency: "usd",
+        unit_amount: TICKETS.general.priceCents,
+        product_data: { name: `${SITE_NAME} — General Admission (10 AM · 1 giveaway entry)` },
+      },
+    });
+  if (opts.extraEntries > 0)
+    line_items.push({
+      quantity: opts.extraEntries,
+      price_data: {
+        currency: "usd",
+        unit_amount: TICKETS.extra.priceCents,
+        product_data: { name: `${SITE_NAME} — Extra giveaway entry` },
+      },
+    });
+
+  const expiresAtUnix = Math.floor(Date.now() / 1000) + 60 * 60;
+  const session = await stripe.checkout.sessions.create({
+    mode: "payment",
+    payment_method_types: ["card"],
+    expires_at: expiresAtUnix,
+    line_items,
+    customer_email: opts.email || undefined,
+    client_reference_id: opts.orderCode,
+    metadata: { type: "ticket", orderCode: opts.orderCode },
+    success_url: `${origin}/tickets/success?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${origin}/tickets?canceled=1`,
+  });
+  return {
+    url: session.url,
+    sessionId: session.id,
+    expiresAtIso: new Date((session.expires_at ?? expiresAtUnix) * 1000).toISOString(),
   };
 }

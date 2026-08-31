@@ -8,6 +8,7 @@ const links = [
   { label: "About", href: "/#about" },
   { label: "Vendors", href: "/#vendors" },
   { label: "Events", href: "/#events" },
+  { label: "Tickets", href: "/tickets" },
   { label: "Reserve", href: "/reserve" },
   { label: "FAQ", href: "/#faq" },
   { label: "Contact", href: "/#contact" },
@@ -62,10 +63,10 @@ export default function Nav() {
           {/* Desktop CTA */}
           <div className="hidden lg:flex items-center gap-3">
             <a
-              href="/reserve"
+              href="/tickets"
               className="px-4 py-2 rounded-lg bg-[#A855F7] hover:bg-[#9333EA] text-white text-[10px] font-pixel tracking-wide border-2 border-[#E9D5FF] shadow-[0_3px_0_#6B21A8] active:translate-y-0.5 transition-all duration-100"
             >
-              Reserve a Table
+              Buy Tickets
             </a>
           </div>
 
@@ -95,11 +96,11 @@ export default function Nav() {
               </a>
             ))}
             <a
-              href="/reserve"
+              href="/tickets"
               onClick={() => setOpen(false)}
               className="mt-4 px-5 py-3 rounded-full bg-[#A855F7] text-white text-center font-semibold hover:bg-[#9333EA] transition-colors"
             >
-              Reserve a Table
+              Buy Tickets
             </a>
           </div>
         </div>

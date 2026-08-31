@@ -40,12 +40,41 @@ export const VENDOR_SETUP_LABEL = "7:30 AM – 10 AM";
 export const ADMISSION = {
   doorPrice: "5", // numeric string for structured-data offer
   doorLabel: "$5 at the door",
-  vipLabel: "$10 VIP online — coming soon",
+  vipLabel: "$10 VIP — early 9 AM entry",
   kidsLabel: "Kids under 12 free",
 };
 
 // Public "contact us" address shown on the site.
 export const CONTACT_EMAIL = "hello@xeniilvrie.resend.app";
+
+// Online attendee tickets. Prices in cents; the SERVER recomputes totals from
+// this same config (never trusts client amounts). Giveaway entries are counted.
+export const TICKETS = {
+  vip: {
+    key: "vip" as const,
+    label: "VIP Ticket",
+    priceCents: 1000,
+    entries: 2,
+    admission: "Early entry at 9:00 AM",
+    blurb: "Get in an hour early at 9 AM + 2 giveaway entries.",
+  },
+  general: {
+    key: "general" as const,
+    label: "General Admission",
+    priceCents: 500,
+    entries: 1,
+    admission: "Doors at 10:00 AM",
+    blurb: "Doors at 10 AM + 1 giveaway entry.",
+  },
+  extra: {
+    key: "extra" as const,
+    label: "Extra giveaway entry",
+    priceCents: 500,
+    entries: 1,
+    admission: "",
+    blurb: "Add extra entries to the giveaways ($5 each = 1 entry).",
+  },
+};
 
 // Cities/areas we serve — used in copy + structured-data areaServed for local SEO.
 export const CITIES = [

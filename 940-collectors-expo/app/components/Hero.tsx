@@ -92,12 +92,12 @@ export default function Hero() {
           transition={{ duration: 0.6, delay: 0.4 }}
           className="flex flex-col sm:flex-row gap-4 justify-center"
         >
-          <a href="/reserve" className="retro-btn group">
-            Reserve a Table
+          <a href="/tickets" className="retro-btn group">
+            Buy Tickets
             <ArrowRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
           </a>
-          <a href="#contact" className="retro-btn-outline">
-            Get Event Updates
+          <a href="/reserve" className="retro-btn-outline">
+            Reserve a Table
           </a>
         </motion.div>
       </div>
