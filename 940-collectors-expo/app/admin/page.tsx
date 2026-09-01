@@ -217,9 +217,10 @@ export default function AdminPage() {
     URL.revokeObjectURL(url);
   };
 
-  // Vendor check-in list: every active vendor (pending + confirmed) with table
-  // number(s), paid status, and full contact info. Sorted A→Z by business so the
-  // check-in counter can find a vendor by name.
+  // Vendor check-in list: confirmed + pending vendors only (no released/cancelled
+  // rows), with table number(s), paid status, and full contact info. Fields are
+  // trimmed of stray whitespace. Sorted A→Z by business so the check-in counter
+  // can find a vendor by name.
   const exportVendorsCsv = () => {
     const header = [
       "Status", "Business", "First name", "Last name", "Email", "Phone",
@@ -228,22 +229,25 @@ export default function AdminPage() {
     ];
     const statusLabel = (s: string) =>
       s === "confirmed" ? "Confirmed (paid)" : s === "pending" ? "Pending" : s;
-    const vendorRows = [...rows].sort((a, b) =>
-      (a.business || "").localeCompare(b.business || "", undefined, { sensitivity: "base" })
-    );
+    const clean = (v: unknown) => String(v ?? "").replace(/\s+/g, " ").trim();
+    const vendorRows = rows
+      .filter((r) => r.status === "confirmed" || r.status === "pending")
+      .sort((a, b) =>
+        (a.business || "").localeCompare(b.business || "", undefined, { sensitivity: "base" })
+      );
     const lines = vendorRows.map((r) => [
       statusLabel(r.status),
-      r.business,
-      r.firstName ?? "",
-      r.lastName ?? "",
-      r.email,
-      r.phone ?? "",
-      r.instagram ?? "",
-      r.category ?? "",
+      clean(r.business),
+      clean(r.firstName),
+      clean(r.lastName),
+      clean(r.email),
+      clean(r.phone),
+      clean(r.instagram),
+      clean(r.category),
       [...r.tables].sort((a, b) => a - b).join(" "),
       r.tables.length,
       (r.amountCents / 100).toFixed(2),
-      r.promoCode ?? "",
+      clean(r.promoCode),
       r.resCode,
       r.createdAt ? new Date(r.createdAt).toLocaleDateString() : "",
     ]);
@@ -354,7 +358,7 @@ export default function AdminPage() {
             <div className="flex items-center gap-2 shrink-0">
               <button
                 onClick={exportVendorsCsv}
-                disabled={rows.length === 0}
+                disabled={pending.length + confirmed.length === 0}
                 title="Download the vendor check-in list (tables, paid status, contact info)"
                 className="retro-btn-outline text-xs px-4 py-2 whitespace-nowrap disabled:opacity-50"
               >
