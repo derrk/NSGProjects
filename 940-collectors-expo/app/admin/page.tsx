@@ -217,6 +217,45 @@ export default function AdminPage() {
     URL.revokeObjectURL(url);
   };
 
+  // Vendor check-in list: every active vendor (pending + confirmed) with table
+  // number(s), paid status, and full contact info. Sorted A→Z by business so the
+  // check-in counter can find a vendor by name.
+  const exportVendorsCsv = () => {
+    const header = [
+      "Status", "Business", "First name", "Last name", "Email", "Phone",
+      "Instagram", "Category", "Tables", "Table count", "Amount paid (USD)",
+      "Promo code", "Reservation", "Booked",
+    ];
+    const statusLabel = (s: string) =>
+      s === "confirmed" ? "Confirmed (paid)" : s === "pending" ? "Pending" : s;
+    const vendorRows = [...rows].sort((a, b) =>
+      (a.business || "").localeCompare(b.business || "", undefined, { sensitivity: "base" })
+    );
+    const lines = vendorRows.map((r) => [
+      statusLabel(r.status),
+      r.business,
+      r.firstName ?? "",
+      r.lastName ?? "",
+      r.email,
+      r.phone ?? "",
+      r.instagram ?? "",
+      r.category ?? "",
+      [...r.tables].sort((a, b) => a - b).join(" "),
+      r.tables.length,
+      (r.amountCents / 100).toFixed(2),
+      r.promoCode ?? "",
+      r.resCode,
+      r.createdAt ? new Date(r.createdAt).toLocaleDateString() : "",
+    ]);
+    const csv = [header, ...lines].map((r) => r.map(csvCell).join(",")).join("\r\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "940-expo-vendors.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const archiveInquiry = async (id: string, status: "new" | "archived") => {
     setBusy(id);
     await fetch("/api/admin/inquiries/action", {
@@ -248,6 +287,8 @@ export default function AdminPage() {
   // Online tickets.
   const paidTickets = tickets.filter((t) => t.status === "paid");
   const ticketRevenue = paidTickets.reduce((s, t) => s + t.amountCents, 0);
+  // Combined take = confirmed table fees + paid ticket sales.
+  const grandTotal = totalConfirmed + ticketRevenue;
   const vipSold = paidTickets.reduce((s, t) => s + t.vipQty, 0);
   const gaSold = paidTickets.reduce((s, t) => s + t.gaQty, 0);
   const entriesTotal = paidTickets.reduce((s, t) => s + t.giveawayEntries, 0);
@@ -310,12 +351,22 @@ export default function AdminPage() {
             ) : (
               <span />
             )}
-            <button
-              onClick={() => setBroadcastOpen(true)}
-              className="retro-btn-outline text-xs px-4 py-2 whitespace-nowrap"
-            >
-              ✉ Email vendors
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={exportVendorsCsv}
+                disabled={rows.length === 0}
+                title="Download the vendor check-in list (tables, paid status, contact info)"
+                className="retro-btn-outline text-xs px-4 py-2 whitespace-nowrap disabled:opacity-50"
+              >
+                ⬇ Vendors CSV
+              </button>
+              <button
+                onClick={() => setBroadcastOpen(true)}
+                className="retro-btn-outline text-xs px-4 py-2 whitespace-nowrap"
+              >
+                ✉ Email vendors
+              </button>
+            </div>
           </div>
 
           {/* Countdown to show day */}
@@ -332,13 +383,30 @@ export default function AdminPage() {
             <p className="text-sm text-[#E5E7EB]/50 text-right shrink-0">{EVENT_DATE_LABEL}</p>
           </div>
 
-          {/* Stats (all table counts, not reservation counts) */}
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+          {/* Table counts (tables, not reservations) */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <Stat label="Available" value={String(availableTables)} />
             <Stat label="Pending" value={String(pendingTables)} />
             <Stat label="Sold" value={String(tablesSold)} />
-            <Stat label="Revenue" value={formatUSD(totalConfirmed)} />
             <Stat label="Inquiries" value={String(newInquiries.length)} />
+          </div>
+
+          {/* Revenue — table fees + ticket sales, and the combined total */}
+          <div className="retro-panel p-4">
+            <div className="flex items-baseline justify-between gap-3">
+              <p className="pixel-eyebrow text-[#E5E7EB]/40" style={{ fontSize: 9 }}>Total revenue</p>
+              <p className="text-2xl font-black text-[#FACC15] tabular-nums">{formatUSD(grandTotal)}</p>
+            </div>
+            <div className="grid grid-cols-2 gap-3 mt-3 pt-3 border-t border-white/10">
+              <div>
+                <p className="text-lg font-black text-white tabular-nums">{formatUSD(totalConfirmed)}</p>
+                <p className="pixel-eyebrow text-[#E5E7EB]/40 mt-0.5" style={{ fontSize: 8 }}>Table fees</p>
+              </div>
+              <div>
+                <p className="text-lg font-black text-white tabular-nums">{formatUSD(ticketRevenue)}</p>
+                <p className="pixel-eyebrow text-[#E5E7EB]/40 mt-0.5" style={{ fontSize: 8 }}>Ticket sales</p>
+              </div>
+            </div>
           </div>
 
           <Section title={`Pending payment (${pending.length} ${pending.length === 1 ? "vendor" : "vendors"} · ${pendingTables} ${pendingTables === 1 ? "table" : "tables"})`}>
