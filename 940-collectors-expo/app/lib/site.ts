@@ -10,6 +10,12 @@ export const SITE_URL = (
 
 export const SITE_NAME = "940 Collector's Expo";
 
+// Vendor tables are SOLD OUT — reservations are closed. When false, the /reserve
+// page shows a sold-out notice and does NOT mount the interactive map or its
+// polling (which is what drives DB egress). Online ticket sales are unaffected.
+// Flip back to true to reopen booking.
+export const RESERVATIONS_OPEN = false;
+
 export const VENUE = {
   name: "Delta Hotel by Marriott",
   room: "Shawnee Room",

@@ -53,7 +53,7 @@ export default function TicketsPage() {
   const [canceled, setCanceled] = useState(false);
 
   useEffect(() => {
-    fetch("/api/reservations", { cache: "no-store" })
+    fetch("/api/config", { cache: "no-store" })
       .then((r) => r.json())
       .then((j) => setEnabled(!!j?.stripeEnabled))
       .catch(() => setEnabled(false));

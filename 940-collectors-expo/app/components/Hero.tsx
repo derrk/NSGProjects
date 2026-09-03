@@ -97,7 +97,7 @@ export default function Hero() {
             <ArrowRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
           </a>
           <a href="/reserve" className="retro-btn-outline">
-            Reserve a Table
+            Vendor Tables — Sold Out
           </a>
         </motion.div>
       </div>

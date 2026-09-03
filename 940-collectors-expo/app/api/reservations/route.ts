@@ -1,23 +1,36 @@
 import { NextResponse } from "next/server";
 import { supabaseConfigured } from "../../lib/supabase";
-import { getPublicState, createHold, ConflictError, PromoExhaustedError } from "../../lib/reservations-service";
+import { getPublicState, getVendorMedia, createHold, ConflictError, PromoExhaustedError } from "../../lib/reservations-service";
 import { stripeConfigured } from "../../lib/stripe";
 
 export const dynamic = "force-dynamic";
 
-// Public map state (no contact PII).
-export async function GET() {
+// Public map state (no contact PII). `?media=1` returns the heavy vendor logos +
+// bios separately, so the recurring availability poll stays lightweight.
+export async function GET(req: Request) {
+  const wantsMedia = new URL(req.url).searchParams.get("media") === "1";
   if (!supabaseConfigured()) {
-    return NextResponse.json({ configured: false, stripeEnabled: false, reservations: [], blocked: [] });
+    return wantsMedia
+      ? NextResponse.json({ configured: false, media: [] })
+      : NextResponse.json({ configured: false, stripeEnabled: false, reservations: [], blocked: [] });
   }
   try {
+    if (wantsMedia) {
+      const { media } = await getVendorMedia();
+      return NextResponse.json({ configured: true, media });
+    }
     const state = await getPublicState();
     return NextResponse.json({ configured: true, stripeEnabled: stripeConfigured(), ...state });
   } catch (e) {
-    return NextResponse.json(
-      { configured: true, stripeEnabled: stripeConfigured(), error: String((e as Error)?.message ?? e), reservations: [], blocked: [] },
-      { status: 500 }
-    );
+    return wantsMedia
+      ? NextResponse.json(
+          { configured: true, error: String((e as Error)?.message ?? e), media: [] },
+          { status: 500 }
+        )
+      : NextResponse.json(
+          { configured: true, stripeEnabled: stripeConfigured(), error: String((e as Error)?.message ?? e), reservations: [], blocked: [] },
+          { status: 500 }
+        );
   }
 }
 

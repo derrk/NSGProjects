@@ -79,7 +79,11 @@ export async function getPublicState(): Promise<{
   const [{ data: rt, error: e1 }, { data: bl, error: e2 }] = await Promise.all([
     sb
       .from("reservation_tables")
-      .select("table_number, reservations!inner(res_code,status,business,instagram,bio,photo,category,featured)")
+      // NOTE: intentionally excludes the heavy `photo` (base64 data URL) and
+      // `bio` columns. Those are fetched once via getVendorMedia() instead of on
+      // every 60s poll — otherwise every visitor re-downloads all vendor logos
+      // continuously and blows the DB egress quota.
+      .select("table_number, reservations!inner(res_code,status,business,instagram,category,featured)")
       .eq("active", true),
     sb.from("blocked_tables").select("table_number"),
   ]);
@@ -107,6 +111,61 @@ export async function getPublicState(): Promise<{
     ]),
   ];
   return { reservations, blocked };
+}
+
+// Featured (starred, confirmed) vendors only — small result set for the homepage
+// FeaturedVendors section. Selected straight from `reservations` (one row per
+// vendor, not per table) so the homepage never downloads the whole floor's data.
+export interface FeaturedVendor {
+  resCode: string;
+  business: string;
+  instagram: string | null;
+  bio: string | null;
+  photo: string | null;
+  category: string | null;
+}
+export async function getFeaturedVendors(): Promise<FeaturedVendor[]> {
+  const sb = getServiceClient();
+  const { data, error } = await sb
+    .from("reservations")
+    .select("res_code,business,instagram,bio,photo,category")
+    .eq("featured", true)
+    .eq("status", "confirmed");
+  if (error) throw error;
+  return (data ?? []).map((r: Record<string, unknown>) => ({
+    resCode: r.res_code as string,
+    business: r.business as string,
+    instagram: (r.instagram as string) ?? null,
+    bio: (r.bio as string) ?? null,
+    photo: (r.photo as string) ?? null,
+    category: (r.category as string) ?? null,
+  }));
+}
+
+// Vendor logos + bios keyed by table number. Heavy (base64 photos), so this is
+// fetched sparingly by the client (once on load + after a booking) rather than
+// on the recurring availability poll. Kept separate from getPublicState to keep
+// per-poll egress tiny.
+export async function getVendorMedia(): Promise<{
+  media: { tableNumber: number; photo: string | null; bio: string | null }[];
+}> {
+  const sb = getServiceClient();
+  const { data, error } = await sb
+    .from("reservation_tables")
+    .select("table_number, reservations!inner(photo,bio)")
+    .eq("active", true);
+  if (error) throw error;
+  const media = (data ?? [])
+    .map((row: Record<string, unknown>) => {
+      const r = row.reservations as Record<string, unknown>;
+      return {
+        tableNumber: row.table_number as number,
+        photo: (r.photo as string) ?? null,
+        bio: (r.bio as string) ?? null,
+      };
+    })
+    .filter((m) => m.photo || m.bio);
+  return { media };
 }
 
 export async function createHold(

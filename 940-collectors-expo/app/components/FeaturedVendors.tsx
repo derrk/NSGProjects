@@ -38,15 +38,13 @@ const placeholders = [
   },
 ];
 
-interface PublicRes {
+interface FeaturedRes {
   resCode: string;
-  status: string;
   business: string;
   instagram: string | null;
   bio: string | null;
   photo: string | null;
   category: string | null;
-  featured: boolean;
 }
 
 interface Vendor {
@@ -75,12 +73,11 @@ export default function FeaturedVendors() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch("/api/reservations", { cache: "no-store" });
+        const res = await fetch("/api/featured", { cache: "no-store" });
         if (!res.ok) return;
-        const json: { reservations?: PublicRes[] } = await res.json();
+        const json: { vendors?: FeaturedRes[] } = await res.json();
         const byCode = new Map<string, Vendor>();
-        for (const r of json.reservations ?? []) {
-          if (r.status !== "confirmed" || !r.featured) continue;
+        for (const r of json.vendors ?? []) {
           if (byCode.has(r.resCode)) continue;
           byCode.set(r.resCode, {
             resCode: r.resCode,

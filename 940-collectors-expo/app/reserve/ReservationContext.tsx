@@ -31,7 +31,7 @@ const BOOKABLE_IDS = TABLE_LAYOUT.filter(
 
 const STORAGE_KEY = "940expo.vendors.v4";
 const HOLD_MS = EVENT.holdMinutes * 60 * 1000;
-const POLL_MS = 15000;
+const POLL_MS = 60000;
 
 type VendorMap = Record<number, VendorProfile>;
 type Mode = "loading" | "local" | "backend";
@@ -88,9 +88,28 @@ export function ReservationProvider({ children }: { children: React.ReactNode })
   const [holdExpiresAt, setHoldExpiresAt] = useState<number | null>(null);
   const [remainingMs, setRemainingMs] = useState(0);
   const [promoInput, setPromoInput] = useState("");
+  // Vendor logos/bios, keyed by table number — fetched separately from the
+  // availability poll (they're heavy base64 images) and merged in getVendor().
+  const [media, setMedia] = useState<Record<number, { photo?: string; bio?: string }>>({});
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const modeRef = useRef<Mode>("loading");
   modeRef.current = mode;
+
+  const fetchMedia = useCallback(async () => {
+    try {
+      const res = await fetch("/api/reservations?media=1", { cache: "no-store" });
+      if (!res.ok) return;
+      const json = await res.json();
+      if (!Array.isArray(json?.media)) return;
+      const next: Record<number, { photo?: string; bio?: string }> = {};
+      for (const row of json.media as { tableNumber: number; photo: string | null; bio: string | null }[]) {
+        next[row.tableNumber] = { photo: row.photo ?? undefined, bio: row.bio ?? undefined };
+      }
+      setMedia(next);
+    } catch {
+      /* ignore — map still works without logos */
+    }
+  }, []);
 
   const applyPublic = useCallback((data: { reservations: PublicRes[]; blocked: number[] }) => {
     const map: VendorMap = {};
@@ -178,6 +197,12 @@ export function ReservationProvider({ children }: { children: React.ReactNode })
     };
   }, [mode, refreshBackend]);
 
+  // Load vendor logos/bios once when the backend is available (they rarely change
+  // and are heavy, so they're not part of the recurring poll).
+  useEffect(() => {
+    if (mode === "backend") fetchMedia();
+  }, [mode, fetchMedia]);
+
   const persistLocal = useCallback((next: VendorMap) => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
@@ -239,7 +264,15 @@ export function ReservationProvider({ children }: { children: React.ReactNode })
     (id: number) => !!getTable(id) && !heldIds.has(id),
     [heldIds]
   );
-  const getVendor = useCallback((id: number) => vendors[id], [vendors]);
+  const getVendor = useCallback(
+    (id: number) => {
+      const v = vendors[id];
+      if (!v) return undefined;
+      const m = media[id];
+      return m ? { ...v, photo: m.photo, bio: m.bio } : v;
+    },
+    [vendors, media]
+  );
   const vendorTableIds = useCallback(
     (resId: string) =>
       Object.entries(vendors)
@@ -313,6 +346,7 @@ export function ReservationProvider({ children }: { children: React.ReactNode })
           }
           if (!res.ok || !json.ok) return { error: json.error || "error" };
           await refreshBackend();
+          fetchMedia(); // pick up the just-uploaded vendor logo
           setCart([]);
           setHoldExpiresAt(null);
           setPromoInput("");
@@ -342,7 +376,7 @@ export function ReservationProvider({ children }: { children: React.ReactNode })
       setPromoInput("");
       return { resCode: resId };
     },
-    [cart, promoInput, refreshBackend, persistLocal]
+    [cart, promoInput, refreshBackend, fetchMedia, persistLocal]
   );
 
   return (
