@@ -1,13 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
-import { formatUSD, getTable, SEATING_TABLES, FOUNDER_TABLES, TABLE_LAYOUT } from "../reserve/tables";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { formatUSD, getTable, SEATING_TABLES, TABLE_LAYOUT } from "../reserve/tables";
 import { EVENT_DATE_ISO, EVENT_DATE_LABEL } from "../lib/site";
+import ExpoFloorMap, { type FloorStatus } from "../reserve/ExpoFloorMap";
 
-// Bookable vendor tables (excludes founder HQ + seating).
-const BOOKABLE_TABLE_COUNT = TABLE_LAYOUT.filter(
-  (t) => !FOUNDER_TABLES.includes(t.id) && !SEATING_TABLES.includes(t.id)
-).length;
+// Sellable vendor tables (category "vendor" — excludes ticketing / HQ / seating / reserved).
+const BOOKABLE_TABLE_COUNT = TABLE_LAYOUT.filter((t) => (t.category ?? "vendor") === "vendor").length;
 
 interface AdminReservation {
   id: string;
@@ -79,6 +78,8 @@ export default function AdminPage() {
   const [editRes, setEditRes] = useState<AdminReservation | null>(null);
   const [broadcastOpen, setBroadcastOpen] = useState(false);
   const [flash, setFlash] = useState<{ text: string; kind: "ok" | "error" } | null>(null);
+  const [mapTable, setMapTable] = useState<number | null>(null);
+  const [archiveOpen, setArchiveOpen] = useState(false);
 
   const load = useCallback(async () => {
     const res = await fetch("/api/admin/reservations", { cache: "no-store" });
@@ -150,6 +151,46 @@ export default function AdminPage() {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ resCode, action }),
     });
+    await load();
+    setBusy(null);
+  };
+
+  const holdTable = async (id: number, label: string) => {
+    setBusy("hold" + id);
+    try {
+      const res = await fetch("/api/admin/reservations/hold", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ tableNumbers: [id], label }),
+      });
+      const j = await res.json().catch(() => ({}));
+      setFlash(
+        res.ok
+          ? { text: `Table ${id} held.`, kind: "ok" }
+          : { text: j.error === "conflict" ? `Table ${id} is already taken.` : "Couldn't hold the table.", kind: "error" }
+      );
+    } catch {
+      setFlash({ text: "Couldn't hold the table.", kind: "error" });
+    }
+    setMapTable(null);
+    await load();
+    setBusy(null);
+  };
+
+  const archiveAll = async () => {
+    setBusy("archive");
+    try {
+      const res = await fetch("/api/admin/reservations/archive-all", { method: "POST" });
+      const j = await res.json().catch(() => ({}));
+      setFlash(
+        res.ok
+          ? { text: `Cleared ${j.count ?? 0} hold(s) — fresh show started.`, kind: "ok" }
+          : { text: "Couldn't clear holds — try again.", kind: "error" }
+      );
+    } catch {
+      setFlash({ text: "Couldn't clear holds — try again.", kind: "error" });
+    }
+    setArchiveOpen(false);
     await load();
     setBusy(null);
   };
@@ -274,12 +315,23 @@ export default function AdminPage() {
   const newInquiries = inquiries.filter((i) => i.status !== "archived");
   const pending = rows.filter((r) => r.status === "pending");
   const confirmed = rows.filter((r) => r.status === "confirmed");
+  // Floor-map status (held/confirmed) from the current reservations.
+  const statusMap = useMemo(() => {
+    const m: FloorStatus = {};
+    for (const r of rows) {
+      if (r.status !== "pending" && r.status !== "confirmed") continue;
+      for (const t of r.tables) m[t] = r.status === "confirmed" ? "confirmed" : "held";
+    }
+    return m;
+  }, [rows]);
+  const resForTable = (id: number) =>
+    rows.find((r) => (r.status === "pending" || r.status === "confirmed") && r.tables.includes(id));
   const totalConfirmed = confirmed.reduce((s, r) => s + r.amountCents, 0);
   // Count TABLES, not reservations (a vendor may hold multiple), and only tables
   // that are actually part of the bookable pool (exclude any stranded on removed
   // / founder / seating tables so availability math stays correct).
   const bookableTables = (ts: number[]) =>
-    ts.filter((t) => getTable(t) && !FOUNDER_TABLES.includes(t) && !SEATING_TABLES.includes(t));
+    ts.filter((t) => (getTable(t)?.category ?? "vendor") === "vendor");
   const tablesSold = confirmed.reduce((s, r) => s + bookableTables(r.tables).length, 0);
   const pendingTables = pending.reduce((s, r) => s + bookableTables(r.tables).length, 0);
   const availableTables = Math.max(0, BOOKABLE_TABLE_COUNT - tablesSold - pendingTables);
@@ -370,6 +422,13 @@ export default function AdminPage() {
               >
                 ✉ Email vendors
               </button>
+              <button
+                onClick={() => setArchiveOpen(true)}
+                title="Release all current holds to start a fresh show"
+                className="text-xs px-4 py-2 whitespace-nowrap rounded-lg bg-red-500/15 border border-red-500/30 text-red-300 font-semibold hover:bg-red-500/25"
+              >
+                ↻ Start new show
+              </button>
             </div>
           </div>
 
@@ -412,6 +471,15 @@ export default function AdminPage() {
               </div>
             </div>
           </div>
+
+          <Section title={`Floor map — ${availableTables} of ${BOOKABLE_TABLE_COUNT} tables open`}>
+            <p className="text-xs text-[#E5E7EB]/50 -mt-1 mb-1">
+              Tap an <span className="text-white">open</span> table to hold it (no vendor info needed).
+              Tap a <span className="text-[#FACC15]">held</span> / <span className="text-[#C4B5FD]">sold</span> table
+              to confirm, release, or edit it.
+            </p>
+            <ExpoFloorMap status={statusMap} onTableClick={(id) => setMapTable(id)} maxHeight="70vh" />
+          </Section>
 
           <Section title={`Pending payment (${pending.length} ${pending.length === 1 ? "vendor" : "vendors"} · ${pendingTables} ${pendingTables === 1 ? "table" : "tables"})`}>
             {pending.length === 0 && <Empty>No pending requests.</Empty>}
@@ -524,7 +592,169 @@ export default function AdminPage() {
           }}
         />
       )}
+
+      {mapTable != null && (
+        <TableActionModal
+          tableId={mapTable}
+          res={resForTable(mapTable)}
+          busy={busy}
+          onClose={() => setMapTable(null)}
+          onHold={(label) => holdTable(mapTable, label)}
+          onConfirm={async () => {
+            const r = resForTable(mapTable);
+            if (r) { await act(r.resCode, "confirm"); setMapTable(null); }
+          }}
+          onPending={async () => {
+            const r = resForTable(mapTable);
+            if (r) { await act(r.resCode, "pending"); setMapTable(null); }
+          }}
+          onRelease={async () => {
+            const r = resForTable(mapTable);
+            if (r) { await act(r.resCode, "release"); setMapTable(null); }
+          }}
+          onEdit={() => {
+            const r = resForTable(mapTable);
+            if (r) { setEditRes(r); setMapTable(null); }
+          }}
+        />
+      )}
+
+      {archiveOpen && (
+        <ArchiveModal
+          count={pending.length + confirmed.length}
+          busy={busy === "archive"}
+          onExport={exportVendorsCsv}
+          onConfirm={archiveAll}
+          onClose={() => setArchiveOpen(false)}
+        />
+      )}
     </main>
+  );
+}
+
+function TableActionModal({
+  tableId,
+  res,
+  busy,
+  onClose,
+  onHold,
+  onConfirm,
+  onPending,
+  onRelease,
+  onEdit,
+}: {
+  tableId: number;
+  res?: AdminReservation;
+  busy: string | null;
+  onClose: () => void;
+  onHold: (label: string) => void;
+  onConfirm: () => void;
+  onPending: () => void;
+  onRelease: () => void;
+  onEdit: () => void;
+}) {
+  const [label, setLabel] = useState("");
+  const input =
+    "w-full px-3.5 py-2.5 rounded-xl bg-[#0B0713] border border-white/10 text-white text-sm focus:outline-none focus:border-[#A855F7]/50";
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm retro-panel p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-bold text-white">Table {tableId}</h3>
+          <button onClick={onClose} className="text-[#E5E7EB]/40 hover:text-white text-sm">✕</button>
+        </div>
+
+        {!res && (
+          <div className="space-y-3">
+            <p className="text-sm text-[#E5E7EB]/60">This table is open. Put it on hold — you can add the vendor&apos;s details later.</p>
+            <div>
+              <label className="block text-xs font-medium text-[#E5E7EB]/60 mb-1.5">Label (optional)</label>
+              <input className={input} value={label} onChange={(e) => setLabel(e.target.value)} placeholder="e.g. vendor name or “Held”" />
+            </div>
+            <button onClick={() => onHold(label)} disabled={!!busy} className="retro-btn w-full">
+              {busy === "hold" + tableId ? "Holding…" : "Hold this table"}
+            </button>
+          </div>
+        )}
+
+        {res && (
+          <div className="space-y-3">
+            <div>
+              <p className="font-bold text-white">{res.business}</p>
+              <p className="text-xs text-[#E5E7EB]/50">
+                {res.status === "confirmed" ? "Confirmed (paid)" : "Held — pending"}
+                {res.email ? ` · ${res.email}` : ""}
+                {res.tables.length > 1 ? ` · tables ${[...res.tables].sort((a, b) => a - b).join(", ")}` : ""}
+              </p>
+            </div>
+            <div className="flex flex-col gap-2">
+              {res.status === "pending" && (
+                <button onClick={onConfirm} disabled={!!busy} className="px-3 py-2 rounded-lg bg-green-500/20 border border-green-500/40 text-green-300 text-sm font-semibold hover:bg-green-500/30 disabled:opacity-50">
+                  Confirm paid
+                </button>
+              )}
+              {res.status === "confirmed" && (
+                <button onClick={onPending} disabled={!!busy} className="px-3 py-2 rounded-lg bg-[#FACC15]/15 border border-[#FACC15]/40 text-[#FACC15] text-sm font-semibold hover:bg-[#FACC15]/25 disabled:opacity-50">
+                  ↩ Move to pending
+                </button>
+              )}
+              <button onClick={onEdit} disabled={!!busy} className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-[#E5E7EB]/80 text-sm font-semibold hover:text-white disabled:opacity-50">
+                Edit details
+              </button>
+              <button onClick={onRelease} disabled={!!busy} className="px-3 py-2 rounded-lg bg-red-500/15 border border-red-500/30 text-red-300 text-sm font-semibold hover:bg-red-500/25 disabled:opacity-50">
+                Release table{res.tables.length > 1 ? "s" : ""}
+              </button>
+            </div>
+            {res.tables.length > 1 && (
+              <p className="text-[11px] text-[#E5E7EB]/40">Note: this vendor holds {res.tables.length} tables — actions apply to the whole reservation.</p>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ArchiveModal({
+  count,
+  busy,
+  onExport,
+  onConfirm,
+  onClose,
+}: {
+  count: number;
+  busy: boolean;
+  onExport: () => void;
+  onConfirm: () => void;
+  onClose: () => void;
+}) {
+  const [confirmText, setConfirmText] = useState("");
+  const input =
+    "w-full px-3.5 py-2.5 rounded-xl bg-[#0B0713] border border-white/10 text-white text-sm focus:outline-none focus:border-[#A855F7]/50";
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md retro-panel p-6">
+        <h3 className="font-bold text-white mb-2">Start a new show</h3>
+        <p className="text-sm text-[#E5E7EB]/70 leading-relaxed mb-3">
+          This releases all <b className="text-white">{count}</b> current hold(s)/booking(s) so the floor map
+          starts empty. The rows stay in the database as records — they just come off the map and lists.
+          <b className="text-[#FACC15]"> Export the vendor list first</b> so you keep this show&apos;s records.
+        </p>
+        <button onClick={onExport} className="retro-btn-outline text-xs px-4 py-2 mb-4">⬇ Export Vendors CSV first</button>
+        <label className="block text-xs font-medium text-[#E5E7EB]/60 mb-1.5">Type CLEAR to confirm</label>
+        <input className={input} value={confirmText} onChange={(e) => setConfirmText(e.target.value)} placeholder="CLEAR" />
+        <div className="flex gap-2 mt-5">
+          <button
+            onClick={onConfirm}
+            disabled={busy || confirmText.trim().toUpperCase() !== "CLEAR"}
+            className="flex-1 px-3 py-2.5 rounded-lg bg-red-500/20 border border-red-500/40 text-red-300 font-semibold hover:bg-red-500/30 disabled:opacity-40"
+          >
+            {busy ? "Clearing…" : `Release all ${count} & start fresh`}
+          </button>
+          <button onClick={onClose} className="retro-btn-outline">Cancel</button>
+        </div>
+      </div>
+    </div>
   );
 }
 

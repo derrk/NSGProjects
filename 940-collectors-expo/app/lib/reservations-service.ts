@@ -169,6 +169,70 @@ export async function getVendorMedia(): Promise<{
   return { media };
 }
 
+// Admin-only: put table(s) on hold with minimal info (no vendor profile needed).
+// Creates a pending reservation the organizer can flesh out later via Edit.
+export async function createAdminHold(
+  tableNumbers: number[],
+  label?: string
+): Promise<{ resCode: string; tables: number[] }> {
+  const sb = getServiceClient();
+  const tables = [...new Set(tableNumbers)].filter((n) => !!getTable(n) && !NON_VENDOR_TABLES.includes(n));
+  if (tables.length === 0) throw new Error("No valid tables selected.");
+
+  const [{ data: taken }, { data: blocked }] = await Promise.all([
+    sb.from("reservation_tables").select("table_number").eq("active", true).in("table_number", tables),
+    sb.from("blocked_tables").select("table_number").in("table_number", tables),
+  ]);
+  const conflicts = [
+    ...(taken ?? []).map((t: { table_number: number }) => t.table_number),
+    ...(blocked ?? []).map((b: { table_number: number }) => b.table_number),
+  ];
+  if (conflicts.length) throw new ConflictError([...new Set(conflicts)]);
+
+  const resCode = genCode();
+  const { data: resRow, error: e1 } = await sb
+    .from("reservations")
+    .insert({
+      res_code: resCode,
+      status: "pending",
+      business: (label && label.trim()) || "Held",
+      email: "",
+      amount_cents: 0,
+      payment_method: "zelle",
+    })
+    .select("id")
+    .single();
+  if (e1 || !resRow) throw e1 ?? new Error("Failed to create hold.");
+
+  const rows = tables.map((n) => ({ reservation_id: resRow.id, table_number: n, active: true }));
+  const { error: e2 } = await sb.from("reservation_tables").insert(rows);
+  if (e2) {
+    await sb.from("reservations").delete().eq("id", resRow.id); // cleanup orphan
+    if (e2.code === "23505") throw new ConflictError(tables); // lost a race
+    throw e2;
+  }
+  return { resCode, tables };
+}
+
+// Admin-only: release ALL current holds/confirmations to start a fresh show. Rows
+// stay in the DB (status 'released', tables deactivated) so records survive — they
+// just drop off the public map, admin lists, and the CSV export.
+export async function archiveAllActive(): Promise<{ count: number }> {
+  const sb = getServiceClient();
+  const { data: active, error } = await sb
+    .from("reservations")
+    .select("id")
+    .in("status", ["pending", "confirmed"]);
+  if (error) throw error;
+  const ids = (active ?? []).map((r: { id: string }) => r.id as string);
+  if (ids.length === 0) return { count: 0 };
+  const { error: e1 } = await sb.from("reservation_tables").update({ active: false }).in("reservation_id", ids);
+  if (e1) throw e1;
+  const { error: e2 } = await sb.from("reservations").update({ status: "released" }).in("id", ids);
+  if (e2) throw e2;
+  return { count: ids.length };
+}
+
 export async function createHold(
   input: HoldInput
 ): Promise<{ resCode: string; amountCents: number; paymentMethod: "zelle" | "stripe"; checkoutUrl?: string }> {

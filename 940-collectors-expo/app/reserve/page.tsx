@@ -47,9 +47,9 @@ function PreviewView() {
       </div>
 
       <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 text-xs mb-4">
-        <LegendItem swatch={<span className="w-4 h-3 rounded-[3px] bg-[#120C1F] border border-white/25" />} label="Vendor table" />
+        <LegendItem swatch={<span className="w-4 h-3 rounded-[3px] bg-[#120C1F] border border-white/25" />} label="8′ vendor table" />
+        <LegendItem swatch={<span className="w-3 h-3 rounded-[3px] bg-[#120C1F] border-2 border-[#2DD4BF]" />} label="6′ end cap" />
         <LegendItem swatch={<span className="w-4 h-3 rounded-[3px] bg-[#F97316]/20 border border-[#F97316]" />} label="Reserved" />
-        <LegendItem swatch={<span className="w-4 h-3 rounded-[3px] bg-[#EC4899]/20 border border-[#EC4899]" />} label="Ticketing" />
         <LegendItem swatch={<span className="w-3.5 h-3.5 rounded-full bg-[#FACC15]/15 border border-[#C99A2E]" />} label="Customer seating" />
       </div>
 

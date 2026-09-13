@@ -81,16 +81,19 @@ export default function ExpoFloorMap({ status, onTableClick, selected, busyId, m
           else if (live === "confirmed") state = "confirmed";
           else if (live === "held") state = "held";
           const c = tileColors(state);
+          // 6' island end caps get a teal border so they read as shorter tables.
+          const isCap = t.tableType === "endcap";
+          const stroke = isCap ? "#2DD4BF" : c.stroke;
           const x = px(t.x, CANVAS.w), y = px(t.y, CANVAS.h), w = px(t.w, CANVAS.w), h = px(t.h, CANVAS.h);
           const cx = x + w / 2, cy = y + h / 2;
           const clickable = !!onTableClick && bookable;
-          const label = cat === "ticket" ? "TIX" : cat === "hq" ? "HQ" : cat === "reserved" ? "RES" : cat === "seating" ? "" : String(t.id);
+          const label = cat === "hq" ? "HQ" : cat === "seating" ? "" : String(t.id);
           const rot = t.orientation === "vertical" && cat !== "seating";
           const isBusy = busyId === t.id;
 
           const shape = t.shape === "round"
-            ? <circle cx={cx} cy={cy} r={Math.min(w, h) / 2} fill={c.fill} stroke={c.stroke} strokeWidth={1.6} />
-            : <rect x={x} y={y} width={w} height={h} rx={3} fill={c.fill} stroke={c.stroke} strokeWidth={state === "available" ? 1.2 : 2} />;
+            ? <circle cx={cx} cy={cy} r={Math.min(w, h) / 2} fill={c.fill} stroke={stroke} strokeWidth={1.6} />
+            : <rect x={x} y={y} width={w} height={h} rx={2} fill={c.fill} stroke={stroke} strokeWidth={isCap || state !== "available" ? 2 : 1.2} />;
 
           return (
             <g key={t.id}
@@ -98,7 +101,7 @@ export default function ExpoFloorMap({ status, onTableClick, selected, busyId, m
                style={{ cursor: clickable ? "pointer" : "default", opacity: isBusy ? 0.45 : 1 }}>
               {shape}
               {label && (
-                <text x={cx} y={cy} fill={c.text} fontSize={cat === "ticket" || cat === "hq" ? 13 : 16} fontWeight={700}
+                <text x={cx} y={cy} fill={isCap ? "#2DD4BF" : c.text} fontSize={9} fontWeight={700}
                       textAnchor="middle" dominantBaseline="central"
                       transform={rot ? `rotate(-90 ${cx} ${cy})` : undefined}
                       style={{ pointerEvents: "none", userSelect: "none" }}>
