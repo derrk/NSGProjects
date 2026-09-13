@@ -1,10 +1,11 @@
 import "server-only";
 import { getServiceClient } from "./supabase";
-import { computePricing, getTable, resolvePromo, FOUNDER_TABLES, SEATING_TABLES, EVENT } from "../reserve/tables";
+import { computePricing, getTable, resolvePromo, FOUNDER_TABLES, TICKET_TABLES, SEATING_TABLES, RESERVED_TABLES, EVENT } from "../reserve/tables";
 import { createCheckoutSession, stripeConfigured } from "./stripe";
 
-// Tables that can never be booked by a vendor (organizer HQ + the seating/ripping zone).
-const NON_VENDOR_TABLES = [...FOUNDER_TABLES, ...SEATING_TABLES];
+// Tables that can never be booked by the public (HQ + ticketing + customer seating
+// + the corner tables reserved for a specific vendor).
+const NON_VENDOR_TABLES = [...FOUNDER_TABLES, ...TICKET_TABLES, ...SEATING_TABLES, ...RESERVED_TABLES];
 import {
   sendVendorAcknowledgement,
   sendVendorConfirmation,

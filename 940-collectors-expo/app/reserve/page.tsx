@@ -2,45 +2,79 @@ import type { Metadata } from "next";
 import Nav from "../components/Nav";
 import Footer from "../components/Footer";
 import ReserveClient from "./ReserveClient";
-import { RESERVATIONS_OPEN, EVENT_DATE_LABEL } from "../lib/site";
+import ExpoFloorMap from "./ExpoFloorMap";
+import { RESERVATIONS_MODE } from "../lib/site";
 
-export const metadata: Metadata = RESERVATIONS_OPEN
-  ? {
-      title: "Reserve a Vendor Table",
-      description:
-        "Reserve your vendor table at the 940 Collector's Expo in Wichita Falls, TX. Pick your spot on the interactive floor map, add tables to your cart, and check out. Tables from $99.99.",
-      alternates: { canonical: "/reserve" },
-    }
-  : {
-      title: "Vendor Tables — Sold Out",
-      description:
-        "Vendor tables for the 940 Collector's Expo are sold out. Buy your admission tickets online to attend.",
-      alternates: { canonical: "/reserve" },
-    };
+export const metadata: Metadata =
+  RESERVATIONS_MODE === "open"
+    ? {
+        title: "Reserve a Vendor Table",
+        description:
+          "Reserve your vendor table at the 940 Collector's Expo. Pick your spot on the interactive floor map and check out.",
+        alternates: { canonical: "/reserve" },
+      }
+    : RESERVATIONS_MODE === "preview"
+    ? {
+        title: "Vendor Floor Plan",
+        description:
+          "Preview the vendor floor plan for the next 940 Collector's Expo. Table booking opens soon.",
+        alternates: { canonical: "/reserve" },
+      }
+    : {
+        title: "Vendor Tables — Sold Out",
+        description: "Vendor tables for the 940 Collector's Expo are sold out.",
+        alternates: { canonical: "/reserve" },
+      };
+
+function LegendItem({ swatch, label }: { swatch: React.ReactNode; label: string }) {
+  return (
+    <span className="flex items-center gap-1.5 text-[#E5E7EB]/70">
+      {swatch}
+      {label}
+    </span>
+  );
+}
+
+function PreviewView() {
+  return (
+    <main className="min-h-screen px-4 sm:px-8 pt-24 pb-16 max-w-4xl mx-auto">
+      <div className="text-center mb-6">
+        <p className="pixel-eyebrow text-[#A855F7] mb-2">Next Show &middot; Rooms 1&ndash;4</p>
+        <h1 className="text-3xl sm:text-4xl font-black text-white mb-3">Vendor Floor Plan</h1>
+        <div className="inline-block rounded-xl bg-[#FACC15]/10 border border-[#FACC15]/40 text-[#FACC15] text-sm font-semibold px-4 py-2">
+          Table booking opens soon — here&apos;s the floor plan for our next show.
+        </div>
+      </div>
+
+      <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 text-xs mb-4">
+        <LegendItem swatch={<span className="w-4 h-3 rounded-[3px] bg-[#120C1F] border border-white/25" />} label="Vendor table" />
+        <LegendItem swatch={<span className="w-4 h-3 rounded-[3px] bg-[#F97316]/20 border border-[#F97316]" />} label="Reserved" />
+        <LegendItem swatch={<span className="w-4 h-3 rounded-[3px] bg-[#EC4899]/20 border border-[#EC4899]" />} label="Ticketing" />
+        <LegendItem swatch={<span className="w-3.5 h-3.5 rounded-full bg-[#FACC15]/15 border border-[#C99A2E]" />} label="Customer seating" />
+      </div>
+
+      <ExpoFloorMap maxHeight="80vh" />
+
+      <p className="text-center text-sm text-[#E5E7EB]/50 mt-6">
+        Want a table? Booking opens shortly — check back soon, or reach out to reserve early.
+      </p>
+    </main>
+  );
+}
 
 function SoldOut() {
   return (
     <main className="min-h-screen flex items-center justify-center px-6 py-32">
       <div className="retro-panel p-8 sm:p-10 max-w-lg text-center">
         <p className="pixel-eyebrow text-[#FACC15] mb-3">Vendor Booth Sales</p>
-        <h1 className="text-3xl sm:text-4xl font-black text-white mb-4">
-          Tables Are Sold Out
-        </h1>
-        <p className="text-[#E5E7EB]/70 leading-relaxed mb-2">
-          Every vendor table for the {EVENT_DATE_LABEL} debut is booked — thank
-          you to all our vendors! We&apos;re fully packed for the show floor.
-        </p>
+        <h1 className="text-3xl sm:text-4xl font-black text-white mb-4">Tables Are Sold Out</h1>
         <p className="text-[#E5E7EB]/70 leading-relaxed mb-8">
-          Want to attend? Grab your admission tickets online below and come shop
-          the show.
+          Every vendor table is booked — thank you to all our vendors! Want to attend? Grab your
+          admission tickets online below.
         </p>
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
-          <a href="/tickets" className="retro-btn">
-            Buy Tickets
-          </a>
-          <a href="/" className="retro-btn-outline">
-            Back to Home
-          </a>
+          <a href="/tickets" className="retro-btn">Buy Tickets</a>
+          <a href="/" className="retro-btn-outline">Back to Home</a>
         </div>
       </div>
     </main>
@@ -51,7 +85,13 @@ export default function ReservePage() {
   return (
     <>
       <Nav />
-      {RESERVATIONS_OPEN ? <ReserveClient /> : <SoldOut />}
+      {RESERVATIONS_MODE === "open" ? (
+        <ReserveClient />
+      ) : RESERVATIONS_MODE === "preview" ? (
+        <PreviewView />
+      ) : (
+        <SoldOut />
+      )}
       <Footer />
     </>
   );

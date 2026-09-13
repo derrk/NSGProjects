@@ -39,16 +39,18 @@ export interface TableDef {
   tableType: TableType;
   bundleEligible: boolean;
   adjacentTableIds: number[];
+  shape?: "rect" | "round";
+  category?: "vendor" | "reserved" | "ticket" | "hq" | "seating";
 }
 
-export const CANVAS = { w: 1098, h: 1092 };
+export const CANVAS = { w: 800, h: 1560 };
 
 // ---------------------------------------------------------------------------
 // Admin-configurable event settings (edit here until an admin UI/DB exists).
 // ---------------------------------------------------------------------------
 export const EVENT = {
   name: "940 Collector Expo",
-  venueName: "Shawnee Room",
+  venueName: "Rooms 1–4",
   roomFt: { w: 90, h: 42 },
   standardPriceCents: 9999, // $99.99 per 8' table (intro price)
   endcapPriceCents: 9999, // $99.99 per 6' end-cap table
@@ -82,120 +84,154 @@ export interface PromoCode {
 // add an entry here; a `maxUses` cap is enforced server-side in createHold.
 export const PROMO_CODES: PromoCode[] = [];
 
-// Organizer HQ tables — reserved for the founders (vending, info, tickets,
-// central speaker). Never bookable by the public.
-export const FOUNDER_TABLES = [31, 32, 33, 34];
+// Non-bookable tiles by category (never sold to the public).
+export const FOUNDER_TABLES: number[] = []; // no dedicated HQ tile in this room
+export const TICKET_TABLES = [901]; // ticketing table(s) at the entrance
+export const SEATING_TABLES = [201, 202, 203, 204, 205, 206, 207]; // round customer seating
+export const RESERVED_TABLES = [801, 802, 803]; // bottom-right corner, held for a specific vendor
 
-// Ripping / attendee-seating tiles on the left (ids 201-203) — NOT vendor tables.
-// Non-bookable; shown as a labeled zone on the map. The old left wall (9-18) was
-// removed entirely in the new hotel layout.
-export const SEATING_TABLES = [201, 202, 203];
-
-// Optional demo seeds (only used in the localStorage fallback, not with Supabase).
 export const SEED_RESERVED: number[] = [];
 export const SEED_BLOCKED: number[] = [];
+export const ENDCAP_IDS: number[] = []; // no end-cap bundles in this room
 
-export const ENDCAP_IDS = [41, 50, 59, 68, 77, 86, 95, 104];
+// Entrances (percent range along that edge).
+export const ENTRANCES: { side: "top" | "right" | "bottom" | "left"; a: number; b: number }[] = [
+  { side: "top", a: 14, b: 27 },
+  { side: "right", a: 48, b: 56 },
+];
 
 // ---------------------------------------------------------------------------
-// Authoritative table layout (spec source of truth).
+// Authoritative table layout — "Rooms 1-4" (114 sellable vendor tables numbered
+// 1-114, plus 7 round customer-seating, 1 ticketing, and 3 reserved corner
+// tables). Coordinates are percentages of a 800 x 1560 portrait canvas and
+// match the venue's numbered floor plan.
 // ---------------------------------------------------------------------------
 export const TABLE_LAYOUT: TableDef[] = [
-  { id: 1, zone: "Top Wall", x: 17.8506, y: 7.0513, w: 7.6503, h: 1.7399, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 2, zone: "Top Wall", x: 25.7741, y: 7.0513, w: 7.6503, h: 1.7399, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 7, zone: "Top Wall", x: 67.3042, y: 7.0513, w: 7.6503, h: 1.7399, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 8, zone: "Top Wall", x: 75.2277, y: 7.0513, w: 7.6503, h: 1.7399, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 20, zone: "Right Wall", x: 87.0674, y: 14.011, w: 1.7304, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 21, zone: "Right Wall", x: 87.0674, y: 21.978, w: 1.7304, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 22, zone: "Right Wall", x: 87.0674, y: 29.9451, w: 1.7304, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 23, zone: "Right Wall", x: 87.0674, y: 37.9121, w: 1.7304, h: 7.6007, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 24, zone: "Right Wall", x: 87.0674, y: 48.8095, w: 1.7304, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 25, zone: "Right Wall", x: 87.0674, y: 56.7766, w: 1.7304, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 26, zone: "Right Wall", x: 87.0674, y: 64.7436, w: 1.7304, h: 7.6007, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 27, zone: "Right Wall", x: 87.0674, y: 72.619, w: 1.7304, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 28, zone: "Right Wall", x: 87.0674, y: 80.5861, w: 1.7304, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 30, zone: "Bottom Wall", x: 19.8543, y: 88.5531, w: 7.6503, h: 1.7399, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 31, zone: "Bottom Wall", x: 35.7013, y: 88.5531, w: 7.6503, h: 1.7399, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 32, zone: "Bottom Wall", x: 43.6248, y: 88.5531, w: 7.5592, h: 1.7399, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 33, zone: "Bottom Wall", x: 51.4572, y: 88.5531, w: 7.6503, h: 1.7399, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 34, zone: "Bottom Wall", x: 59.3807, y: 88.5531, w: 7.6503, h: 1.7399, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 35, zone: "Bottom Wall", x: 73.224, y: 88.5531, w: 7.6503, h: 1.7399, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 37, zone: "Top Island 1", x: 20.8561, y: 14.011, w: 1.7304, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 38, zone: "Top Island 1", x: 20.8561, y: 21.978, w: 1.7304, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 39, zone: "Top Island 1", x: 20.8561, y: 29.9451, w: 1.7304, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 40, zone: "Top Island 1", x: 20.8561, y: 37.9121, w: 1.7304, h: 7.6007, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 41, zone: "Top Island 1", x: 22.8597, y: 14.011, w: 5.6466, h: 1.7399, orientation: "horizontal", lengthFt: 6, depthFt: 2.5, tableType: "endcap", bundleEligible: true, adjacentTableIds: [37, 42] },
-  { id: 42, zone: "Top Island 1", x: 28.7796, y: 14.011, w: 1.7304, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 43, zone: "Top Island 1", x: 28.7796, y: 21.978, w: 1.7304, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 44, zone: "Top Island 1", x: 28.7796, y: 29.9451, w: 1.7304, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 45, zone: "Top Island 1", x: 28.7796, y: 37.9121, w: 1.7304, h: 7.6007, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 46, zone: "Top Island 2", x: 37.7049, y: 14.011, w: 1.6393, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 47, zone: "Top Island 2", x: 37.7049, y: 21.978, w: 1.6393, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 48, zone: "Top Island 2", x: 37.7049, y: 29.9451, w: 1.6393, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 49, zone: "Top Island 2", x: 37.7049, y: 37.9121, w: 1.6393, h: 7.6007, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 50, zone: "Top Island 2", x: 39.6175, y: 14.011, w: 5.6466, h: 1.7399, orientation: "horizontal", lengthFt: 6, depthFt: 2.5, tableType: "endcap", bundleEligible: true, adjacentTableIds: [46, 51] },
-  { id: 51, zone: "Top Island 2", x: 45.5373, y: 14.011, w: 1.7304, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 52, zone: "Top Island 2", x: 45.5373, y: 21.978, w: 1.7304, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 53, zone: "Top Island 2", x: 45.5373, y: 29.9451, w: 1.7304, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 54, zone: "Top Island 2", x: 45.5373, y: 37.9121, w: 1.7304, h: 7.6007, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 55, zone: "Top Island 3", x: 53.5519, y: 14.011, w: 1.6393, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 56, zone: "Top Island 3", x: 53.5519, y: 21.978, w: 1.6393, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 57, zone: "Top Island 3", x: 53.5519, y: 29.9451, w: 1.6393, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 58, zone: "Top Island 3", x: 53.5519, y: 37.9121, w: 1.6393, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 59, zone: "Top Island 3", x: 55.4645, y: 14.011, w: 5.6466, h: 1.7399, orientation: "horizontal", lengthFt: 6, depthFt: 2.5, tableType: "endcap", bundleEligible: true, adjacentTableIds: [55, 60] },
-  { id: 60, zone: "Top Island 3", x: 61.3843, y: 14.011, w: 1.7304, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 61, zone: "Top Island 3", x: 61.3843, y: 21.978, w: 1.7304, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 62, zone: "Top Island 3", x: 61.3843, y: 29.9451, w: 1.7304, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 63, zone: "Top Island 3", x: 61.3843, y: 37.9121, w: 1.7304, h: 7.6007, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 64, zone: "Top Island 4", x: 70.3097, y: 14.011, w: 1.6393, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 65, zone: "Top Island 4", x: 70.3097, y: 21.978, w: 1.6393, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 66, zone: "Top Island 4", x: 70.3097, y: 29.9451, w: 1.6393, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 67, zone: "Top Island 4", x: 70.3097, y: 37.9121, w: 1.6393, h: 7.6007, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 68, zone: "Top Island 4", x: 72.2222, y: 14.011, w: 5.7377, h: 1.7399, orientation: "horizontal", lengthFt: 6, depthFt: 2.5, tableType: "endcap", bundleEligible: true, adjacentTableIds: [64, 69] },
-  { id: 69, zone: "Top Island 4", x: 78.2332, y: 14.011, w: 1.6393, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 70, zone: "Top Island 4", x: 78.2332, y: 21.978, w: 1.6393, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 71, zone: "Top Island 4", x: 78.2332, y: 29.9451, w: 1.6393, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 72, zone: "Top Island 4", x: 78.2332, y: 37.9121, w: 1.6393, h: 7.6007, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 73, zone: "Bottom Island 1", x: 20.8561, y: 49.8168, w: 1.7304, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 74, zone: "Bottom Island 1", x: 20.8561, y: 57.7839, w: 1.7304, h: 7.6007, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 75, zone: "Bottom Island 1", x: 20.8561, y: 65.6593, w: 1.7304, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 76, zone: "Bottom Island 1", x: 20.8561, y: 73.6264, w: 1.7304, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 77, zone: "Bottom Island 1", x: 22.8597, y: 79.5788, w: 5.6466, h: 1.7399, orientation: "horizontal", lengthFt: 6, depthFt: 2.5, tableType: "endcap", bundleEligible: true, adjacentTableIds: [76, 81] },
-  { id: 78, zone: "Bottom Island 1", x: 28.7796, y: 49.8168, w: 1.7304, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 79, zone: "Bottom Island 1", x: 28.7796, y: 57.7839, w: 1.7304, h: 7.6007, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 80, zone: "Bottom Island 1", x: 28.7796, y: 65.6593, w: 1.7304, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 81, zone: "Bottom Island 1", x: 28.7796, y: 73.6264, w: 1.7304, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 82, zone: "Bottom Island 2", x: 37.7049, y: 49.8168, w: 1.6393, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 83, zone: "Bottom Island 2", x: 37.7049, y: 57.7839, w: 1.6393, h: 7.6007, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 84, zone: "Bottom Island 2", x: 37.7049, y: 65.6593, w: 1.6393, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 85, zone: "Bottom Island 2", x: 37.7049, y: 73.6264, w: 1.6393, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 86, zone: "Bottom Island 2", x: 39.6175, y: 79.5788, w: 5.6466, h: 1.7399, orientation: "horizontal", lengthFt: 6, depthFt: 2.5, tableType: "endcap", bundleEligible: true, adjacentTableIds: [85, 90] },
-  { id: 87, zone: "Bottom Island 2", x: 45.5373, y: 49.8168, w: 1.7304, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 88, zone: "Bottom Island 2", x: 45.5373, y: 57.7839, w: 1.7304, h: 7.6007, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 89, zone: "Bottom Island 2", x: 45.5373, y: 65.6593, w: 1.7304, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 90, zone: "Bottom Island 2", x: 45.5373, y: 73.6264, w: 1.7304, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 91, zone: "Bottom Island 3", x: 53.4608, y: 49.8168, w: 1.7304, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 92, zone: "Bottom Island 3", x: 53.4608, y: 57.7839, w: 1.7304, h: 7.6007, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 93, zone: "Bottom Island 3", x: 53.4608, y: 65.6593, w: 1.7304, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 94, zone: "Bottom Island 3", x: 53.4608, y: 73.6264, w: 1.7304, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 95, zone: "Bottom Island 3", x: 55.4645, y: 79.5788, w: 5.6466, h: 1.7399, orientation: "horizontal", lengthFt: 6, depthFt: 2.5, tableType: "endcap", bundleEligible: true, adjacentTableIds: [94, 99] },
-  { id: 96, zone: "Bottom Island 3", x: 61.3843, y: 49.8168, w: 1.7304, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 97, zone: "Bottom Island 3", x: 61.3843, y: 57.7839, w: 1.7304, h: 7.6007, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 98, zone: "Bottom Island 3", x: 61.3843, y: 65.6593, w: 1.7304, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 99, zone: "Bottom Island 3", x: 61.3843, y: 73.6264, w: 1.7304, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 100, zone: "Bottom Island 4", x: 70.3097, y: 49.8168, w: 1.6393, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 101, zone: "Bottom Island 4", x: 70.3097, y: 57.7839, w: 1.6393, h: 7.6007, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 102, zone: "Bottom Island 4", x: 70.3097, y: 65.6593, w: 1.6393, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 103, zone: "Bottom Island 4", x: 70.3097, y: 73.6264, w: 1.6393, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 104, zone: "Bottom Island 4", x: 72.2222, y: 79.5788, w: 5.7377, h: 1.7399, orientation: "horizontal", lengthFt: 6, depthFt: 2.5, tableType: "endcap", bundleEligible: true, adjacentTableIds: [103, 108] },
-  { id: 105, zone: "Bottom Island 4", x: 78.2332, y: 49.8168, w: 1.6393, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 106, zone: "Bottom Island 4", x: 78.2332, y: 57.7839, w: 1.6393, h: 7.6007, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 107, zone: "Bottom Island 4", x: 78.2332, y: 65.6593, w: 1.6393, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 108, zone: "Bottom Island 4", x: 78.2332, y: 73.6264, w: 1.6393, h: 7.6923, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  // Left-side ripping / attendee-seating area (NOT vendor tables — non-bookable).
-  { id: 201, zone: "Ripping / Seating", x: 9.4, y: 33.0, w: 3.6, h: 2.3, orientation: "horizontal", lengthFt: 6, depthFt: 2, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 202, zone: "Ripping / Seating", x: 9.4, y: 39.5, w: 3.6, h: 2.3, orientation: "horizontal", lengthFt: 6, depthFt: 2, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
-  { id: 203, zone: "Ripping / Seating", x: 9.4, y: 60.0, w: 3.6, h: 2.3, orientation: "horizontal", lengthFt: 6, depthFt: 2, tableType: "standard", bundleEligible: false, adjacentTableIds: [] },
+  { id: 1, zone: "Vendor", x: 30, y: 5.5, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 2, zone: "Vendor", x: 50, y: 5.5, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 3, zone: "Vendor", x: 58, y: 5.5, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 4, zone: "Vendor", x: 66, y: 5.5, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 901, zone: "Ticketing", x: 32, y: 1.8, w: 3, h: 4.2, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "ticket", shape: "rect" },
+  { id: 5, zone: "Vendor", x: 4.5, y: 9, w: 3, h: 4.2, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 6, zone: "Vendor", x: 80, y: 9, w: 3, h: 4.2, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 201, zone: "Seating", x: 24.7, y: 11.62, w: 4.6, h: 2.36, orientation: "horizontal", lengthFt: 5, depthFt: 5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "seating", shape: "round" },
+  { id: 202, zone: "Seating", x: 31.37, y: 11.62, w: 4.6, h: 2.36, orientation: "horizontal", lengthFt: 5, depthFt: 5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "seating", shape: "round" },
+  { id: 203, zone: "Seating", x: 38.03, y: 11.62, w: 4.6, h: 2.36, orientation: "horizontal", lengthFt: 5, depthFt: 5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "seating", shape: "round" },
+  { id: 204, zone: "Seating", x: 44.7, y: 11.62, w: 4.6, h: 2.36, orientation: "horizontal", lengthFt: 5, depthFt: 5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "seating", shape: "round" },
+  { id: 205, zone: "Seating", x: 51.37, y: 11.62, w: 4.6, h: 2.36, orientation: "horizontal", lengthFt: 5, depthFt: 5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "seating", shape: "round" },
+  { id: 206, zone: "Seating", x: 58.03, y: 11.62, w: 4.6, h: 2.36, orientation: "horizontal", lengthFt: 5, depthFt: 5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "seating", shape: "round" },
+  { id: 207, zone: "Seating", x: 64.7, y: 11.62, w: 4.6, h: 2.36, orientation: "horizontal", lengthFt: 5, depthFt: 5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "seating", shape: "round" },
+  { id: 7, zone: "Vendor", x: 4.5, y: 15, w: 3, h: 4.2, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 8, zone: "Vendor", x: 80, y: 15, w: 3, h: 4.2, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 9, zone: "Vendor", x: 4.5, y: 19.5, w: 3, h: 4.2, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 10, zone: "Vendor", x: 80, y: 19.5, w: 3, h: 4.2, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 11, zone: "Vendor", x: 21, y: 24, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 12, zone: "Vendor", x: 29, y: 24, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 13, zone: "Vendor", x: 37, y: 24, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 14, zone: "Vendor", x: 45, y: 24, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 15, zone: "Vendor", x: 53, y: 24, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 16, zone: "Vendor", x: 61, y: 24, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 17, zone: "Vendor", x: 4.5, y: 24, w: 3, h: 4.2, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 18, zone: "Vendor", x: 80, y: 24, w: 3, h: 4.2, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 19, zone: "Vendor", x: 15.5, y: 28, w: 3, h: 4.2, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 20, zone: "Vendor", x: 68, y: 28, w: 3, h: 4.2, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 21, zone: "Vendor", x: 4.5, y: 28, w: 3, h: 4.2, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 22, zone: "Vendor", x: 80, y: 28, w: 3, h: 4.2, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 23, zone: "Vendor", x: 21, y: 32, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 24, zone: "Vendor", x: 29, y: 32, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 25, zone: "Vendor", x: 37, y: 32, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 26, zone: "Vendor", x: 45, y: 32, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 27, zone: "Vendor", x: 53, y: 32, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 28, zone: "Vendor", x: 61, y: 32, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 29, zone: "Vendor", x: 4.5, y: 32, w: 3, h: 4.2, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 30, zone: "Vendor", x: 80, y: 32, w: 3, h: 4.2, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 31, zone: "Vendor", x: 21, y: 37, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 32, zone: "Vendor", x: 29, y: 37, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 33, zone: "Vendor", x: 37, y: 37, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 34, zone: "Vendor", x: 45, y: 37, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 35, zone: "Vendor", x: 53, y: 37, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 36, zone: "Vendor", x: 61, y: 37, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 37, zone: "Vendor", x: 4.5, y: 37, w: 3, h: 4.2, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 38, zone: "Vendor", x: 80, y: 37, w: 3, h: 4.2, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 39, zone: "Vendor", x: 15.5, y: 41, w: 3, h: 4.2, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 40, zone: "Vendor", x: 68, y: 41, w: 3, h: 4.2, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 41, zone: "Vendor", x: 4.5, y: 41, w: 3, h: 4.2, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 42, zone: "Vendor", x: 80, y: 41, w: 3, h: 4.2, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 43, zone: "Vendor", x: 21, y: 45, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 44, zone: "Vendor", x: 29, y: 45, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 45, zone: "Vendor", x: 37, y: 45, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 46, zone: "Vendor", x: 45, y: 45, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 47, zone: "Vendor", x: 53, y: 45, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 48, zone: "Vendor", x: 61, y: 45, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 49, zone: "Vendor", x: 4.5, y: 45, w: 3, h: 4.2, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 50, zone: "Vendor", x: 21, y: 50, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 51, zone: "Vendor", x: 29, y: 50, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 52, zone: "Vendor", x: 37, y: 50, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 53, zone: "Vendor", x: 45, y: 50, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 54, zone: "Vendor", x: 53, y: 50, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 55, zone: "Vendor", x: 61, y: 50, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 56, zone: "Vendor", x: 4.5, y: 50, w: 3, h: 4.2, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 57, zone: "Vendor", x: 15.5, y: 54, w: 3, h: 4.2, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 58, zone: "Vendor", x: 68, y: 54, w: 3, h: 4.2, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 59, zone: "Vendor", x: 4.5, y: 54, w: 3, h: 4.2, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 60, zone: "Vendor", x: 21, y: 58, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 61, zone: "Vendor", x: 29, y: 58, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 62, zone: "Vendor", x: 37, y: 58, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 63, zone: "Vendor", x: 45, y: 58, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 64, zone: "Vendor", x: 53, y: 58, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 65, zone: "Vendor", x: 61, y: 58, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 66, zone: "Vendor", x: 80, y: 58, w: 3, h: 4.2, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 67, zone: "Vendor", x: 4.5, y: 58, w: 3, h: 4.2, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 68, zone: "Vendor", x: 21, y: 63, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 69, zone: "Vendor", x: 29, y: 63, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 70, zone: "Vendor", x: 37, y: 63, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 71, zone: "Vendor", x: 45, y: 63, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 72, zone: "Vendor", x: 53, y: 63, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 73, zone: "Vendor", x: 61, y: 63, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 74, zone: "Vendor", x: 80, y: 63, w: 3, h: 4.2, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 76, zone: "Vendor", x: 15.5, y: 67, w: 3, h: 4.2, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 78, zone: "Vendor", x: 68, y: 67, w: 3, h: 4.2, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 75, zone: "Vendor", x: 4.5, y: 67, w: 3, h: 4.2, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 77, zone: "Vendor", x: 80, y: 67, w: 3, h: 4.2, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 80, zone: "Vendor", x: 21, y: 71, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 81, zone: "Vendor", x: 29, y: 71, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 82, zone: "Vendor", x: 37, y: 71, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 83, zone: "Vendor", x: 45, y: 71, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 84, zone: "Vendor", x: 53, y: 71, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 85, zone: "Vendor", x: 61, y: 71, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 79, zone: "Vendor", x: 4.5, y: 71, w: 3, h: 4.2, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 86, zone: "Vendor", x: 80, y: 71, w: 3, h: 4.2, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 88, zone: "Vendor", x: 21, y: 76, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 89, zone: "Vendor", x: 29, y: 76, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 90, zone: "Vendor", x: 37, y: 76, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 91, zone: "Vendor", x: 45, y: 76, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 92, zone: "Vendor", x: 53, y: 76, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 93, zone: "Vendor", x: 61, y: 76, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 87, zone: "Vendor", x: 4.5, y: 76, w: 3, h: 4.2, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 94, zone: "Vendor", x: 80, y: 76, w: 3, h: 4.2, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 96, zone: "Vendor", x: 15.5, y: 80, w: 3, h: 4.2, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 97, zone: "Vendor", x: 68, y: 80, w: 3, h: 4.2, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 95, zone: "Vendor", x: 4.5, y: 80, w: 3, h: 4.2, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 98, zone: "Vendor", x: 80, y: 80, w: 3, h: 4.2, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 100, zone: "Vendor", x: 21, y: 84, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 101, zone: "Vendor", x: 29, y: 84, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 102, zone: "Vendor", x: 37, y: 84, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 103, zone: "Vendor", x: 45, y: 84, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 104, zone: "Vendor", x: 53, y: 84, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 105, zone: "Vendor", x: 61, y: 84, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 99, zone: "Vendor", x: 4.5, y: 84, w: 3, h: 4.2, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 106, zone: "Vendor", x: 22, y: 89, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 107, zone: "Vendor", x: 30, y: 89, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 108, zone: "Vendor", x: 38, y: 89, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 109, zone: "Vendor", x: 50, y: 89, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 110, zone: "Vendor", x: 58, y: 89, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 111, zone: "Vendor", x: 66, y: 89, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 112, zone: "Vendor", x: 6, y: 93, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 113, zone: "Vendor", x: 14, y: 93, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 114, zone: "Vendor", x: 22, y: 93, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 801, zone: "Reserved", x: 74, y: 89, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "reserved", shape: "rect" },
+  { id: 802, zone: "Reserved", x: 74, y: 92.5, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "reserved", shape: "rect" },
+  { id: 803, zone: "Reserved", x: 66, y: 92.5, w: 6, h: 2.4, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "reserved", shape: "rect" },
 ];
 
 export const TABLE_BY_ID: Record<number, TableDef> = Object.fromEntries(

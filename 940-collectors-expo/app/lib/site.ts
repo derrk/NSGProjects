@@ -10,11 +10,16 @@ export const SITE_URL = (
 
 export const SITE_NAME = "940 Collector's Expo";
 
-// Vendor tables are SOLD OUT — reservations are closed. When false, the /reserve
-// page shows a sold-out notice and does NOT mount the interactive map or its
-// polling (which is what drives DB egress). Online ticket sales are unaffected.
-// Flip back to true to reopen booking.
-export const RESERVATIONS_OPEN = false;
+// Reservation state for the current show:
+//   "open"    — public can select tables and check out (full booking flow).
+//   "preview" — the floor map is VISIBLE to everyone but NOT bookable yet
+//               ("booking opens soon"). No polling / no checkout.
+//   "closed"  — /reserve shows a sold-out notice, no map.
+// Flip to "open" once a few tables are held/blocked and you're ready for the public.
+export type ReservationsMode = "open" | "preview" | "closed";
+export const RESERVATIONS_MODE: ReservationsMode = "preview";
+// Back-compat boolean used by /api/config and the tickets page.
+export const RESERVATIONS_OPEN: boolean = (RESERVATIONS_MODE as string) === "open";
 
 export const VENUE = {
   name: "Delta Hotel by Marriott",
