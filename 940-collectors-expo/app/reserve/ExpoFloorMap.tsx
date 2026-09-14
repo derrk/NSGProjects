@@ -33,7 +33,7 @@ const COLORS = {
 };
 
 // Room border insets (percent) — a little outside the outermost tables.
-const ROOM = { l: 1.5, r: 85, t: 1.5, b: 97.5 };
+const ROOM = { l: 3, r: 94, t: 1.5, b: 97 };
 
 export default function ExpoFloorMap({ status, onTableClick, selected, busyId, maxHeight = "76vh" }: Props) {
   const [zoomIdx, setZoomIdx] = useState(0);

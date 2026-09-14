@@ -40,7 +40,7 @@ function PreviewView() {
         <p className="pixel-eyebrow text-[#A855F7] mb-2">Next Show &middot; Rooms 1&ndash;4</p>
         <h1 className="text-3xl sm:text-4xl font-black text-white mb-3">Vendor Floor Plan</h1>
         <div className="inline-block rounded-xl bg-[#FACC15]/10 border border-[#FACC15]/40 text-[#FACC15] text-sm font-semibold px-4 py-2">
-          Table booking opens soon — here&apos;s the floor plan for our next show. 114 tables.
+          Table booking opens soon — here&apos;s the floor plan for our next show.
         </div>
       </div>
 
