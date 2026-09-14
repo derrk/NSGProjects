@@ -14,10 +14,12 @@ export const SITE_NAME = "940 Collector's Expo";
 //   "open"    — public can select tables and check out (full booking flow).
 //   "preview" — the floor map is VISIBLE to everyone but NOT bookable yet
 //               ("booking opens soon"). No polling / no checkout.
+//   "paused"  — booking temporarily halted (e.g. layout under review with the
+//               venue). Shows a notice, no map. Tickets are unaffected.
 //   "closed"  — /reserve shows a sold-out notice, no map.
 // Flip to "open" once a few tables are held/blocked and you're ready for the public.
-export type ReservationsMode = "open" | "preview" | "closed";
-export const RESERVATIONS_MODE: ReservationsMode = "open";
+export type ReservationsMode = "open" | "preview" | "paused" | "closed";
+export const RESERVATIONS_MODE: ReservationsMode = "paused";
 // Back-compat boolean used by /api/config and the tickets page.
 export const RESERVATIONS_OPEN: boolean = (RESERVATIONS_MODE as string) === "open";
 

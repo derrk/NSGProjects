@@ -108,14 +108,18 @@ export default function ReserveClient() {
             </h1>
             <p className="text-base sm:text-lg text-[#E5E7EB]/60 max-w-2xl">
               Pick your spot on the {EVENT.venueName} floor, add one or more tables to
-              your cart, and check out. Tables are held for {EVENT.holdMinutes} minutes
-              while you complete your reservation.
+              your cart, and check out. Every table is a standard 8′ × 2.5′ table.
+              Tables are held for {EVENT.holdMinutes} minutes while you complete your reservation.
             </p>
 
             <div className="flex flex-wrap gap-2.5 mt-6">
               <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#171022] border border-white/10 text-sm">
                 <span className="text-[#E5E7EB]/50">Tables from</span>
                 <span className="font-bold text-white">{price}</span>
+              </div>
+              <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#171022] border border-white/10 text-sm">
+                <span className="text-[#E5E7EB]/50">Table size</span>
+                <span className="font-bold text-white">8′ × 2.5′</span>
               </div>
               <AvailabilityChip />
               <EarlyBirdChip />

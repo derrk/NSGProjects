@@ -20,6 +20,13 @@ export const metadata: Metadata =
           "Preview the vendor floor plan for the next 940 Collector's Expo. Table booking opens soon.",
         alternates: { canonical: "/reserve" },
       }
+    : RESERVATIONS_MODE === "paused"
+    ? {
+        title: "Vendor Tables — Booking Paused",
+        description:
+          "Vendor table booking is temporarily paused while we finalize the floor layout with the venue. Check back soon.",
+        alternates: { canonical: "/reserve" },
+      }
     : {
         title: "Vendor Tables — Sold Out",
         description: "Vendor tables for the 940 Collector's Expo are sold out.",
@@ -42,6 +49,28 @@ function PreviewView() {
       <p className="text-center text-sm text-[#E5E7EB]/50 mt-6">
         Want a table? Booking opens shortly — check back soon, or reach out to reserve early.
       </p>
+    </main>
+  );
+}
+
+function Paused() {
+  return (
+    <main className="min-h-screen flex items-center justify-center px-6 py-32">
+      <div className="retro-panel p-8 sm:p-10 max-w-lg text-center">
+        <p className="pixel-eyebrow text-[#A855F7] mb-3">Vendor Tables</p>
+        <h1 className="text-3xl sm:text-4xl font-black text-white mb-4">Booking Temporarily Paused</h1>
+        <p className="text-[#E5E7EB]/70 leading-relaxed mb-4">
+          Vendor table booking is paused for a short time while we finalize the floor layout with the
+          venue. It&apos;ll reopen right here as soon as the updated layout is ready — check back soon.
+        </p>
+        <p className="text-sm text-[#E5E7EB]/60 mb-8">
+          Every vendor table is a standard <b className="text-white">8&prime; &times; 2.5&prime;</b> table.
+        </p>
+        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+          <a href="/tickets" className="retro-btn">Buy Tickets</a>
+          <a href="/" className="retro-btn-outline">Back to Home</a>
+        </div>
+      </div>
     </main>
   );
 }
@@ -73,6 +102,8 @@ export default function ReservePage() {
         <ReserveClient />
       ) : RESERVATIONS_MODE === "preview" ? (
         <PreviewView />
+      ) : RESERVATIONS_MODE === "paused" ? (
+        <Paused />
       ) : (
         <SoldOut />
       )}
