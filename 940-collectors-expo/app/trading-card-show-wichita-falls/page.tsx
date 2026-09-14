@@ -36,7 +36,7 @@ const faqs: Faq[] = [
 const narrative = [
   {
     heading: "The card show North Texas has been waiting for",
-    body: "The 940 Collector's Expo brings the whole trading card community together at the Delta Hotel by Marriott in Wichita Falls. Instead of driving hours to the metroplex, collectors get a room full of dealers close to home — Pokémon, sports, Magic, One Piece, Yu-Gi-Oh! and more, all in one place.",
+    body: "The 940 Collector's Expo brings the whole trading card community together at the Ray Clymer Exhibit Hall in Wichita Falls. Instead of driving hours to the metroplex, collectors get a room full of dealers close to home — Pokémon, sports, Magic, One Piece, Yu-Gi-Oh! and more, all in one place.",
   },
   {
     heading: "Buy, sell, trade, and hang out",

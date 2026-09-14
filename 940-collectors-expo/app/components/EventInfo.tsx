@@ -27,7 +27,7 @@ const details = [
     icon: Calendar,
     label: "Date",
     value: EVENT_DATE_LABEL,
-    sub: "Our debut show — Vol. 1",
+    sub: "Halloween show 🎃",
   },
   {
     icon: Clock,

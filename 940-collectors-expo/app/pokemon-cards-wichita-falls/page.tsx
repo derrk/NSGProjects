@@ -22,7 +22,7 @@ export const metadata: Metadata = {
 const pokemonFaqs: Faq[] = [
   {
     q: "Where can I buy Pokémon cards in Wichita Falls?",
-    a: "At the 940 Collector's Expo — a recurring collectibles show at the Delta Hotel by Marriott in Wichita Falls, TX, with multiple Pokémon vendors selling singles, sealed product, and graded slabs all in one room.",
+    a: "At the 940 Collector's Expo — a recurring collectibles show at the Ray Clymer Exhibit Hall in Wichita Falls, TX, with multiple Pokémon vendors selling singles, sealed product, and graded slabs all in one room.",
   },
   {
     q: "Can I sell or trade my Pokémon cards there?",
@@ -70,7 +70,7 @@ export default function Page() {
       <LocalLanding
         eyebrow="Pokémon TCG · Wichita Falls, TX"
         h1="Pokémon Cards in Wichita Falls"
-        lede="Hunting for Pokémon cards in Wichita Falls? The 940 Collector's Expo brings dozens of vendors under one roof at the Delta Hotel by Marriott — the easiest place in North Texas to buy, sell, and trade Pokémon TCG, from bulk commons to graded vintage grails."
+        lede="Hunting for Pokémon cards in Wichita Falls? The 940 Collector's Expo brings dozens of vendors under one roof at the Ray Clymer Exhibit Hall — the easiest place in North Texas to buy, sell, and trade Pokémon TCG, from bulk commons to graded vintage grails."
         find={[
           "Singles",
           "Sealed & ETBs",

@@ -185,8 +185,8 @@ export default function AdminPage() {
       const j = await res.json().catch(() => ({}));
       setFlash(
         res.ok
-          ? { text: `Cleared ${j.count ?? 0} hold(s) — fresh show started.`, kind: "ok" }
-          : { text: "Couldn't clear holds — try again.", kind: "error" }
+          ? { text: `Fresh show started — cleared ${j.count ?? 0} hold(s) and reset ${j.ticketCount ?? 0} ticket order(s).`, kind: "ok" }
+          : { text: "Couldn't reset — try again.", kind: "error" }
       );
     } catch {
       setFlash({ text: "Couldn't clear holds — try again.", kind: "error" });
@@ -767,7 +767,8 @@ function ArchiveModal({
         <h3 className="font-bold text-white mb-2">Start a new show</h3>
         <p className="text-sm text-[#E5E7EB]/70 leading-relaxed mb-3">
           This releases all <b className="text-white">{count}</b> current hold(s)/booking(s) so the floor map
-          starts empty. The rows stay in the database as records — they just come off the map and lists.
+          starts empty, AND resets the online-ticket counts to zero for the new show. All rows stay in the
+          database as records — they just come off the map, lists, and totals.
           <b className="text-[#FACC15]"> Export the vendor list first</b> so you keep this show&apos;s records.
         </p>
         <button onClick={onExport} className="retro-btn-outline text-xs px-4 py-2 mb-4">⬇ Export Vendors CSV first</button>

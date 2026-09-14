@@ -13,12 +13,12 @@ const events: {
   badge: string;
 }[] = [
   {
-    title: "940 Collectors Expo — Debut Show (Vol. 1)",
+    title: "940 Collectors Expo — Halloween Show 🎃",
     date: EVENT_DATE_LABEL,
     time: "10 AM – 6 PM · VIP 9 AM",
     location: `${VENUE.name} · Wichita Falls, TX`,
     status: "open",
-    badge: "Debut",
+    badge: "🎃 Oct 10",
   },
 ];
 
@@ -42,7 +42,7 @@ export default function UpcomingEvents() {
             Upcoming Events
           </h2>
           <p className="text-lg text-[#E5E7EB]/60 max-w-xl mx-auto">
-            Our debut show is locked in. Mark your calendar — and vendors, reserve a table before spots fill up.
+            Our next show is locked in. Mark your calendar — and vendors, reserve a table before spots fill up.
           </p>
         </motion.div>
 
@@ -102,7 +102,7 @@ export default function UpcomingEvents() {
           className="mt-6 max-w-3xl mx-auto rounded-2xl border border-dashed border-white/10 p-6 text-center"
         >
           <p className="text-[#E5E7EB]/30 text-sm font-medium">
-            After our debut, future 940 Collector&apos;s Expo dates will be announced right here
+            More 940 Collector&apos;s Expo dates will be announced right here
           </p>
         </motion.div>
       </div>

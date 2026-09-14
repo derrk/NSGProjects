@@ -21,7 +21,7 @@ export const metadata: Metadata = {
 const faqs: Faq[] = [
   {
     q: "Where can I buy sports cards in Wichita Falls?",
-    a: "At the 940 Collector's Expo — a recurring show at the Delta Hotel by Marriott in Wichita Falls, TX, with multiple dealers selling baseball, football, basketball and more, from bargain boxes to graded slabs.",
+    a: "At the 940 Collector's Expo — a recurring show at the Ray Clymer Exhibit Hall in Wichita Falls, TX, with multiple dealers selling baseball, football, basketball and more, from bargain boxes to graded slabs.",
   },
   {
     q: "Can I sell my sports card collection?",

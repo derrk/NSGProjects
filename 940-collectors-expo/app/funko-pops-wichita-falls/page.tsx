@@ -21,7 +21,7 @@ export const metadata: Metadata = {
 const faqs: Faq[] = [
   {
     q: "Where can I buy Funko Pops in Wichita Falls?",
-    a: "At the 940 Collector's Expo — a recurring collectibles show at the Delta Hotel by Marriott in Wichita Falls, TX, with vendors carrying exclusives, chases, vaulted figures, and common Pops.",
+    a: "At the 940 Collector's Expo — a recurring collectibles show at the Ray Clymer Exhibit Hall in Wichita Falls, TX, with vendors carrying exclusives, chases, vaulted figures, and common Pops.",
   },
   {
     q: "Can I sell or trade my Funko collection?",

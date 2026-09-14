@@ -4,10 +4,23 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Info, Tag, ShoppingCart, X } from "lucide-react";
 import { ReservationProvider, useReservation } from "./ReservationContext";
-import FloorMap from "./FloorMap";
+import ExpoFloorMap, { type FloorStatus } from "./ExpoFloorMap";
 import CartPanel from "./CartPanel";
 import CheckoutModal from "./CheckoutModal";
 import { EVENT, formatUSD } from "./tables";
+
+// The booking floor map — the same ExpoFloorMap used in preview + admin, wired to
+// the reservation cart: tap an open table to add it (green), tap again to remove.
+function BookingMap() {
+  const { vendors, cart, toggleTable } = useReservation();
+  const status: FloorStatus = {};
+  for (const [id, v] of Object.entries(vendors)) {
+    status[Number(id)] = v.status === "confirmed" ? "confirmed" : "held";
+  }
+  return (
+    <ExpoFloorMap status={status} selected={new Set(cart)} onTableClick={(id) => toggleTable(id)} maxHeight="74vh" />
+  );
+}
 
 // Live "X of Y tables available" chip — must be a child of ReservationProvider.
 function AvailabilityChip() {
@@ -94,7 +107,7 @@ export default function ReserveClient() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.1 }}
             >
-              <FloorMap />
+              <BookingMap />
             </motion.div>
 
             {/* Desktop cart sidebar */}

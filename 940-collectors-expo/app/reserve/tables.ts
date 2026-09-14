@@ -52,12 +52,12 @@ export const EVENT = {
   name: "940 Collector Expo",
   venueName: "Rooms 1–4",
   roomFt: { w: 90, h: 42 },
-  standardPriceCents: 9999, // $99.99 per 8' table (intro price)
-  endcapPriceCents: 9999, // $99.99 per 6' end-cap table
+  standardPriceCents: 10000, // $100 per 8' table
+  endcapPriceCents: 10000, // $100 (no end-cap tables this show)
   bundle: {
-    enabled: true,
+    enabled: false, // no 6' end-cap bundles this show — all tables are uniform 8'
     type: "fixed" as "fixed" | "percent",
-    value: 1000, // $10 off when a 6' corner is bundled with its adjacent 8' table
+    value: 1000,
   },
   holdMinutes: 10, // client-side checkout countdown (UX only)
   zelleHoldHours: 12, // server-side deadline to complete a Zelle payment before the hold is released
@@ -82,7 +82,12 @@ export interface PromoCode {
 // Discount codes (admin-editable). Add real codes here.
 // 9FORTY25 was retired 2026-08 — no active codes right now. To add one later,
 // add an entry here; a `maxUses` cap is enforced server-side in createHold.
-export const PROMO_CODES: PromoCode[] = [];
+export const PROMO_CODES: PromoCode[] = [
+  // Early bird: sets each table to $85 (from $99.99). Capped at 25 total
+  // redemptions — enforced server-side in createHold (counts non-released
+  // reservations with this code, then throws PromoExhaustedError).
+  { code: "EARLYBIRD940", type: "table_price", value: 8500, label: "Early bird — $85 per table", maxUses: 25 },
+];
 
 // All 114 tables are sellable 8' x 2.5' vendor tables. No ticketing / HQ / seating
 // / reserved tiles in this room — any table can be held for a vendor from /admin.

@@ -22,27 +22,27 @@ export const RESERVATIONS_MODE: ReservationsMode = "preview";
 export const RESERVATIONS_OPEN: boolean = (RESERVATIONS_MODE as string) === "open";
 
 export const VENUE = {
-  name: "Delta Hotel by Marriott",
-  room: "Shawnee Room",
+  name: "Ray Clymer Exhibit Hall",
+  room: "Exhibit Hall",
   city: "Wichita Falls",
   region: "TX",
   country: "US",
-  streetAddress: "306 Travis St",
+  streetAddress: "1000 Fifth St",
   postalCode: "76301",
 };
 
 // Full one-line address + Google Maps links (the embed needs no API key).
-export const VENUE_ADDRESS = "306 Travis St, Wichita Falls, TX 76301";
+export const VENUE_ADDRESS = "1000 Fifth St, Wichita Falls, TX 76301";
 const MAP_Q = encodeURIComponent(`${VENUE.name}, ${VENUE_ADDRESS}`);
 export const MAP_EMBED_SRC = `https://www.google.com/maps?q=${MAP_Q}&output=embed`;
 export const MAP_LINK = `https://www.google.com/maps/search/?api=1&query=${MAP_Q}`;
 
-// --- Debut event (Vol. 1) --------------------------------------------------
-// Wichita Falls is US Central (CDT in September = -05:00).
-export const EVENT_DATE_ISO = "2026-09-05T09:00:00-05:00"; // set -> unlocks Event rich results
-export const EVENT_END_ISO = "2026-09-05T18:00:00-05:00";
-export const EVENT_DATE_LABEL = "September 5, 2026";
-export const EVENT_DATE_SHORT = "Sept 5, 2026";
+// --- Next event ------------------------------------------------------------
+// Wichita Falls is US Central (CDT in October = -05:00).
+export const EVENT_DATE_ISO = "2026-10-10T09:00:00-05:00"; // set -> unlocks Event rich results
+export const EVENT_END_ISO = "2026-10-10T18:00:00-05:00";
+export const EVENT_DATE_LABEL = "October 10, 2026";
+export const EVENT_DATE_SHORT = "Oct 10, 2026";
 export const EVENT_HOURS_LABEL = "10 AM – 6 PM";
 export const EVENT_VIP_LABEL = "VIP early access at 9 AM";
 export const VENDOR_SETUP_LABEL = "7:30 AM – 10 AM";
@@ -164,7 +164,7 @@ export const FAQS: Faq[] = [
   },
   {
     q: "Where is the 940 Collector's Expo held?",
-    a: "The show is at the Delta Hotel by Marriott (Shawnee Room), 306 Travis St, Wichita Falls, TX 76301 — easy to reach from Iowa Park, Burkburnett, Electra, Henrietta, Bowie, Nocona, Vernon, and Lawton, Oklahoma.",
+    a: "The show is at the Ray Clymer Exhibit Hall, 1000 Fifth St, Wichita Falls, TX 76301 — easy to reach from Iowa Park, Burkburnett, Electra, Henrietta, Bowie, Nocona, Vernon, and Lawton, Oklahoma.",
   },
   {
     q: "Can I trade or sell as an attendee?",

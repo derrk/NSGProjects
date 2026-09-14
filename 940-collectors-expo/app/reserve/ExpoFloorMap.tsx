@@ -17,19 +17,19 @@ interface Props {
 const px = (p: number, D: number) => (p / 100) * D;
 const ZOOMS = [1, 1.5, 2, 3];
 
-// Beige-on-white palette to match the venue floor plan.
+// Purple palette to match the site (dark ground, darker-purple tables).
 const COLORS = {
-  paper: "#FBF7EF",
-  wall: "#2B2B33",
-  tableFill: "#E4D6B4",
-  tableStroke: "#B39B6E",
-  tableText: "#1A1A1A",
-  selFill: "#A855F7",
-  selStroke: "#7C3AED",
-  heldFill: "#F5C542",
-  heldStroke: "#C99A1E",
-  soldFill: "#E0857D",
-  soldStroke: "#B4544B",
+  paper: "#1A1230", // dark purple panel ground
+  wall: "#9A85C9", // light lavender, visible on the dark ground
+  tableFill: "#33235C", // darker purple table
+  tableStroke: "#7C4DD6",
+  tableText: "#EDE7FB",
+  selFill: "#6EE04A", // Halloween slime green — selected / booked
+  selStroke: "#3F9E1E",
+  heldFill: "#F59E0B", // amber — held / pending
+  heldStroke: "#B45309",
+  soldFill: "#EF4444", // red — sold / confirmed
+  soldStroke: "#B91C1C",
 };
 
 // Room border insets (percent) — a little outside the outermost tables.
@@ -82,7 +82,7 @@ export default function ExpoFloorMap({ status, onTableClick, selected, busyId, m
               const live = status?.[t.id];
               const isSel = selected?.has(t.id);
               let fill = COLORS.tableFill, stroke = COLORS.tableStroke, text = COLORS.tableText;
-              if (isSel) { fill = COLORS.selFill; stroke = COLORS.selStroke; text = "#fff"; }
+              if (isSel) { fill = COLORS.selFill; stroke = COLORS.selStroke; text = "#14210A"; }
               else if (live === "confirmed") { fill = COLORS.soldFill; stroke = COLORS.soldStroke; text = "#fff"; }
               else if (live === "held") { fill = COLORS.heldFill; stroke = COLORS.heldStroke; text = "#1A1A1A"; }
               const x = px(t.x, CANVAS.w), y = px(t.y, CANVAS.h), w = px(t.w, CANVAS.w), h = px(t.h, CANVAS.h);

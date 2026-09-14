@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { ArrowLeft, Minus, Plus, Ticket, Star, Gift } from "lucide-react";
-import { TICKETS, EVENT_DATE_LABEL } from "../lib/site";
+import { TICKETS, EVENT_DATE_LABEL, VENUE } from "../lib/site";
 import { formatUSD } from "../reserve/tables";
 
 function Stepper({
@@ -110,7 +110,7 @@ export default function TicketsPage() {
         </Link>
         <p className="pixel-eyebrow text-[#A855F7] mb-3">Admission Tickets</p>
         <h1 className="text-3xl sm:text-4xl font-black text-white mb-3">Buy Tickets Online</h1>
-        <p className="text-[#E5E7EB]/60 mb-8">{EVENT_DATE_LABEL} · Delta Hotel by Marriott, Wichita Falls, TX</p>
+        <p className="text-[#E5E7EB]/60 mb-8">{EVENT_DATE_LABEL} · {VENUE.name}, Wichita Falls, TX</p>
 
         {canceled && (
           <div className="mb-6 rounded-xl border border-[#FACC15]/40 bg-[#FACC15]/10 px-4 py-3 text-sm text-[#FACC15]/90">

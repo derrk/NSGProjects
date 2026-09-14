@@ -183,3 +183,17 @@ export async function listTicketOrders(): Promise<TicketOrder[]> {
     createdAt: r.created_at as string,
   }));
 }
+
+// Admin-only: reset ticket counts for a new show. Paid orders are marked
+// 'archived' (kept as records) so the admin totals restart at zero for the new
+// show; new sales come in as 'paid' and count fresh.
+export async function archiveAllTickets(): Promise<{ count: number }> {
+  const sb = getServiceClient();
+  const { data, error } = await sb.from("ticket_orders").select("id").eq("status", "paid");
+  if (error) throw error;
+  const ids = (data ?? []).map((r: { id: string }) => r.id as string);
+  if (ids.length === 0) return { count: 0 };
+  const { error: e1 } = await sb.from("ticket_orders").update({ status: "archived" }).in("id", ids);
+  if (e1) throw e1;
+  return { count: ids.length };
+}
