@@ -80,6 +80,7 @@ export default function AdminPage() {
   const [flash, setFlash] = useState<{ text: string; kind: "ok" | "error" } | null>(null);
   const [mapTable, setMapTable] = useState<number | null>(null);
   const [archiveOpen, setArchiveOpen] = useState(false);
+  const [mapSearch, setMapSearch] = useState("");
 
   const load = useCallback(async () => {
     const res = await fetch("/api/admin/reservations", { cache: "no-store" });
@@ -326,6 +327,24 @@ export default function AdminPage() {
   }, [rows]);
   const resForTable = (id: number) =>
     rows.find((r) => (r.status === "pending" || r.status === "confirmed") && r.tables.includes(id));
+  // Floor-map search: highlight a table by number, or a vendor's tables by name.
+  const mapMatch = useMemo(() => {
+    const q = mapSearch.trim().toLowerCase();
+    if (!q) return { set: new Set<number>(), note: "" };
+    if (/^\d+$/.test(q)) {
+      const id = parseInt(q, 10);
+      return { set: new Set<number>([id]), note: getTable(id) ? `Table ${id}` : `Table ${id} — not in this layout` };
+    }
+    const matches = rows.filter(
+      (r) => (r.status === "pending" || r.status === "confirmed") && (r.business || "").toLowerCase().includes(q)
+    );
+    const set = new Set<number>();
+    matches.forEach((r) => r.tables.forEach((t) => set.add(t)));
+    const note = matches.length
+      ? matches.map((r) => `${r.business}: ${[...r.tables].sort((a, b) => a - b).join(", ")}`).join(" · ")
+      : "No vendor match";
+    return { set, note };
+  }, [mapSearch, rows]);
   const totalConfirmed = confirmed.reduce((s, r) => s + r.amountCents, 0);
   // Count TABLES, not reservations (a vendor may hold multiple), and only tables
   // that are actually part of the bookable pool (exclude any stranded on removed
@@ -473,12 +492,23 @@ export default function AdminPage() {
           </div>
 
           <Section title={`Floor map — ${availableTables} of ${BOOKABLE_TABLE_COUNT} tables open`}>
-            <p className="text-xs text-[#E5E7EB]/50 -mt-1 mb-1">
-              Tap an <span className="text-white">open</span> table to hold it (no vendor info needed).
-              Tap a <span className="text-[#FACC15]">held</span> / <span className="text-[#C4B5FD]">sold</span> table
+            <div className="flex flex-wrap items-center gap-2 mb-2">
+              <input
+                value={mapSearch}
+                onChange={(e) => setMapSearch(e.target.value)}
+                placeholder="Search table # or vendor name…"
+                className="flex-1 min-w-[200px] px-3.5 py-2 rounded-xl bg-[#0B0713] border border-white/10 text-white text-sm focus:outline-none focus:border-[#A855F7]/50"
+              />
+              {mapSearch.trim() && (
+                <span className="text-xs text-[#A855F7] font-medium">{mapMatch.note}</span>
+              )}
+            </div>
+            <p className="text-xs text-[#E5E7EB]/50 mb-1">
+              Tap an <span className="text-[#B39B6E]">open</span> table to hold it (no vendor info needed).
+              Tap a <span className="text-[#C99A1E]">held</span> / <span className="text-[#B4544B]">sold</span> table
               to confirm, release, or edit it.
             </p>
-            <ExpoFloorMap status={statusMap} onTableClick={(id) => setMapTable(id)} maxHeight="70vh" />
+            <ExpoFloorMap status={statusMap} selected={mapMatch.set} onTableClick={(id) => setMapTable(id)} maxHeight="70vh" />
           </Section>
 
           <Section title={`Pending payment (${pending.length} ${pending.length === 1 ? "vendor" : "vendors"} · ${pendingTables} ${pendingTables === 1 ? "table" : "tables"})`}>

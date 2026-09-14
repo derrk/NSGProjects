@@ -1,117 +1,109 @@
 "use client";
 
-import { TABLE_LAYOUT, CANVAS, ENTRANCES, type TableDef } from "./tables";
+import { useState } from "react";
+import { ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
+import { TABLE_LAYOUT, CANVAS, ENTRANCES } from "./tables";
 
 export type FloorStatus = Record<number, "held" | "confirmed">;
 
 interface Props {
   status?: FloorStatus; // live pending/confirmed per table (admin / open booking)
-  onTableClick?: (id: number, category: string) => void;
-  selected?: Set<number>; // highlighted selection (admin)
-  busyId?: number | null; // table currently being toggled
+  onTableClick?: (id: number) => void;
+  selected?: Set<number>; // highlighted tables (cart selection or admin search)
+  busyId?: number | null;
   maxHeight?: string;
 }
 
-// Percent -> px in the canvas coordinate space.
 const px = (p: number, D: number) => (p / 100) * D;
+const ZOOMS = [1, 1.5, 2, 3];
 
-function tileColors(state: string) {
-  // available | selected | held | confirmed | reserved | ticket | hq | seating
-  switch (state) {
-    case "selected": return { fill: "#A855F7", stroke: "#A855F7", text: "#0B0713" };
-    case "confirmed": return { fill: "rgba(168,85,247,0.20)", stroke: "#A855F7", text: "#C4B5FD" };
-    case "held": return { fill: "rgba(250,204,21,0.12)", stroke: "#FACC15", text: "#FACC15" };
-    case "reserved": return { fill: "rgba(249,115,22,0.16)", stroke: "#F97316", text: "#FDBA74" };
-    case "ticket": return { fill: "rgba(236,72,153,0.16)", stroke: "#EC4899", text: "#F9A8D4" };
-    case "hq": return { fill: "rgba(250,204,21,0.20)", stroke: "#E0A100", text: "#FACC15" };
-    case "seating": return { fill: "rgba(250,204,21,0.10)", stroke: "#C99A2E", text: "#C99A2E" };
-    default: return { fill: "#120C1F", stroke: "rgba(255,255,255,0.24)", text: "#E5E7EB" };
-  }
-}
+// Beige-on-white palette to match the venue floor plan.
+const COLORS = {
+  paper: "#FBF7EF",
+  wall: "#2B2B33",
+  tableFill: "#E4D6B4",
+  tableStroke: "#B39B6E",
+  tableText: "#1A1A1A",
+  selFill: "#A855F7",
+  selStroke: "#7C3AED",
+  heldFill: "#F5C542",
+  heldStroke: "#C99A1E",
+  soldFill: "#E0857D",
+  soldStroke: "#B4544B",
+};
+
+// Room border insets (percent) — a little outside the outermost tables.
+const ROOM = { l: 1.5, r: 85, t: 1.5, b: 97.5 };
 
 export default function ExpoFloorMap({ status, onTableClick, selected, busyId, maxHeight = "76vh" }: Props) {
+  const [zoomIdx, setZoomIdx] = useState(0);
+  const zoom = ZOOMS[zoomIdx];
+
+  // Wall as segments so the two entrance openings are real gaps.
+  const topEnt = ENTRANCES.find((e) => e.side === "top");
+  const rightEnt = ENTRANCES.find((e) => e.side === "right");
+  const L = px(ROOM.l, CANVAS.w), R = px(ROOM.r, CANVAS.w), T = px(ROOM.t, CANVAS.h), B = px(ROOM.b, CANVAS.h);
+
   return (
-    <div className="retro-panel p-3 overflow-auto" style={{ maxHeight }}>
-      <svg
-        viewBox={`0 0 ${CANVAS.w} ${CANVAS.h}`}
-        style={{ display: "block", width: "100%", height: "auto", minWidth: 360 }}
-        role="img"
-        aria-label="Rooms 1-4 floor map"
-      >
-        {/* Room border */}
-        <rect
-          x={px(5, CANVAS.w)} y={px(3, CANVAS.h)}
-          width={px(89.5, CANVAS.w)} height={px(93.5, CANVAS.h)}
-          rx={6} fill="none" stroke="rgba(255,255,255,0.16)" strokeWidth={2} strokeDasharray="3 5"
-        />
+    <div>
+      <div className="flex items-center justify-end gap-1.5 mb-2">
+        <button onClick={() => setZoomIdx((i) => Math.max(0, i - 1))} disabled={zoomIdx === 0}
+          className="p-1.5 rounded-lg bg-white/5 border border-white/10 text-[#E5E7EB]/70 hover:text-white disabled:opacity-30" aria-label="Zoom out"><ZoomOut size={15} /></button>
+        <button onClick={() => setZoomIdx((i) => Math.min(ZOOMS.length - 1, i + 1))} disabled={zoomIdx === ZOOMS.length - 1}
+          className="p-1.5 rounded-lg bg-white/5 border border-white/10 text-[#E5E7EB]/70 hover:text-white disabled:opacity-30" aria-label="Zoom in"><ZoomIn size={15} /></button>
+        <button onClick={() => setZoomIdx(0)} className="p-1.5 rounded-lg bg-white/5 border border-white/10 text-[#E5E7EB]/70 hover:text-white" aria-label="Reset view"><Maximize2 size={15} /></button>
+      </div>
+      <div className="overflow-auto rounded-lg border border-white/10" style={{ maxHeight, background: COLORS.paper }}>
+        <div style={{ width: `${zoom * 100}%`, minWidth: zoom > 1 ? `${zoom * 100}%` : undefined }}>
+          <svg viewBox={`0 0 ${CANVAS.w} ${CANVAS.h}`} style={{ display: "block", width: "100%", height: "auto" }}
+            role="img" aria-label="Rooms 1-4 floor map">
+            {/* Perimeter wall with entrance gaps */}
+            {/* top: split around the top entrance */}
+            {topEnt ? (
+              <>
+                <line x1={L} y1={T} x2={px(topEnt.a, CANVAS.w)} y2={T} stroke={COLORS.wall} strokeWidth={4} />
+                <line x1={px(topEnt.b, CANVAS.w)} y1={T} x2={R} y2={T} stroke={COLORS.wall} strokeWidth={4} />
+                <text x={px((topEnt.a + topEnt.b) / 2, CANVAS.w)} y={T + 22} fill={COLORS.wall} fontSize={15} fontWeight={700} textAnchor="middle" style={{ letterSpacing: 1 }}>ENTRANCE</text>
+              </>
+            ) : <line x1={L} y1={T} x2={R} y2={T} stroke={COLORS.wall} strokeWidth={4} />}
+            {/* left + bottom full */}
+            <line x1={L} y1={T} x2={L} y2={B} stroke={COLORS.wall} strokeWidth={4} />
+            <line x1={L} y1={B} x2={R} y2={B} stroke={COLORS.wall} strokeWidth={4} />
+            {/* right: split around the right entrance */}
+            {rightEnt ? (
+              <>
+                <line x1={R} y1={T} x2={R} y2={px(rightEnt.a, CANVAS.h)} stroke={COLORS.wall} strokeWidth={4} />
+                <line x1={R} y1={px(rightEnt.b, CANVAS.h)} x2={R} y2={B} stroke={COLORS.wall} strokeWidth={4} />
+                <text x={R - 16} y={px((rightEnt.a + rightEnt.b) / 2, CANVAS.h)} fill={COLORS.wall} fontSize={15} fontWeight={700} textAnchor="middle" transform={`rotate(90 ${R - 16} ${px((rightEnt.a + rightEnt.b) / 2, CANVAS.h)})`} style={{ letterSpacing: 1 }}>ENTRANCE</text>
+              </>
+            ) : <line x1={R} y1={T} x2={R} y2={B} stroke={COLORS.wall} strokeWidth={4} />}
 
-        {/* Entrances */}
-        {ENTRANCES.map((e, i) => {
-          if (e.side === "top") {
-            const y = px(3, CANVAS.h);
-            return (
-              <g key={i}>
-                <line x1={px(e.a, CANVAS.w)} y1={y} x2={px(e.b, CANVAS.w)} y2={y} stroke="#FACC15" strokeWidth={5} strokeDasharray="7 5" />
-                <text x={px((e.a + e.b) / 2, CANVAS.w)} y={y - 8} fill="#FACC15" fontSize={16} fontWeight={700} textAnchor="middle" style={{ letterSpacing: 1 }}>▼ ENTRANCE</text>
-              </g>
-            );
-          }
-          const x = px(94.5, CANVAS.w);
-          return (
-            <g key={i}>
-              <line x1={x} y1={px(e.a, CANVAS.h)} x2={x} y2={px(e.b, CANVAS.h)} stroke="#FACC15" strokeWidth={5} strokeDasharray="7 5" />
-              <text x={x + 14} y={px((e.a + e.b) / 2, CANVAS.h)} fill="#FACC15" fontSize={16} fontWeight={700} textAnchor="middle" transform={`rotate(90 ${x + 14} ${px((e.a + e.b) / 2, CANVAS.h)})`} style={{ letterSpacing: 1 }}>▲ ENTRANCE</text>
-            </g>
-          );
-        })}
-
-        {/* Seating zone label */}
-        <text x={px(50, CANVAS.w)} y={px(20.5, CANVAS.h)} fill="#C99A2E" fontSize={15} fontWeight={700} textAnchor="middle" style={{ letterSpacing: 2 }}>CUSTOMER SEATING</text>
-
-        {TABLE_LAYOUT.map((t) => {
-          const cat = t.category ?? "vendor";
-          const bookable = cat === "vendor";
-          const live = status?.[t.id];
-          let state = "available";
-          if (cat === "ticket") state = "ticket";
-          else if (cat === "hq") state = "hq";
-          else if (cat === "seating") state = "seating";
-          else if (cat === "reserved") state = "reserved";
-          else if (selected?.has(t.id)) state = "selected";
-          else if (live === "confirmed") state = "confirmed";
-          else if (live === "held") state = "held";
-          const c = tileColors(state);
-          // 6' island end caps get a teal border so they read as shorter tables.
-          const isCap = t.tableType === "endcap";
-          const stroke = isCap ? "#2DD4BF" : c.stroke;
-          const x = px(t.x, CANVAS.w), y = px(t.y, CANVAS.h), w = px(t.w, CANVAS.w), h = px(t.h, CANVAS.h);
-          const cx = x + w / 2, cy = y + h / 2;
-          const clickable = !!onTableClick && bookable;
-          const label = cat === "hq" ? "HQ" : cat === "seating" ? "" : String(t.id);
-          const rot = t.orientation === "vertical" && cat !== "seating";
-          const isBusy = busyId === t.id;
-
-          const shape = t.shape === "round"
-            ? <circle cx={cx} cy={cy} r={Math.min(w, h) / 2} fill={c.fill} stroke={stroke} strokeWidth={1.6} />
-            : <rect x={x} y={y} width={w} height={h} rx={2} fill={c.fill} stroke={stroke} strokeWidth={isCap || state !== "available" ? 2 : 1.2} />;
-
-          return (
-            <g key={t.id}
-               onClick={clickable ? () => onTableClick!(t.id, cat) : undefined}
-               style={{ cursor: clickable ? "pointer" : "default", opacity: isBusy ? 0.45 : 1 }}>
-              {shape}
-              {label && (
-                <text x={cx} y={cy} fill={isCap ? "#2DD4BF" : c.text} fontSize={9} fontWeight={700}
-                      textAnchor="middle" dominantBaseline="central"
-                      transform={rot ? `rotate(-90 ${cx} ${cy})` : undefined}
-                      style={{ pointerEvents: "none", userSelect: "none" }}>
-                  {label}
-                </text>
-              )}
-            </g>
-          );
-        })}
-      </svg>
+            {TABLE_LAYOUT.map((t) => {
+              const live = status?.[t.id];
+              const isSel = selected?.has(t.id);
+              let fill = COLORS.tableFill, stroke = COLORS.tableStroke, text = COLORS.tableText;
+              if (isSel) { fill = COLORS.selFill; stroke = COLORS.selStroke; text = "#fff"; }
+              else if (live === "confirmed") { fill = COLORS.soldFill; stroke = COLORS.soldStroke; text = "#fff"; }
+              else if (live === "held") { fill = COLORS.heldFill; stroke = COLORS.heldStroke; text = "#1A1A1A"; }
+              const x = px(t.x, CANVAS.w), y = px(t.y, CANVAS.h), w = px(t.w, CANVAS.w), h = px(t.h, CANVAS.h);
+              const cx = x + w / 2, cy = y + h / 2;
+              const clickable = !!onTableClick;
+              const rot = t.orientation === "vertical";
+              const isBusy = busyId === t.id;
+              return (
+                <g key={t.id}
+                   onClick={clickable ? () => onTableClick!(t.id) : undefined}
+                   style={{ cursor: clickable ? "pointer" : "default", opacity: isBusy ? 0.45 : 1 }}>
+                  <rect x={x} y={y} width={w} height={h} rx={1.5} fill={fill} stroke={stroke} strokeWidth={isSel ? 2 : 1} />
+                  <text x={cx} y={cy} fill={text} fontSize={9} fontWeight={700} textAnchor="middle" dominantBaseline="central"
+                        transform={rot ? `rotate(-90 ${cx} ${cy})` : undefined}
+                        style={{ pointerEvents: "none", userSelect: "none" }}>{t.id}</text>
+                </g>
+              );
+            })}
+          </svg>
+        </div>
+      </div>
     </div>
   );
 }
