@@ -196,6 +196,24 @@ export default function AdminPage() {
     setBusy(null);
   };
 
+  const resetTickets = async () => {
+    if (!confirm("Reset online-ticket counts to zero for the new show? Past paid orders are archived (kept as records), NOT deleted. This does not affect table holds.")) return;
+    setBusy("resettix");
+    try {
+      const res = await fetch("/api/admin/tickets/reset", { method: "POST" });
+      const j = await res.json().catch(() => ({}));
+      setFlash(
+        res.ok
+          ? { text: `Ticket counts reset — archived ${j.count ?? 0} past order(s).`, kind: "ok" }
+          : { text: typeof j.error === "string" && j.error ? `Couldn't reset: ${j.error}` : "Couldn't reset ticket counts.", kind: "error" }
+      );
+    } catch {
+      setFlash({ text: "Couldn't reset ticket counts.", kind: "error" });
+    }
+    await load();
+    setBusy(null);
+  };
+
   const resendEmail = async (resCode: string) => {
     setBusy(resCode + "resend");
     try {
@@ -555,6 +573,14 @@ export default function AdminPage() {
                 className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-[#E5E7EB]/70 text-xs font-semibold hover:text-white disabled:opacity-50"
               >
                 Export CSV
+              </button>
+              <button
+                onClick={resetTickets}
+                disabled={busy === "resettix"}
+                title="Reset ticket counts to zero for a new show (tickets only — does not touch table holds)"
+                className="px-3 py-2 rounded-lg bg-red-500/15 border border-red-500/30 text-red-300 text-xs font-semibold hover:bg-red-500/25 disabled:opacity-50"
+              >
+                {busy === "resettix" ? "Resetting…" : "↻ Reset counts"}
               </button>
             </div>
             {paidTickets.length === 0 && <Empty>No paid ticket orders yet.</Empty>}

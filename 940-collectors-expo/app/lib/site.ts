@@ -17,7 +17,7 @@ export const SITE_NAME = "940 Collector's Expo";
 //   "closed"  — /reserve shows a sold-out notice, no map.
 // Flip to "open" once a few tables are held/blocked and you're ready for the public.
 export type ReservationsMode = "open" | "preview" | "closed";
-export const RESERVATIONS_MODE: ReservationsMode = "preview";
+export const RESERVATIONS_MODE: ReservationsMode = "open";
 // Back-compat boolean used by /api/config and the tickets page.
 export const RESERVATIONS_OPEN: boolean = (RESERVATIONS_MODE as string) === "open";
 
