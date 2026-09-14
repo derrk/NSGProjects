@@ -1,6 +1,6 @@
 import "server-only";
 import { getServiceClient } from "./supabase";
-import { computePricing, getTable, resolvePromo, FOUNDER_TABLES, TICKET_TABLES, SEATING_TABLES, RESERVED_TABLES, EVENT } from "../reserve/tables";
+import { computePricing, getTable, resolvePromo, PROMO_CODES, FOUNDER_TABLES, TICKET_TABLES, SEATING_TABLES, RESERVED_TABLES, EVENT } from "../reserve/tables";
 import { createCheckoutSession, stripeConfigured } from "./stripe";
 
 // Tables that can never be booked by the public (HQ + ticketing + customer seating
@@ -72,9 +72,18 @@ function genCode(): string {
 // (Abandoned Stripe card holds are still freed by the checkout.session.expired
 // webhook — that's independent of the Zelle window.)
 
+export interface PromoStatus {
+  code: string;
+  label: string;
+  maxUses: number;
+  used: number;
+  remaining: number;
+}
+
 export async function getPublicState(): Promise<{
   reservations: PublicReservation[];
   blocked: number[];
+  promos: PromoStatus[];
 }> {
   const sb = getServiceClient();
   const [{ data: rt, error: e1 }, { data: bl, error: e2 }] = await Promise.all([
@@ -111,7 +120,23 @@ export async function getPublicState(): Promise<{
       ...NON_VENDOR_TABLES,
     ]),
   ];
-  return { reservations, blocked };
+
+  // Remaining redemptions for capped promo codes (e.g. EARLYBIRD940, 25 uses).
+  // "Used" = non-released reservations carrying that code — same count the
+  // server enforces in createHold.
+  const promos: PromoStatus[] = [];
+  for (const p of PROMO_CODES) {
+    if (p.maxUses == null) continue;
+    const { count } = await sb
+      .from("reservations")
+      .select("id", { count: "exact", head: true })
+      .eq("promo_code", p.code)
+      .neq("status", "released");
+    const used = count ?? 0;
+    promos.push({ code: p.code, label: p.label, maxUses: p.maxUses, used, remaining: Math.max(0, p.maxUses - used) });
+  }
+
+  return { reservations, blocked, promos };
 }
 
 // Featured (starred, confirmed) vendors only — small result set for the homepage

@@ -35,6 +35,35 @@ function AvailabilityChip() {
   );
 }
 
+// Live early-bird promo counter (X of 25 left) — hidden if no capped code exists.
+function EarlyBirdChip() {
+  const { promos } = useReservation();
+  const eb = promos.find((p) => p.code === "EARLYBIRD940") ?? promos.find((p) => p.maxUses > 0);
+  if (!eb) return null;
+  const gone = eb.remaining <= 0;
+  return (
+    <div
+      className={`flex items-center gap-2 px-4 py-2 rounded-full border text-sm ${
+        gone
+          ? "bg-white/5 border-white/10 text-[#E5E7EB]/40"
+          : "bg-[#6EE04A]/10 border-[#6EE04A]/35 text-[#9CF07E]"
+      }`}
+    >
+      <Tag size={14} />
+      {gone ? (
+        <span>
+          Early-bird code <span className="font-mono">{eb.code}</span> — sold out
+        </span>
+      ) : (
+        <span>
+          Early-bird <span className="font-mono font-bold">{eb.code}</span>:{" "}
+          <span className="font-bold">{eb.remaining}</span> of {eb.maxUses} left · $85/table
+        </span>
+      )}
+    </div>
+  );
+}
+
 export default function ReserveClient() {
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [canceled, setCanceled] = useState(false);
@@ -89,15 +118,7 @@ export default function ReserveClient() {
                 <span className="font-bold text-white">{price}</span>
               </div>
               <AvailabilityChip />
-              {EVENT.bundle.enabled && (
-                <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#FACC15]/10 border border-[#FACC15]/25 text-sm">
-                  <Tag size={14} className="text-[#FACC15]" />
-                  <span className="text-[#FACC15]">
-                    Bundle a 6′ corner with its 8′ neighbor and save{" "}
-                    {formatUSD(EVENT.bundle.value)}
-                  </span>
-                </div>
-              )}
+              <EarlyBirdChip />
             </div>
           </motion.div>
 

@@ -39,6 +39,14 @@ type SubmitResult =
   | { resCode: string; checkoutUrl?: string; paymentMethod?: "zelle" | "stripe" }
   | { error: string; tables?: number[] };
 
+export interface PromoStatus {
+  code: string;
+  label: string;
+  maxUses: number;
+  used: number;
+  remaining: number;
+}
+
 interface ReservationState {
   vendors: VendorMap;
   blocked: Set<number>;
@@ -52,6 +60,7 @@ interface ReservationState {
   stripeEnabled: boolean;
   availableCount: number;
   bookableCount: number;
+  promos: PromoStatus[];
   statusOf: (id: number) => TableStatus;
   inCart: (id: number) => boolean;
   canSelect: (id: number) => boolean;
@@ -91,6 +100,7 @@ export function ReservationProvider({ children }: { children: React.ReactNode })
   // Vendor logos/bios, keyed by table number — fetched separately from the
   // availability poll (they're heavy base64 images) and merged in getVendor().
   const [media, setMedia] = useState<Record<number, { photo?: string; bio?: string }>>({});
+  const [promos, setPromos] = useState<PromoStatus[]>([]);
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const modeRef = useRef<Mode>("loading");
   modeRef.current = mode;
@@ -111,7 +121,8 @@ export function ReservationProvider({ children }: { children: React.ReactNode })
     }
   }, []);
 
-  const applyPublic = useCallback((data: { reservations: PublicRes[]; blocked: number[] }) => {
+  const applyPublic = useCallback((data: { reservations: PublicRes[]; blocked: number[]; promos?: PromoStatus[] }) => {
+    if (Array.isArray(data.promos)) setPromos(data.promos);
     const map: VendorMap = {};
     for (const r of data.reservations) {
       map[r.tableNumber] = {
@@ -394,6 +405,7 @@ export function ReservationProvider({ children }: { children: React.ReactNode })
         stripeEnabled,
         availableCount,
         bookableCount,
+        promos,
         statusOf,
         inCart,
         canSelect,
