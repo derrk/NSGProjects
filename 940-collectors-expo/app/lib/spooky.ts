@@ -1,121 +1,26 @@
 "use client";
 
-// Halloween flourish: a screeching WAVE of bats sweeps across the screen on fun
-// moments (selecting a table, adding a ticket) — a Batman-style bat swarm. Each
-// trigger ALTERNATES the sound between a bat screech and a ghostly "wooo". Fails
-// silently and skips the animation when the user prefers reduced motion.
+// Halloween flourish: a real bat-colony recording + a giant WAVE of bats sweeping
+// across the screen, triggered on fun moments (selecting a table, adding a
+// ticket). Fails silently, and skips the animation when the user prefers
+// reduced motion.
 
-let ctx: AudioContext | null = null;
+const BAT_SOUND_SRC = "/sfx/bats.mp3";
+let batAudio: HTMLAudioElement | null = null;
 
-function getCtx(): AudioContext | null {
+function playBatSound() {
   try {
-    const AC =
-      window.AudioContext ||
-      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (!AC) return null;
-    if (!ctx) ctx = new AC();
-    if (ctx.state === "suspended") void ctx.resume();
-    return ctx;
-  } catch {
-    return null;
-  }
-}
-
-// A big, layered bat SCREECH — detuned sawtooths sweeping down with a fast
-// screech vibrato, plus a cloud of chittering squeaks on top. Dramatic, ~0.9s.
-function playBatScreech() {
-  const ac = getCtx();
-  if (!ac) return;
-  try {
-    const now = ac.currentTime;
-    const master = ac.createGain();
-    master.gain.setValueAtTime(0.0001, now);
-    master.gain.exponentialRampToValueAtTime(0.11, now + 0.05);
-    master.gain.setValueAtTime(0.11, now + 0.55);
-    master.gain.exponentialRampToValueAtTime(0.0001, now + 0.95);
-    // keep it thin & screechy
-    const hp = ac.createBiquadFilter();
-    hp.type = "highpass";
-    hp.frequency.value = 550;
-    hp.connect(ac.destination);
-    master.connect(hp);
-
-    // Layered screech — three detuned saws descending from a shriek.
-    for (const detune of [-28, 4, 33]) {
-      const osc = ac.createOscillator();
-      osc.type = "sawtooth";
-      osc.detune.value = detune;
-      const top = 2800 + Math.random() * 500;
-      osc.frequency.setValueAtTime(top, now);
-      osc.frequency.exponentialRampToValueAtTime(650, now + 0.85);
-      // fast, harsh screech wobble
-      const lfo = ac.createOscillator();
-      const lfoGain = ac.createGain();
-      lfo.type = "sine";
-      lfo.frequency.value = 42 + Math.random() * 12;
-      lfoGain.gain.value = 130;
-      lfo.connect(lfoGain);
-      lfoGain.connect(osc.frequency);
-      osc.connect(master);
-      osc.start(now);
-      lfo.start(now);
-      osc.stop(now + 0.9);
-      lfo.stop(now + 0.9);
+    if (typeof Audio === "undefined") return;
+    if (!batAudio) {
+      batAudio = new Audio(BAT_SOUND_SRC);
+      batAudio.preload = "auto";
+      batAudio.volume = 0.65;
     }
-
-    // A cloud of chittering squeaks = the swarm.
-    for (let i = 0; i < 16; i++) {
-      const t = now + Math.random() * 0.8;
-      const o = ac.createOscillator();
-      const g = ac.createGain();
-      o.type = "square";
-      const f = 2400 + Math.random() * 2600;
-      o.frequency.setValueAtTime(f, t);
-      o.frequency.exponentialRampToValueAtTime(f * 0.6, t + 0.03);
-      g.gain.setValueAtTime(0.0001, t);
-      g.gain.exponentialRampToValueAtTime(0.03, t + 0.004);
-      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.045);
-      o.connect(g);
-      g.connect(ac.destination);
-      o.start(t);
-      o.stop(t + 0.06);
-    }
+    batAudio.currentTime = 0; // restart so every tap re-triggers the screech
+    const p = batAudio.play();
+    if (p && typeof p.catch === "function") p.catch(() => {}); // ignore autoplay blocks
   } catch {
-    /* audio not available — ignore */
-  }
-}
-
-// A slow, wobbling glissando that rises then sinks — a ghostly "wooooo".
-function playGhostSound() {
-  const ac = getCtx();
-  if (!ac) return;
-  try {
-    const now = ac.currentTime;
-    const osc = ac.createOscillator();
-    const gain = ac.createGain();
-    osc.type = "sine";
-    osc.frequency.setValueAtTime(300, now);
-    osc.frequency.exponentialRampToValueAtTime(520, now + 0.45);
-    osc.frequency.exponentialRampToValueAtTime(230, now + 1.15);
-    gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(0.08, now + 0.18);
-    gain.gain.setValueAtTime(0.08, now + 0.7);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.25);
-    const lfo = ac.createOscillator();
-    const lfoGain = ac.createGain();
-    lfo.type = "sine";
-    lfo.frequency.value = 6;
-    lfoGain.gain.value = 24;
-    lfo.connect(lfoGain);
-    lfoGain.connect(osc.frequency);
-    osc.connect(gain);
-    gain.connect(ac.destination);
-    osc.start(now);
-    lfo.start(now);
-    osc.stop(now + 1.3);
-    lfo.stop(now + 1.3);
-  } catch {
-    /* audio not available — ignore */
+    /* audio unavailable — ignore */
   }
 }
 
@@ -124,7 +29,7 @@ const reducedMotion = () =>
 
 // A giant WAVE of bats surging across the screen — released in a tight stagger
 // so they read as one swarm, spread over the full height, flapping as they go.
-function flyBatSwarm(n = 32) {
+function flyBatSwarm(n = 34) {
   try {
     if (typeof document === "undefined" || reducedMotion()) return;
     for (let i = 0; i < n; i++) {
@@ -154,45 +59,7 @@ function flyBatSwarm(n = 32) {
   }
 }
 
-// A ghost drifting up the screen, fading in and out — pairs with the ghost sound.
-function floatGhost() {
-  try {
-    if (typeof document === "undefined" || reducedMotion()) return;
-    const g = document.createElement("div");
-    g.textContent = "👻";
-    g.setAttribute("aria-hidden", "true");
-    const left = 8 + Math.random() * 74;
-    const size = 34 + Math.random() * 22;
-    g.style.cssText = `position:fixed;left:${left}vw;top:105vh;font-size:${size}px;z-index:9998;pointer-events:none;opacity:0;will-change:transform,opacity;`;
-    document.body.appendChild(g);
-    const anim = g.animate(
-      [
-        { transform: "translate(0,0) rotate(-5deg)", opacity: 0 },
-        { transform: "translate(6vw,-32vh) rotate(5deg)", opacity: 0.85, offset: 0.3 },
-        { transform: "translate(-6vw,-72vh) rotate(-5deg)", opacity: 0.7, offset: 0.7 },
-        { transform: "translate(4vw,-116vh) rotate(4deg)", opacity: 0 },
-      ],
-      { duration: 3600, easing: "ease-in-out" }
-    );
-    anim.onfinish = () => g.remove();
-  } catch {
-    /* ignore */
-  }
-}
-
-// Alternate the SOUND (bat screech / ghost wooo) on each trigger — but every
-// trigger unleashes the bat swarm.
-let fxCount = 0;
-
 export function spookyFx() {
-  const ghostTurn = fxCount % 2 === 1;
-  fxCount++;
-  if (ghostTurn) {
-    playGhostSound();
-    flyBatSwarm(24); // still a wave…
-    floatGhost(); // …plus a drifting ghost to match the sound
-  } else {
-    playBatScreech();
-    flyBatSwarm(34); // the full screeching wave
-  }
+  playBatSound();
+  flyBatSwarm();
 }

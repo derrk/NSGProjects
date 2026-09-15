@@ -167,6 +167,7 @@ export default function ReserveClient() {
             {/* Color legend — what each table color means on the map. */}
             <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mt-4 text-xs text-[#E5E7EB]/60">
               <LegendSwatch fill="#33235C" stroke="#7C4DD6" label="Available" />
+              <LegendSwatch fill="#A855F7" stroke="#D8B4FE" label="Your pick" />
               <LegendSwatch fill="#6EE04A" stroke="#3F9E1E" label="Booked" />
               <LegendSwatch fill="#F97316" stroke="#C2410C" label="Pending payment" />
               <span className="text-[#E5E7EB]/40">Tap a booked table to see who&apos;s there.</span>

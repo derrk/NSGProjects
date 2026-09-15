@@ -36,8 +36,8 @@ const COLORS = {
   tableFill: "#33235C",
   tableStroke: "#7C4DD6",
   tableText: "#EDE7FB",
-  selFill: "#6EE04A", // slime green — selected
-  selStroke: "#3F9E1E",
+  selFill: "#A855F7", // bright purple — selected (in your cart)
+  selStroke: "#D8B4FE",
   heldFill: "#F97316", // orange — pending payment
   heldStroke: "#C2410C",
   soldFill: "#6EE04A", // slime green — sold / booked
@@ -108,7 +108,7 @@ export default function ExpoFloorMap({
               const isSel = selected?.has(t.id);
               const vendor = vendors?.[t.id];
               let fill = COLORS.tableFill, stroke = COLORS.tableStroke, text = COLORS.tableText;
-              if (isSel) { fill = COLORS.selFill; stroke = COLORS.selStroke; text = "#14210A"; }
+              if (isSel) { fill = COLORS.selFill; stroke = COLORS.selStroke; text = "#FFFFFF"; }
               else if (live === "confirmed") { fill = COLORS.soldFill; stroke = COLORS.soldStroke; text = "#14210A"; }
               else if (live === "held") { fill = COLORS.heldFill; stroke = COLORS.heldStroke; text = "#14210A"; }
               const x = px(t.x, CANVAS.w), y = px(t.y, CANVAS.h), w = px(t.w, CANVAS.w), h = px(t.h, CANVAS.h);
