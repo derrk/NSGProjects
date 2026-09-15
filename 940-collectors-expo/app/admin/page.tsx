@@ -443,8 +443,12 @@ export default function AdminPage() {
   // Online tickets.
   const paidTickets = tickets.filter((t) => t.status === "paid");
   const ticketRevenue = paidTickets.reduce((s, t) => s + t.amountCents, 0);
-  // Combined take = confirmed table fees + paid ticket sales.
-  const grandTotal = totalConfirmed + ticketRevenue;
+  // Revenue by STATUS: confirmed = money actually collected (paid table fees +
+  // paid tickets); pending = table fees on holds not yet paid (money still owed).
+  const pendingRevenue = pending.reduce((s, r) => s + r.amountCents, 0);
+  const confirmedRevenue = totalConfirmed + ticketRevenue;
+  // Projected take if every pending hold pays.
+  const projectedTotal = confirmedRevenue + pendingRevenue;
   const vipSold = paidTickets.reduce((s, t) => s + t.vipQty, 0);
   const gaSold = paidTickets.reduce((s, t) => s + t.gaQty, 0);
   const entriesTotal = paidTickets.reduce((s, t) => s + t.giveawayEntries, 0);
@@ -554,21 +558,37 @@ export default function AdminPage() {
             <Stat label="Inquiries" value={String(newInquiries.length)} />
           </div>
 
-          {/* Revenue — table fees + ticket sales, and the combined total */}
+          {/* Revenue by status — money collected (confirmed) vs money still owed
+              (pending), with the source breakdown + projected total underneath. */}
           <div className="retro-panel p-4">
-            <div className="flex items-baseline justify-between gap-3">
-              <p className="pixel-eyebrow text-[#E5E7EB]/40" style={{ fontSize: 9 }}>Total revenue</p>
-              <p className="text-2xl font-black text-[#FACC15] tabular-nums">{formatUSD(grandTotal)}</p>
+            <p className="pixel-eyebrow text-[#E5E7EB]/40 mb-3" style={{ fontSize: 9 }}>Revenue</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-xl bg-[#0B0713] border border-[#6EE04A]/30 p-3.5">
+                <p className="text-2xl sm:text-3xl font-black text-[#6EE04A] tabular-nums">{formatUSD(confirmedRevenue)}</p>
+                <p className="pixel-eyebrow text-[#6EE04A]/70 mt-1" style={{ fontSize: 8 }}>Confirmed · in hand</p>
+              </div>
+              <div className="rounded-xl bg-[#0B0713] border border-[#F97316]/30 p-3.5">
+                <p className="text-2xl sm:text-3xl font-black text-[#F97316] tabular-nums">{formatUSD(pendingRevenue)}</p>
+                <p className="pixel-eyebrow text-[#F97316]/80 mt-1" style={{ fontSize: 8 }}>Pending · awaiting payment</p>
+              </div>
             </div>
-            <div className="grid grid-cols-2 gap-3 mt-3 pt-3 border-t border-white/10">
+            <div className="grid grid-cols-3 gap-3 mt-3 pt-3 border-t border-white/10 text-center">
               <div>
-                <p className="text-lg font-black text-white tabular-nums">{formatUSD(totalConfirmed)}</p>
-                <p className="pixel-eyebrow text-[#E5E7EB]/40 mt-0.5" style={{ fontSize: 8 }}>Table fees</p>
+                <p className="text-sm font-black text-white tabular-nums">{formatUSD(totalConfirmed)}</p>
+                <p className="pixel-eyebrow text-[#E5E7EB]/40 mt-0.5" style={{ fontSize: 8 }}>Table fees (paid)</p>
               </div>
               <div>
-                <p className="text-lg font-black text-white tabular-nums">{formatUSD(ticketRevenue)}</p>
+                <p className="text-sm font-black text-white tabular-nums">{formatUSD(ticketRevenue)}</p>
                 <p className="pixel-eyebrow text-[#E5E7EB]/40 mt-0.5" style={{ fontSize: 8 }}>Ticket sales</p>
               </div>
+              <div>
+                <p className="text-sm font-black text-[#F97316] tabular-nums">{formatUSD(pendingRevenue)}</p>
+                <p className="pixel-eyebrow text-[#E5E7EB]/40 mt-0.5" style={{ fontSize: 8 }}>Table fees (pending)</p>
+              </div>
+            </div>
+            <div className="flex items-baseline justify-between gap-3 mt-3 pt-3 border-t border-white/10">
+              <p className="pixel-eyebrow text-[#E5E7EB]/40" style={{ fontSize: 8 }}>Projected (if all pending pays)</p>
+              <p className="text-lg font-black text-[#FACC15] tabular-nums">{formatUSD(projectedTotal)}</p>
             </div>
           </div>
 
