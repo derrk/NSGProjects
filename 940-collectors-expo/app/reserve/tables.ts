@@ -79,15 +79,11 @@ export interface PromoCode {
   maxUses?: number; // total redemptions allowed (enforced server-side)
 }
 
-// Discount codes (admin-editable). Add real codes here.
-// 9FORTY25 was retired 2026-08 — no active codes right now. To add one later,
-// add an entry here; a `maxUses` cap is enforced server-side in createHold.
-export const PROMO_CODES: PromoCode[] = [
-  // Early bird: sets each table to $85 (from $99.99). Capped at 25 total
-  // redemptions — enforced server-side in createHold (counts non-released
-  // reservations with this code, then throws PromoExhaustedError).
-  { code: "EARLYBIRD940", type: "table_price", value: 8500, label: "Early bird — $85 per table", maxUses: 25 },
-];
+// Discount codes now live in the DB (promo_codes table) and are managed from the
+// admin panel. This hardcoded list is just a fallback default for computePricing;
+// the client and server pass the live DB codes in. EARLYBIRD940 was migrated to
+// the DB (migration 0007).
+export const PROMO_CODES: PromoCode[] = [];
 
 // All 98 tables are sellable 8' x 2.5' vendor tables. No ticketing / HQ / seating
 // / reserved tiles in this room — any table can be held for a vendor from /admin.
@@ -224,10 +220,10 @@ export function basePriceCents(t: TableDef): number {
   return t.tableType === "endcap" ? EVENT.endcapPriceCents : EVENT.standardPriceCents;
 }
 
-export function resolvePromo(input?: string | null): PromoCode | null {
+export function resolvePromo(input?: string | null, codes: PromoCode[] = PROMO_CODES): PromoCode | null {
   if (!input) return null;
   const norm = input.trim().toUpperCase();
-  return PROMO_CODES.find((p) => p.code.toUpperCase() === norm) ?? null;
+  return codes.find((p) => p.code.toUpperCase() === norm) ?? null;
 }
 
 export function formatUSD(cents: number): string {
@@ -261,9 +257,9 @@ export interface Pricing {
 // Order of operations: full base price → corner bundle (−$10 each) → discount code.
 // A `table_price` code (early bird) resets every table's price; the difference
 // from the full price is surfaced as the code's savings so the cart stays clear.
-export function computePricing(cartIds: number[], promoInput?: string | null): Pricing {
+export function computePricing(cartIds: number[], promoInput?: string | null, codes: PromoCode[] = PROMO_CODES): Pricing {
   const cartSet = new Set(cartIds);
-  const promo = resolvePromo(promoInput);
+  const promo = resolvePromo(promoInput, codes);
   const promoInvalid = !!promoInput && promoInput.trim().length > 0 && !promo;
 
   const lines: CartLine[] = [];

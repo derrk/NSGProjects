@@ -19,6 +19,7 @@ import {
   computePricing,
   getTable,
   type Pricing,
+  type PromoCode,
   type TableStatus,
   type VendorProfile,
 } from "./tables";
@@ -41,10 +42,12 @@ type SubmitResult =
 
 export interface PromoStatus {
   code: string;
+  type: "fixed" | "percent" | "table_price";
+  value: number;
   label: string;
-  maxUses: number;
+  maxUses?: number;
   used: number;
-  remaining: number;
+  remaining: number | null;
 }
 
 interface ReservationState {
@@ -326,7 +329,13 @@ export function ReservationProvider({ children }: { children: React.ReactNode })
     setHoldExpiresAt(null);
   }, []);
 
-  const pricing = useMemo(() => computePricing(cart, promoInput), [cart, promoInput]);
+  // Build the live discount-code list from the polled promo status so the cart
+  // prices codes correctly (the server re-validates authoritatively at checkout).
+  const promoCodes = useMemo<PromoCode[]>(
+    () => promos.map((p) => ({ code: p.code, type: p.type, value: p.value, label: p.label, maxUses: p.maxUses })),
+    [promos]
+  );
+  const pricing = useMemo(() => computePricing(cart, promoInput, promoCodes), [cart, promoInput, promoCodes]);
 
   // Live availability for the "X of Y tables available" indicator (ignores the
   // current user's cart selections — reflects tables actually held/blocked).

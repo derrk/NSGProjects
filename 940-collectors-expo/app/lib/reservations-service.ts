@@ -1,6 +1,7 @@
 import "server-only";
 import { getServiceClient } from "./supabase";
-import { computePricing, getTable, resolvePromo, PROMO_CODES, FOUNDER_TABLES, TICKET_TABLES, SEATING_TABLES, RESERVED_TABLES, EVENT } from "../reserve/tables";
+import { computePricing, getTable, resolvePromo, FOUNDER_TABLES, TICKET_TABLES, SEATING_TABLES, RESERVED_TABLES, EVENT } from "../reserve/tables";
+import { getActivePromoCodes, getActivePromoStatuses, type PromoRow } from "./promo-service";
 import { createCheckoutSession, stripeConfigured } from "./stripe";
 
 // Tables that can never be booked by the public (HQ + ticketing + customer seating
@@ -72,18 +73,10 @@ function genCode(): string {
 // (Abandoned Stripe card holds are still freed by the checkout.session.expired
 // webhook — that's independent of the Zelle window.)
 
-export interface PromoStatus {
-  code: string;
-  label: string;
-  maxUses: number;
-  used: number;
-  remaining: number;
-}
-
 export async function getPublicState(): Promise<{
   reservations: PublicReservation[];
   blocked: number[];
-  promos: PromoStatus[];
+  promos: PromoRow[];
 }> {
   const sb = getServiceClient();
   const [{ data: rt, error: e1 }, { data: bl, error: e2 }] = await Promise.all([
@@ -121,20 +114,9 @@ export async function getPublicState(): Promise<{
     ]),
   ];
 
-  // Remaining redemptions for capped promo codes (e.g. EARLYBIRD940, 25 uses).
-  // "Used" = non-released reservations carrying that code — same count the
-  // server enforces in createHold.
-  const promos: PromoStatus[] = [];
-  for (const p of PROMO_CODES) {
-    if (p.maxUses == null) continue;
-    const { count } = await sb
-      .from("reservations")
-      .select("id", { count: "exact", head: true })
-      .eq("promo_code", p.code)
-      .neq("status", "released");
-    const used = count ?? 0;
-    promos.push({ code: p.code, label: p.label, maxUses: p.maxUses, used, remaining: Math.max(0, p.maxUses - used) });
-  }
+  // Active discount codes (from the DB, admin-managed) + live usage — the client
+  // uses these to price the cart and to show the early-bird counter.
+  const promos = await getActivePromoStatuses();
 
   return { reservations, blocked, promos };
 }
@@ -269,11 +251,13 @@ export async function createHold(
   const founderHit = tableNumbers.filter((n) => NON_VENDOR_TABLES.includes(n));
   if (founderHit.length) throw new ConflictError(founderHit);
 
-  // Server is the source of truth for price (bundle + promo).
-  const pricing = computePricing(tableNumbers, input.promoCode);
+  // Server is the source of truth for price (bundle + promo). Discount codes are
+  // loaded fresh from the DB so the client can never inject a bogus discount.
+  const codes = await getActivePromoCodes();
+  const pricing = computePricing(tableNumbers, input.promoCode, codes);
 
   // Enforce a limited-use promo code (e.g. early bird) across all reservations.
-  const promo = resolvePromo(input.promoCode);
+  const promo = resolvePromo(input.promoCode, codes);
   if (promo?.maxUses != null) {
     const { count } = await sb
       .from("reservations")

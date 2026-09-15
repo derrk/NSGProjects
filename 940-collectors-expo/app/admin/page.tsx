@@ -58,6 +58,17 @@ interface AdminTicket {
   createdAt: string;
 }
 
+interface AdminPromo {
+  code: string;
+  type: "fixed" | "percent" | "table_price";
+  value: number;
+  label: string;
+  maxUses?: number;
+  active: boolean;
+  used: number;
+  remaining: number | null;
+}
+
 function csvCell(v: unknown): string {
   let s = String(v ?? "");
   // Neutralize spreadsheet formula injection (=, +, -, @, tab, CR lead chars).
@@ -81,6 +92,7 @@ export default function AdminPage() {
   const [mapTable, setMapTable] = useState<number | null>(null);
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [mapSearch, setMapSearch] = useState("");
+  const [promoCodes, setPromoCodes] = useState<AdminPromo[]>([]);
 
   const load = useCallback(async () => {
     const res = await fetch("/api/admin/reservations", { cache: "no-store" });
@@ -115,6 +127,11 @@ export default function AdminPage() {
         text: "Couldn't load online ticket orders — the server returned an error. If you just deployed, make sure the ticket_orders migration (0005) has been run.",
         kind: "error",
       });
+    }
+    const pc = await fetch("/api/admin/promos", { cache: "no-store" });
+    if (pc.ok) {
+      const pj = await pc.json();
+      setPromoCodes(pj.codes ?? []);
     }
   }, []);
 
@@ -209,6 +226,52 @@ export default function AdminPage() {
       );
     } catch {
       setFlash({ text: "Couldn't reset ticket counts.", kind: "error" });
+    }
+    await load();
+    setBusy(null);
+  };
+
+  const createPromo = async (payload: {
+    code: string; type: string; value: number; label: string; maxUses: number | null;
+  }): Promise<boolean> => {
+    setBusy("createpromo");
+    let ok = false;
+    try {
+      const res = await fetch("/api/admin/promos", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const j = await res.json().catch(() => ({}));
+      ok = res.ok;
+      setFlash(
+        res.ok
+          ? { text: `Code ${payload.code.toUpperCase()} created.`, kind: "ok" }
+          : { text: typeof j.error === "string" && j.error ? `Couldn't create: ${j.error}` : "Couldn't create code.", kind: "error" }
+      );
+    } catch {
+      setFlash({ text: "Couldn't create code.", kind: "error" });
+    }
+    await load();
+    setBusy(null);
+    return ok;
+  };
+
+  const promoAction = async (code: string, action: "activate" | "deactivate" | "delete") => {
+    if (action === "delete" && !confirm(`Delete code ${code}? (Reservations that already used it keep their discount.)`)) return;
+    setBusy(code + action);
+    try {
+      const res = await fetch("/api/admin/promos/action", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ code, action }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        setFlash({ text: typeof j.error === "string" ? `Couldn't update: ${j.error}` : "Couldn't update code.", kind: "error" });
+      }
+    } catch {
+      setFlash({ text: "Couldn't update code.", kind: "error" });
     }
     await load();
     setBusy(null);
@@ -618,6 +681,10 @@ export default function AdminPage() {
             ))}
           </Section>
 
+          <Section title={`Discount codes (${promoCodes.length})`}>
+            <PromoManager codes={promoCodes} busy={busy} onCreate={createPromo} onAction={promoAction} />
+          </Section>
+
           <Section title={`Vendor inquiries (${newInquiries.length})`}>
             {newInquiries.length === 0 && <Empty>No new inquiries.</Empty>}
             {newInquiries.map((i) => (
@@ -811,6 +878,121 @@ function ArchiveModal({
           <button onClick={onClose} className="retro-btn-outline">Cancel</button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function promoDesc(p: AdminPromo): string {
+  if (p.type === "percent") return `${p.value}% off order`;
+  if (p.type === "table_price") return `${formatUSD(p.value)} per table`;
+  return `${formatUSD(p.value)} off order`;
+}
+
+function PromoManager({
+  codes,
+  busy,
+  onCreate,
+  onAction,
+}: {
+  codes: AdminPromo[];
+  busy: string | null;
+  onCreate: (p: { code: string; type: string; value: number; label: string; maxUses: number | null }) => Promise<boolean>;
+  onAction: (code: string, action: "activate" | "deactivate" | "delete") => void;
+}) {
+  const [code, setCode] = useState("");
+  const [type, setType] = useState<"table_price" | "fixed" | "percent">("table_price");
+  const [amount, setAmount] = useState(""); // dollars (table_price/fixed) or percent
+  const [maxUses, setMaxUses] = useState("");
+  const [label, setLabel] = useState("");
+  const [err, setErr] = useState<string | null>(null);
+  const input =
+    "w-full px-3 py-2 rounded-lg bg-[#0B0713] border border-white/10 text-white text-sm focus:outline-none focus:border-[#A855F7]/50";
+
+  const submit = async () => {
+    setErr(null);
+    if (!/^[A-Za-z0-9]{2,32}$/.test(code.trim())) return setErr("Code must be 2–32 letters/numbers.");
+    const n = Number(amount);
+    if (!Number.isFinite(n) || n <= 0) return setErr("Enter a discount amount.");
+    if (type === "percent" && n > 100) return setErr("Percent can't exceed 100.");
+    // fixed / table_price entered in dollars -> cents; percent stays whole.
+    const value = type === "percent" ? Math.round(n) : Math.round(n * 100);
+    const mu = maxUses.trim() === "" ? null : Math.max(1, Math.floor(Number(maxUses)));
+    const ok = await onCreate({ code: code.trim().toUpperCase(), type, value, label: label.trim(), maxUses: mu });
+    if (ok) { setCode(""); setAmount(""); setMaxUses(""); setLabel(""); }
+  };
+
+  const amountLabel = type === "percent" ? "Percent off" : type === "table_price" ? "Price per table ($)" : "Amount off ($)";
+
+  return (
+    <div className="space-y-4">
+      {/* Create form */}
+      <div className="retro-panel p-4 space-y-3">
+        <p className="text-sm font-bold text-white">Create a code</p>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs text-[#E5E7EB]/60 mb-1">Code</label>
+            <input className={input} value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} placeholder="e.g. LOCAL10" />
+          </div>
+          <div>
+            <label className="block text-xs text-[#E5E7EB]/60 mb-1">Discount type</label>
+            <select className={input} value={type} onChange={(e) => setType(e.target.value as typeof type)}>
+              <option value="table_price">Set price per table ($)</option>
+              <option value="fixed">$ off the whole order</option>
+              <option value="percent">% off the whole order</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs text-[#E5E7EB]/60 mb-1">{amountLabel}</label>
+            <input className={input} type="number" min="0" step={type === "percent" ? "1" : "0.01"} value={amount} onChange={(e) => setAmount(e.target.value)} placeholder={type === "percent" ? "e.g. 15" : "e.g. 85"} />
+          </div>
+          <div>
+            <label className="block text-xs text-[#E5E7EB]/60 mb-1">Max uses (blank = unlimited)</label>
+            <input className={input} type="number" min="1" step="1" value={maxUses} onChange={(e) => setMaxUses(e.target.value)} placeholder="e.g. 10" />
+          </div>
+        </div>
+        <div>
+          <label className="block text-xs text-[#E5E7EB]/60 mb-1">Label (shown in the cart; optional)</label>
+          <input className={input} value={label} onChange={(e) => setLabel(e.target.value)} placeholder="e.g. Local vendor discount" />
+        </div>
+        {err && <p className="text-sm text-red-400">{err}</p>}
+        <button onClick={submit} disabled={busy === "createpromo"} className="retro-btn text-xs px-4 py-2 disabled:opacity-50">
+          {busy === "createpromo" ? "Creating…" : "Create code"}
+        </button>
+      </div>
+
+      {/* Existing codes */}
+      {codes.length === 0 && <Empty>No discount codes yet.</Empty>}
+      {codes.map((p) => (
+        <div key={p.code} className="retro-panel p-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="font-bold text-white font-mono">
+              {p.code}{" "}
+              {!p.active && <span className="text-[11px] font-sans text-[#E5E7EB]/40">(disabled)</span>}
+            </p>
+            <p className="text-xs text-[#E5E7EB]/55">
+              {promoDesc(p)} · used {p.used}
+              {p.maxUses != null ? ` of ${p.maxUses}` : " (unlimited)"}
+              {p.remaining != null ? ` · ${p.remaining} left` : ""}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2 justify-end">
+            <button
+              onClick={() => onAction(p.code, p.active ? "deactivate" : "activate")}
+              disabled={!!busy}
+              className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-[#E5E7EB]/70 text-xs font-semibold hover:text-white disabled:opacity-50"
+            >
+              {p.active ? "Disable" : "Enable"}
+            </button>
+            <button
+              onClick={() => onAction(p.code, "delete")}
+              disabled={!!busy}
+              className="px-3 py-1.5 rounded-lg bg-red-500/15 border border-red-500/30 text-red-300 text-xs font-semibold hover:bg-red-500/25 disabled:opacity-50"
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

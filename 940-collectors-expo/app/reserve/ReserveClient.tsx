@@ -38,9 +38,10 @@ function AvailabilityChip() {
 // Live early-bird promo counter (X of 25 left) — hidden if no capped code exists.
 function EarlyBirdChip() {
   const { promos } = useReservation();
-  const eb = promos.find((p) => p.code === "EARLYBIRD940") ?? promos.find((p) => p.maxUses > 0);
-  if (!eb) return null;
-  const gone = eb.remaining <= 0;
+  // Only advertise the early-bird code publicly; other admin codes stay unlisted.
+  const eb = promos.find((p) => p.code === "EARLYBIRD940");
+  if (!eb || eb.maxUses == null) return null;
+  const gone = (eb.remaining ?? 0) <= 0;
   return (
     <div
       className={`flex items-center gap-2 px-4 py-2 rounded-full border text-sm ${
