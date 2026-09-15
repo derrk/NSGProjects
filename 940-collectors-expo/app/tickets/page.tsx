@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, Minus, Plus, Ticket, Star, Gift } from "lucide-react";
 import { TICKETS, EVENT_DATE_LABEL, VENUE } from "../lib/site";
 import { formatUSD } from "../reserve/tables";
+import { spookyFx } from "../lib/spooky";
 
 function Stepper({
   value,
@@ -31,7 +32,10 @@ function Stepper({
       <span className="w-6 text-center font-bold text-white tabular-nums">{value}</span>
       <button
         type="button"
-        onClick={() => onChange(Math.min(max, value + 1))}
+        onClick={() => {
+          if (value < max) spookyFx(); // 🎃 on adding a ticket
+          onChange(Math.min(max, value + 1));
+        }}
         disabled={value >= max}
         className="w-8 h-8 rounded-lg bg-[#0B0713] border border-white/10 text-white flex items-center justify-center disabled:opacity-30 hover:border-[#A855F7]/50"
         aria-label="Increase"

@@ -4,21 +4,59 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Info, Tag, ShoppingCart, X } from "lucide-react";
 import { ReservationProvider, useReservation } from "./ReservationContext";
-import ExpoFloorMap, { type FloorStatus } from "./ExpoFloorMap";
+import ExpoFloorMap, { type FloorStatus, type FloorVendor } from "./ExpoFloorMap";
 import CartPanel from "./CartPanel";
 import CheckoutModal from "./CheckoutModal";
 import { EVENT, formatUSD } from "./tables";
+import { spookyFx } from "../lib/spooky";
 
 // The booking floor map — the same ExpoFloorMap used in preview + admin, wired to
-// the reservation cart: tap an open table to add it (green), tap again to remove.
+// the reservation cart: tap an open table to add it (green goop 🎃), tap a booked
+// table to see the vendor (logo shown on their table).
 function BookingMap() {
-  const { vendors, cart, toggleTable } = useReservation();
+  const { vendors, cart, toggleTable, getVendor } = useReservation();
   const status: FloorStatus = {};
-  for (const [id, v] of Object.entries(vendors)) {
-    status[Number(id)] = v.status === "confirmed" ? "confirmed" : "held";
+  const vendorInfo: Record<number, FloorVendor> = {};
+  for (const key of Object.keys(vendors)) {
+    const id = Number(key);
+    const v = getVendor(id);
+    if (!v) continue;
+    status[id] = v.status === "confirmed" ? "confirmed" : "held";
+    vendorInfo[id] = {
+      business: v.business,
+      photo: v.photo,
+      instagram: v.instagram,
+      bio: v.bio,
+      resId: v.resId,
+      status: v.status === "confirmed" ? "confirmed" : "held",
+    };
   }
   return (
-    <ExpoFloorMap status={status} selected={new Set(cart)} onTableClick={(id) => toggleTable(id)} maxHeight="74vh" />
+    <ExpoFloorMap
+      status={status}
+      vendors={vendorInfo}
+      spotlightOnBooked
+      showLogos
+      selected={new Set(cart)}
+      onTableClick={(id) => {
+        if (!cart.includes(id)) spookyFx(); // 🎃 on adding a table
+        toggleTable(id);
+      }}
+      maxHeight="74vh"
+    />
+  );
+}
+
+// A single color key in the map legend (a small table-colored swatch + label).
+function LegendSwatch({ fill, stroke, label }: { fill: string; stroke: string; label: string }) {
+  return (
+    <span className="inline-flex items-center gap-2">
+      <span
+        className="inline-block w-4 h-3 rounded-[2px]"
+        style={{ background: fill, border: `1.5px solid ${stroke}` }}
+      />
+      {label}
+    </span>
   );
 }
 
@@ -124,6 +162,14 @@ export default function ReserveClient() {
               </div>
               <AvailabilityChip />
               <EarlyBirdChip />
+            </div>
+
+            {/* Color legend — what each table color means on the map. */}
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mt-4 text-xs text-[#E5E7EB]/60">
+              <LegendSwatch fill="#33235C" stroke="#7C4DD6" label="Available" />
+              <LegendSwatch fill="#6EE04A" stroke="#3F9E1E" label="Booked" />
+              <LegendSwatch fill="#F97316" stroke="#C2410C" label="Pending payment" />
+              <span className="text-[#E5E7EB]/40">Tap a booked table to see who&apos;s there.</span>
             </div>
           </motion.div>
 
