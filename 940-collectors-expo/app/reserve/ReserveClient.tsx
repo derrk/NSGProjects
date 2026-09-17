@@ -175,28 +175,32 @@ export default function ReserveClient() {
             </div>
           </motion.div>
 
-          <div className="grid lg:grid-cols-[1fr_360px] gap-6">
+          {/* Desktop: vendor directory (left, wide) beside the floor map + cart
+              (right). Mobile: map first, then the directory stacked below. */}
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_400px] lg:items-start">
+            {/* Vendor directory */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.15 }}
+              className="order-2 lg:order-1"
+            >
+              <VendorDirectory />
+            </motion.div>
+
+            {/* Floor map + desktop cart */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.1 }}
+              className="order-1 lg:order-2 space-y-6"
             >
               <BookingMap />
-            </motion.div>
-
-            {/* Desktop cart sidebar */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.2 }}
-              className="hidden lg:block"
-            >
-              <CartPanel onCheckout={() => setCheckoutOpen(true)} />
+              <div className="hidden lg:block">
+                <CartPanel onCheckout={() => setCheckoutOpen(true)} />
+              </div>
             </motion.div>
           </div>
-
-          {/* Public directory of confirmed vendors */}
-          <VendorDirectory />
         </div>
 
         {/* Mobile sticky cart bar + slide-up sheet */}
