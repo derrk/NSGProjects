@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ZoomIn, ZoomOut, Maximize2, X, AtSign } from "lucide-react";
 import { TABLE_LAYOUT, CANVAS, ENTRANCES } from "./tables";
+import { instagramHandle, instagramUrl } from "../lib/instagram";
 
 export type FloorStatus = Record<number, "held" | "confirmed">;
 
@@ -45,7 +46,6 @@ const COLORS = {
 };
 
 const ROOM = { l: 3, r: 94, t: 1.5, b: 97 };
-const igUrl = (h: string) => `https://instagram.com/${h.replace(/^@/, "").trim()}`;
 
 export default function ExpoFloorMap({
   status,
@@ -165,12 +165,15 @@ export default function ExpoFloorMap({
               {spotlightTables.length > 1 ? "s " : " "}
               {(spotlightTables.length ? spotlightTables : [spotlight.id]).join(", ")}
             </p>
-            {spotlight.v.instagram && (
-              <a href={igUrl(spotlight.v.instagram)} target="_blank" rel="noopener noreferrer"
-                 className="inline-flex items-center gap-1.5 mt-3 text-sm text-[#A855F7] hover:underline">
-                <AtSign size={14} /> {spotlight.v.instagram.replace(/^@/, "")}
-              </a>
-            )}
+            {(() => {
+              const handle = instagramHandle(spotlight.v.instagram);
+              return handle ? (
+                <a href={instagramUrl(handle)} target="_blank" rel="noopener noreferrer"
+                   className="inline-flex items-center gap-1.5 mt-3 text-sm text-[#A855F7] hover:underline">
+                  <AtSign size={14} /> {handle}
+                </a>
+              ) : null;
+            })()}
             {spotlight.v.bio && <p className="text-sm text-[#E5E7EB]/70 leading-relaxed mt-3">{spotlight.v.bio}</p>}
           </div>
         </div>

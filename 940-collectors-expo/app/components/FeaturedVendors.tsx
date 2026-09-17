@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { AtSign, Star } from "lucide-react";
+import { instagramHandle, instagramUrl } from "../lib/instagram";
 
 // Fallback cards shown before any vendor has been starred in the admin.
 // Deliberately generic "open slot" copy — nothing here should read as a real,
@@ -60,10 +61,6 @@ interface Vendor {
 function initialsOf(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase() || "?";
-}
-
-function igUrl(handle: string): string {
-  return `https://instagram.com/${handle.replace(/^@/, "").trim()}`;
 }
 
 export default function FeaturedVendors() {
@@ -176,19 +173,22 @@ export default function FeaturedVendors() {
                         ))}
                       </div>
                     )}
-                    {v.instagram && (
-                      <div className="flex items-center gap-2 border-t border-white/5 pt-4">
-                        <a
-                          href={igUrl(v.instagram)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-1.5 text-xs text-[#E5E7EB]/50 hover:text-[#A855F7] transition-colors"
-                        >
-                          <AtSign size={14} />
-                          {v.instagram.startsWith("@") ? v.instagram : `@${v.instagram}`}
-                        </a>
-                      </div>
-                    )}
+                    {(() => {
+                      const handle = instagramHandle(v.instagram);
+                      return handle ? (
+                        <div className="flex items-center gap-2 border-t border-white/5 pt-4">
+                          <a
+                            href={instagramUrl(handle)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1.5 text-xs text-[#E5E7EB]/50 hover:text-[#A855F7] transition-colors"
+                          >
+                            <AtSign size={14} />
+                            {handle}
+                          </a>
+                        </div>
+                      ) : null;
+                    })()}
                   </div>
                 </motion.div>
               ))

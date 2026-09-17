@@ -5,18 +5,16 @@ import { motion } from "framer-motion";
 import { AtSign, Store, Search } from "lucide-react";
 import { useReservation } from "./ReservationContext";
 import type { VendorListing } from "./ReservationContext";
+import { instagramHandle, instagramUrl } from "../lib/instagram";
 
 function initialsOf(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase() || "?";
 }
 
-function igUrl(handle: string): string {
-  return `https://instagram.com/${handle.replace(/^@/, "").trim()}`;
-}
-
 function VendorCard({ v, i }: { v: VendorListing; i: number }) {
   const logo = v.photo && v.photo.startsWith("data:image/") ? v.photo : null;
+  const handle = instagramHandle(v.instagram);
   const tablesLabel =
     v.tables.length > 1 ? `Tables ${v.tables.join(", ")}` : v.tables.length === 1 ? `Table ${v.tables[0]}` : "";
   return (
@@ -48,15 +46,15 @@ function VendorCard({ v, i }: { v: VendorListing; i: number }) {
           {v.bio || "Come see us on the show floor at the 940 Collector's Expo."}
         </p>
         <div className="flex items-center justify-between gap-2 border-t border-white/5 pt-3">
-          {v.instagram ? (
+          {handle ? (
             <a
-              href={igUrl(v.instagram)}
+              href={instagramUrl(handle)}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-1.5 text-xs text-[#E5E7EB]/55 hover:text-[#A855F7] transition-colors"
             >
               <AtSign size={13} />
-              {v.instagram.replace(/^@/, "")}
+              {handle}
             </a>
           ) : (
             <span />
