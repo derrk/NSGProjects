@@ -174,15 +174,21 @@ export default function ExpoFloorMap({
 
       {expanded && (
         <div className="fixed inset-0 z-[75] bg-black/90 backdrop-blur-sm flex flex-col p-3 sm:p-5" onClick={() => setExpanded(false)}>
-          <div className="w-full max-w-6xl mx-auto flex flex-col flex-1 min-h-0" onClick={(e) => e.stopPropagation()}>
+          {/* Toolbar and the map board stop propagation; clicking the dark area
+              anywhere else (or Esc) closes the full-screen view. */}
+          <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
             {toolbar(true)}
-            <div className="flex-1 min-h-0 overflow-auto rounded-lg border border-white/10 flex items-start justify-center" style={{ background: COLORS.paper }}>
-              <div style={{ height: `${86 * zoom}vh` }} className="shrink-0">
-                {mapSvg({ display: "block", height: "100%", width: "auto" })}
-              </div>
-            </div>
-            <p className="text-center text-xs text-[#E5E7EB]/45 mt-2 shrink-0">Tap outside or press Esc to close</p>
           </div>
+          <div className="flex-1 min-h-0 overflow-auto flex items-start justify-center">
+            <div
+              style={{ height: `${86 * zoom}vh`, background: COLORS.paper }}
+              className="shrink-0 rounded-lg border border-white/10"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {mapSvg({ display: "block", height: "100%", width: "auto" })}
+            </div>
+          </div>
+          <p className="text-center text-xs text-[#E5E7EB]/45 mt-2 shrink-0">Tap outside the map or press Esc to close</p>
         </div>
       )}
 
