@@ -177,7 +177,7 @@ export default function ReserveClient() {
 
           {/* Desktop: vendor directory (left, wide) beside the floor map + cart
               (right). Mobile: map first, then the directory stacked below. */}
-          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_400px] lg:items-start">
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_500px] lg:items-start">
             {/* Vendor directory */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}

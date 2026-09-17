@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { ZoomIn, ZoomOut, Maximize2, X, AtSign } from "lucide-react";
+import { useEffect, useState, type CSSProperties } from "react";
+import { ZoomIn, ZoomOut, Maximize2, Minimize2, X, AtSign } from "lucide-react";
 import { TABLE_LAYOUT, CANVAS, ENTRANCES } from "./tables";
 import { instagramHandle, instagramUrl } from "../lib/instagram";
 
@@ -59,7 +59,16 @@ export default function ExpoFloorMap({
 }: Props) {
   const [zoomIdx, setZoomIdx] = useState(0);
   const [spotlight, setSpotlight] = useState<{ id: number; v: FloorVendor } | null>(null);
+  const [expanded, setExpanded] = useState(false);
   const zoom = ZOOMS[zoomIdx];
+
+  // Esc closes the expanded (full-screen) map view.
+  useEffect(() => {
+    if (!expanded) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setExpanded(false);
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [expanded]);
 
   const topEnt = ENTRANCES.find((e) => e.side === "top");
   const rightEnt = ENTRANCES.find((e) => e.side === "right");
@@ -73,79 +82,109 @@ export default function ExpoFloorMap({
         .sort((a, b) => a - b)
     : [];
 
+  // Walls + tables — shared by the inline map and the full-screen view.
+  const svgChildren = (
+    <>
+      {topEnt ? (
+        <>
+          <line x1={L} y1={T} x2={px(topEnt.a, CANVAS.w)} y2={T} stroke={COLORS.wall} strokeWidth={4} />
+          <line x1={px(topEnt.b, CANVAS.w)} y1={T} x2={R} y2={T} stroke={COLORS.wall} strokeWidth={4} />
+          <text x={px((topEnt.a + topEnt.b) / 2, CANVAS.w)} y={T + 22} fill={COLORS.wall} fontSize={15} fontWeight={700} textAnchor="middle" style={{ letterSpacing: 1 }}>ENTRANCE</text>
+        </>
+      ) : <line x1={L} y1={T} x2={R} y2={T} stroke={COLORS.wall} strokeWidth={4} />}
+      <line x1={L} y1={T} x2={L} y2={B} stroke={COLORS.wall} strokeWidth={4} />
+      <line x1={L} y1={B} x2={R} y2={B} stroke={COLORS.wall} strokeWidth={4} />
+      {rightEnt ? (
+        <>
+          <line x1={R} y1={T} x2={R} y2={px(rightEnt.a, CANVAS.h)} stroke={COLORS.wall} strokeWidth={4} />
+          <line x1={R} y1={px(rightEnt.b, CANVAS.h)} x2={R} y2={B} stroke={COLORS.wall} strokeWidth={4} />
+          <text x={R - 16} y={px((rightEnt.a + rightEnt.b) / 2, CANVAS.h)} fill={COLORS.wall} fontSize={15} fontWeight={700} textAnchor="middle" transform={`rotate(90 ${R - 16} ${px((rightEnt.a + rightEnt.b) / 2, CANVAS.h)})`} style={{ letterSpacing: 1 }}>ENTRANCE</text>
+        </>
+      ) : <line x1={R} y1={T} x2={R} y2={B} stroke={COLORS.wall} strokeWidth={4} />}
+
+      {TABLE_LAYOUT.map((t) => {
+        const live = status?.[t.id];
+        const isSel = selected?.has(t.id);
+        const vendor = vendors?.[t.id];
+        let fill = COLORS.tableFill, stroke = COLORS.tableStroke, text = COLORS.tableText;
+        if (isSel) { fill = COLORS.selFill; stroke = COLORS.selStroke; text = "#FFFFFF"; }
+        else if (live === "confirmed") { fill = COLORS.soldFill; stroke = COLORS.soldStroke; text = "#14210A"; }
+        else if (live === "held") { fill = COLORS.heldFill; stroke = COLORS.heldStroke; text = "#14210A"; }
+        const x = px(t.x, CANVAS.w), y = px(t.y, CANVAS.h), w = px(t.w, CANVAS.w), h = px(t.h, CANVAS.h);
+        const cx = x + w / 2, cy = y + h / 2;
+        const rot = t.orientation === "vertical";
+        const isBusy = busyId === t.id;
+        const logo = showLogos && vendor?.photo && vendor.photo.startsWith("data:image/") ? vendor.photo : null;
+
+        // Click: booked -> spotlight (if enabled), else select/manage via onTableClick.
+        const doSpotlight = spotlightOnBooked && !!vendor;
+        const clickable = doSpotlight || (!!onTableClick && !(spotlightOnBooked && vendor));
+        const onClick = clickable
+          ? () => (doSpotlight ? setSpotlight({ id: t.id, v: vendor! }) : onTableClick?.(t.id))
+          : undefined;
+
+        return (
+          <g key={t.id} onClick={onClick}
+             style={{ cursor: clickable ? "pointer" : "default", opacity: isBusy ? 0.45 : 1 }}>
+            {logo ? (
+              <>
+                <image href={logo} x={x} y={y} width={w} height={h} preserveAspectRatio="xMidYMid slice" />
+                <rect x={x} y={y} width={w} height={h} rx={1.5} fill="none" stroke={stroke} strokeWidth={2} />
+              </>
+            ) : (
+              <>
+                <rect x={x} y={y} width={w} height={h} rx={1.5} fill={fill} stroke={stroke} strokeWidth={isSel || live ? 2 : 1} />
+                <text x={cx} y={cy} fill={text} fontSize={9} fontWeight={700} textAnchor="middle" dominantBaseline="central"
+                      transform={rot ? `rotate(-90 ${cx} ${cy})` : undefined}
+                      style={{ pointerEvents: "none", userSelect: "none" }}>{t.id}</text>
+              </>
+            )}
+          </g>
+        );
+      })}
+    </>
+  );
+
+  const mapSvg = (svgStyle: CSSProperties) => (
+    <svg viewBox={`0 0 ${CANVAS.w} ${CANVAS.h}`} style={svgStyle} role="img" aria-label="Show floor map">
+      {svgChildren}
+    </svg>
+  );
+
+  const btn = "p-1.5 rounded-lg bg-white/5 border border-white/10 text-[#E5E7EB]/70 hover:text-white disabled:opacity-30";
+  const toolbar = (fullscreen: boolean) => (
+    <div className="flex items-center justify-end gap-1.5 mb-2">
+      <button onClick={() => setZoomIdx((i) => Math.max(0, i - 1))} disabled={zoomIdx === 0} className={btn} aria-label="Zoom out"><ZoomOut size={15} /></button>
+      <button onClick={() => setZoomIdx((i) => Math.min(ZOOMS.length - 1, i + 1))} disabled={zoomIdx === ZOOMS.length - 1} className={btn} aria-label="Zoom in"><ZoomIn size={15} /></button>
+      <button onClick={() => { setZoomIdx(0); setExpanded(!fullscreen); }} className={btn}
+        aria-label={fullscreen ? "Exit full screen" : "Expand map"} title={fullscreen ? "Exit full screen" : "Expand map"}>
+        {fullscreen ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
+      </button>
+    </div>
+  );
+
   return (
     <div>
-      <div className="flex items-center justify-end gap-1.5 mb-2">
-        <button onClick={() => setZoomIdx((i) => Math.max(0, i - 1))} disabled={zoomIdx === 0}
-          className="p-1.5 rounded-lg bg-white/5 border border-white/10 text-[#E5E7EB]/70 hover:text-white disabled:opacity-30" aria-label="Zoom out"><ZoomOut size={15} /></button>
-        <button onClick={() => setZoomIdx((i) => Math.min(ZOOMS.length - 1, i + 1))} disabled={zoomIdx === ZOOMS.length - 1}
-          className="p-1.5 rounded-lg bg-white/5 border border-white/10 text-[#E5E7EB]/70 hover:text-white disabled:opacity-30" aria-label="Zoom in"><ZoomIn size={15} /></button>
-        <button onClick={() => setZoomIdx(0)} className="p-1.5 rounded-lg bg-white/5 border border-white/10 text-[#E5E7EB]/70 hover:text-white" aria-label="Reset view"><Maximize2 size={15} /></button>
-      </div>
+      {toolbar(false)}
       <div className="overflow-auto rounded-lg border border-white/10" style={{ maxHeight, background: COLORS.paper }}>
         <div style={{ width: `${zoom * 100}%`, minWidth: zoom > 1 ? `${zoom * 100}%` : undefined }}>
-          <svg viewBox={`0 0 ${CANVAS.w} ${CANVAS.h}`} style={{ display: "block", width: "100%", height: "auto" }}
-            role="img" aria-label="Show floor map">
-            {topEnt ? (
-              <>
-                <line x1={L} y1={T} x2={px(topEnt.a, CANVAS.w)} y2={T} stroke={COLORS.wall} strokeWidth={4} />
-                <line x1={px(topEnt.b, CANVAS.w)} y1={T} x2={R} y2={T} stroke={COLORS.wall} strokeWidth={4} />
-                <text x={px((topEnt.a + topEnt.b) / 2, CANVAS.w)} y={T + 22} fill={COLORS.wall} fontSize={15} fontWeight={700} textAnchor="middle" style={{ letterSpacing: 1 }}>ENTRANCE</text>
-              </>
-            ) : <line x1={L} y1={T} x2={R} y2={T} stroke={COLORS.wall} strokeWidth={4} />}
-            <line x1={L} y1={T} x2={L} y2={B} stroke={COLORS.wall} strokeWidth={4} />
-            <line x1={L} y1={B} x2={R} y2={B} stroke={COLORS.wall} strokeWidth={4} />
-            {rightEnt ? (
-              <>
-                <line x1={R} y1={T} x2={R} y2={px(rightEnt.a, CANVAS.h)} stroke={COLORS.wall} strokeWidth={4} />
-                <line x1={R} y1={px(rightEnt.b, CANVAS.h)} x2={R} y2={B} stroke={COLORS.wall} strokeWidth={4} />
-                <text x={R - 16} y={px((rightEnt.a + rightEnt.b) / 2, CANVAS.h)} fill={COLORS.wall} fontSize={15} fontWeight={700} textAnchor="middle" transform={`rotate(90 ${R - 16} ${px((rightEnt.a + rightEnt.b) / 2, CANVAS.h)})`} style={{ letterSpacing: 1 }}>ENTRANCE</text>
-              </>
-            ) : <line x1={R} y1={T} x2={R} y2={B} stroke={COLORS.wall} strokeWidth={4} />}
-
-            {TABLE_LAYOUT.map((t) => {
-              const live = status?.[t.id];
-              const isSel = selected?.has(t.id);
-              const vendor = vendors?.[t.id];
-              let fill = COLORS.tableFill, stroke = COLORS.tableStroke, text = COLORS.tableText;
-              if (isSel) { fill = COLORS.selFill; stroke = COLORS.selStroke; text = "#FFFFFF"; }
-              else if (live === "confirmed") { fill = COLORS.soldFill; stroke = COLORS.soldStroke; text = "#14210A"; }
-              else if (live === "held") { fill = COLORS.heldFill; stroke = COLORS.heldStroke; text = "#14210A"; }
-              const x = px(t.x, CANVAS.w), y = px(t.y, CANVAS.h), w = px(t.w, CANVAS.w), h = px(t.h, CANVAS.h);
-              const cx = x + w / 2, cy = y + h / 2;
-              const rot = t.orientation === "vertical";
-              const isBusy = busyId === t.id;
-              const logo = showLogos && vendor?.photo && vendor.photo.startsWith("data:image/") ? vendor.photo : null;
-
-              // Click: booked -> spotlight (if enabled), else select/manage via onTableClick.
-              const doSpotlight = spotlightOnBooked && !!vendor;
-              const clickable = doSpotlight || (!!onTableClick && !(spotlightOnBooked && vendor));
-              const onClick = clickable
-                ? () => (doSpotlight ? setSpotlight({ id: t.id, v: vendor! }) : onTableClick?.(t.id))
-                : undefined;
-
-              return (
-                <g key={t.id} onClick={onClick}
-                   style={{ cursor: clickable ? "pointer" : "default", opacity: isBusy ? 0.45 : 1 }}>
-                  {logo ? (
-                    <>
-                      <image href={logo} x={x} y={y} width={w} height={h} preserveAspectRatio="xMidYMid slice" />
-                      <rect x={x} y={y} width={w} height={h} rx={1.5} fill="none" stroke={stroke} strokeWidth={2} />
-                    </>
-                  ) : (
-                    <>
-                      <rect x={x} y={y} width={w} height={h} rx={1.5} fill={fill} stroke={stroke} strokeWidth={isSel || live ? 2 : 1} />
-                      <text x={cx} y={cy} fill={text} fontSize={9} fontWeight={700} textAnchor="middle" dominantBaseline="central"
-                            transform={rot ? `rotate(-90 ${cx} ${cy})` : undefined}
-                            style={{ pointerEvents: "none", userSelect: "none" }}>{t.id}</text>
-                    </>
-                  )}
-                </g>
-              );
-            })}
-          </svg>
+          {mapSvg({ display: "block", width: "100%", height: "auto" })}
         </div>
       </div>
+
+      {expanded && (
+        <div className="fixed inset-0 z-[75] bg-black/90 backdrop-blur-sm flex flex-col p-3 sm:p-5" onClick={() => setExpanded(false)}>
+          <div className="w-full max-w-6xl mx-auto flex flex-col flex-1 min-h-0" onClick={(e) => e.stopPropagation()}>
+            {toolbar(true)}
+            <div className="flex-1 min-h-0 overflow-auto rounded-lg border border-white/10 flex items-start justify-center" style={{ background: COLORS.paper }}>
+              <div style={{ height: `${86 * zoom}vh` }} className="shrink-0">
+                {mapSvg({ display: "block", height: "100%", width: "auto" })}
+              </div>
+            </div>
+            <p className="text-center text-xs text-[#E5E7EB]/45 mt-2 shrink-0">Tap outside or press Esc to close</p>
+          </div>
+        </div>
+      )}
 
       {spotlight && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={() => setSpotlight(null)}>
