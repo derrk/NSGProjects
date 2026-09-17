@@ -7,6 +7,7 @@ import { ReservationProvider, useReservation } from "./ReservationContext";
 import ExpoFloorMap, { type FloorStatus, type FloorVendor } from "./ExpoFloorMap";
 import CartPanel from "./CartPanel";
 import CheckoutModal from "./CheckoutModal";
+import VendorDirectory from "./VendorDirectory";
 import { EVENT, formatUSD } from "./tables";
 import { spookyFx } from "../lib/spooky";
 
@@ -193,6 +194,9 @@ export default function ReserveClient() {
               <CartPanel onCheckout={() => setCheckoutOpen(true)} />
             </motion.div>
           </div>
+
+          {/* Public directory of confirmed vendors */}
+          <VendorDirectory />
         </div>
 
         {/* Mobile sticky cart bar + slide-up sheet */}

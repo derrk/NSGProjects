@@ -64,6 +64,7 @@ interface ReservationState {
   availableCount: number;
   bookableCount: number;
   promos: PromoStatus[];
+  confirmedVendors: VendorListing[];
   statusOf: (id: number) => TableStatus;
   inCart: (id: number) => boolean;
   canSelect: (id: number) => boolean;
@@ -89,6 +90,19 @@ interface PublicRes {
   instagram: string | null;
   bio: string | null;
   photo: string | null;
+  category: string | null;
+}
+
+// One entry per CONFIRMED vendor (deduped across their tables) for the public
+// vendor directory on the reserve page.
+export interface VendorListing {
+  resId: string;
+  business: string;
+  instagram?: string;
+  bio?: string;
+  photo?: string;
+  category?: string;
+  tables: number[];
 }
 
 export function ReservationProvider({ children }: { children: React.ReactNode }) {
@@ -135,6 +149,7 @@ export function ReservationProvider({ children }: { children: React.ReactNode })
         instagram: r.instagram ?? undefined,
         bio: r.bio ?? undefined,
         photo: r.photo ?? undefined,
+        category: r.category ?? undefined,
         email: "",
       };
     }
@@ -337,6 +352,44 @@ export function ReservationProvider({ children }: { children: React.ReactNode })
   );
   const pricing = useMemo(() => computePricing(cart, promoInput, promoCodes), [cart, promoInput, promoCodes]);
 
+  // Public vendor directory: one entry per CONFIRMED vendor, deduped across their
+  // tables, with logo/bio merged in from the separately-loaded media. Built from
+  // data already fetched for the map, so it adds no extra network/egress.
+  const confirmedVendors = useMemo<VendorListing[]>(() => {
+    const byRes = new Map<string, VendorListing>();
+    for (const [key, v] of Object.entries(vendors)) {
+      if (v.status !== "confirmed") continue;
+      const id = Number(key);
+      const m = media[id];
+      const existing = byRes.get(v.resId);
+      if (existing) {
+        existing.tables.push(id);
+        if (!existing.photo && m?.photo) existing.photo = m.photo;
+        if (!existing.bio && m?.bio) existing.bio = m.bio;
+      } else {
+        byRes.set(v.resId, {
+          resId: v.resId,
+          business: v.business,
+          instagram: v.instagram,
+          bio: m?.bio ?? v.bio,
+          photo: m?.photo ?? v.photo,
+          category: v.category,
+          tables: [id],
+        });
+      }
+    }
+    const list = [...byRes.values()];
+    list.forEach((x) => x.tables.sort((a, b) => a - b));
+    // Vendors with a logo first, then alphabetically by business name.
+    list.sort((a, b) => {
+      const ap = a.photo ? 0 : 1;
+      const bp = b.photo ? 0 : 1;
+      if (ap !== bp) return ap - bp;
+      return a.business.localeCompare(b.business);
+    });
+    return list;
+  }, [vendors, media]);
+
   // Live availability for the "X of Y tables available" indicator (ignores the
   // current user's cart selections — reflects tables actually held/blocked).
   const bookableCount = BOOKABLE_IDS.length;
@@ -415,6 +468,7 @@ export function ReservationProvider({ children }: { children: React.ReactNode })
         availableCount,
         bookableCount,
         promos,
+        confirmedVendors,
         statusOf,
         inCart,
         canSelect,
