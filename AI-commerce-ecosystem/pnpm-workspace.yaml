@@ -1,6 +1,7 @@
 packages:
   - apps/*
-  - packages/*
+  - packages/core/*
+  - modules/*
 
 # drizzle-kit ships an esbuild binary that its postinstall script unpacks. pnpm 10+
 # blocks dependency lifecycle scripts by default, which leaves drizzle-kit installed
@@ -20,10 +21,9 @@ allowBuilds:
 # virtual store directory names buys back the headroom.
 virtualStoreDirMaxLength: 60
 
-# drizzle-orm 0.45.4 is newer than pnpm's default 24h minimumReleaseAge. It is pinned
-# deliberately: it is the last release of the stable 0.4x line, and the 1.0 release
-# candidate is a different API (defineRelations, db._query) that the docs site has
-# already switched to. Do not let a range pull in @rc.
+# drizzle-orm 0.45.4 is pinned deliberately: it is the last release of the stable 0.4x
+# line, and the 1.0 release candidate is a different API (defineRelations, db._query)
+# that the docs site has already switched to. Do not let a range pull in @rc.
 minimumReleaseAgeExclude:
   - drizzle-orm@0.45.4
   - '@anthropic-ai/sdk@0.132.1'

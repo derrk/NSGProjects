@@ -31,7 +31,7 @@ import { createMockStorage } from '@acf/integrations/storage'
 import { createDesignerAgent } from './run'
 
 const here = dirname(fileURLToPath(import.meta.url))
-const MIGRATION = resolve(here, '../../../db/drizzle/0000_talented_red_ghost.sql')
+const MIGRATION = resolve(here, '../../../../packages/core/db/drizzle/0000_talented_red_ghost.sql')
 
 let client: PGlite
 let db: ReturnType<typeof drizzle<typeof schema>>

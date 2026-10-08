@@ -22,13 +22,13 @@ importers:
     dependencies:
       '@acf/core':
         specifier: workspace:*
-        version: link:../../packages/core
+        version: link:../../packages/core/runtime
       '@acf/db':
         specifier: workspace:*
-        version: link:../../packages/db
+        version: link:../../packages/core/db
       '@acf/jobs':
         specifier: workspace:*
-        version: link:../../packages/jobs
+        version: link:../../packages/core/jobs
       drizzle-orm:
         specifier: 0.45.4
         version: 0.45.4(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(@types/pg@8.15.6)(postgres@3.4.9)
@@ -52,17 +52,17 @@ importers:
         specifier: ^19.3.0
         version: 19.3.0(@types/react@19.3.0)
 
-  packages/agents:
+  modules/pod:
     dependencies:
       '@acf/core':
         specifier: workspace:*
-        version: link:../core
+        version: link:../../packages/core/runtime
       '@acf/db':
         specifier: workspace:*
-        version: link:../db
+        version: link:../../packages/core/db
       '@acf/integrations':
         specifier: workspace:*
-        version: link:../integrations
+        version: link:../../packages/core/integrations
       drizzle-orm:
         specifier: 0.45.4
         version: 0.45.4(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(@types/pg@8.15.6)(postgres@3.4.9)
@@ -74,9 +74,7 @@ importers:
         specifier: ^0.5.8
         version: 0.5.8
 
-  packages/core: {}
-
-  packages/db:
+  packages/core/db:
     dependencies:
       drizzle-orm:
         specifier: 0.45.4
@@ -92,11 +90,11 @@ importers:
         specifier: ^4.23.15
         version: 4.23.15
 
-  packages/integrations:
+  packages/core/integrations:
     dependencies:
       '@acf/core':
         specifier: workspace:*
-        version: link:../core
+        version: link:../runtime
       '@anthropic-ai/sdk':
         specifier: ^0.132.1
         version: 0.132.1(zod@4.6.5)
@@ -110,11 +108,11 @@ importers:
         specifier: ^4.6.5
         version: 4.6.5
 
-  packages/jobs:
+  packages/core/jobs:
     dependencies:
       '@acf/core':
         specifier: workspace:*
-        version: link:../core
+        version: link:../runtime
       '@acf/db':
         specifier: workspace:*
         version: link:../db
@@ -127,6 +125,8 @@ importers:
       zod:
         specifier: ^4.6.5
         version: 4.6.5
+
+  packages/core/runtime: {}
 
 packages:
 
