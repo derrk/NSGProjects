@@ -29,3 +29,6 @@ packages/integrations/**/fixtures/*.local.json
 # os
 Thumbs.db
 .DS_Store
+
+# Next.js generates this and now advises gitignoring it
+next-env.d.ts

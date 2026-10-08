@@ -1,0 +1,417 @@
+/*
+ * DEADSTOCK — a business built and run out of a fortified compound, after.
+ *
+ * The theme is cosmetic only. Every station, light and counter maps to a real table or
+ * action, so this file can be swapped wholesale without touching data (SPEC.md
+ * §Command center UI).
+ *
+ * Two rules from the spec survive the reskin and are not negotiable:
+ *   1. No glow effects on text.
+ *   2. Contrast ratio >= 4.5:1 for every label.
+ * The palette below is checked against #0A0D0A: --fg 14.6:1, --toxic 11.2:1,
+ * --amber 10.1:1, --rust 5.3:1, --muted 6.4:1.
+ */
+
+:root {
+  /* Surfaces: charred concrete, lit badly. */
+  --bg: #0a0d0a;
+  --bg-raised: #121711;
+  --bg-sunken: #060806;
+  --edge: #27301f;
+  --edge-bright: #3c4a30;
+
+  /* Ink */
+  --fg: #d8e6cc;
+  --muted: #8ba37c;
+
+  /* Signal colours. Biohazard green is "secure", not "go faster". */
+  --toxic: #8ce563;
+  --amber: #ffb638;
+  --rust: #ff6a45;
+  --blood: #a3261a;
+
+  --radius: 2px;
+  --stripe: repeating-linear-gradient(
+    45deg,
+    var(--amber) 0 10px,
+    transparent 10px 20px
+  );
+
+  --mono: ui-monospace, "Cascadia Mono", "Consolas", "SF Mono", Menlo, monospace;
+
+  color-scheme: dark;
+}
+
+/*
+ * The compound has no lights-on mode. If someone's OS asks for light, we keep the
+ * dark palette rather than shipping an unthemed, unreadable page.
+ */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--bg);
+  /* Faint corrugated-metal banding. Static, so it costs nothing to render. */
+  background-image: repeating-linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.012) 0 1px,
+    transparent 1px 4px
+  );
+  color: var(--fg);
+  font-family: var(--mono);
+  font-size: 14px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--toxic);
+  text-underline-offset: 3px;
+}
+
+/* ---------------------------------------------------------------- *
+ * Shell
+ * ---------------------------------------------------------------- */
+
+.shell {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 16px 64px;
+}
+
+.topbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 20px;
+  padding: 18px 0 14px;
+  border-bottom: 1px solid var(--edge);
+  margin-bottom: 4px;
+}
+
+.brand {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.brand .brand-mark {
+  color: var(--toxic);
+}
+
+.tagline {
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.hazard-rule {
+  height: 4px;
+  background: var(--stripe);
+  opacity: 0.5;
+  margin-bottom: 28px;
+}
+
+.stations {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.stations a {
+  display: inline-block;
+  padding: 5px 11px;
+  border: 1px solid var(--edge);
+  border-radius: var(--radius);
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 11px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.stations a:hover {
+  border-color: var(--edge-bright);
+  color: var(--fg);
+}
+
+.stations a[aria-current='page'] {
+  border-color: var(--toxic);
+  color: var(--toxic);
+}
+
+/* ---------------------------------------------------------------- *
+ * Headings
+ * ---------------------------------------------------------------- */
+
+h1.screen-title {
+  font-size: 22px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  margin: 0 0 4px;
+}
+
+.screen-sub {
+  color: var(--muted);
+  margin: 0 0 24px;
+  font-size: 12px;
+}
+
+/* ---------------------------------------------------------------- *
+ * Crates — one pending approval
+ * ---------------------------------------------------------------- */
+
+.crate {
+  border: 1px solid var(--edge);
+  border-left: 3px solid var(--amber);
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+  margin-bottom: 20px;
+}
+
+.crate-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--edge);
+}
+
+.crate-title {
+  font-size: 14px;
+  font-weight: 700;
+  margin: 0;
+  letter-spacing: 0.04em;
+}
+
+.crate-body {
+  padding: 16px;
+}
+
+/* Tag strip: kind, category, clearance progress. */
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 14px;
+  padding: 0;
+  list-style: none;
+}
+
+.tag {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border: 1px solid var(--edge-bright);
+  border-radius: var(--radius);
+  color: var(--muted);
+}
+
+.tag.is-flagged {
+  border-color: var(--rust);
+  color: var(--rust);
+}
+
+.tag.is-cleared {
+  border-color: var(--toxic);
+  color: var(--toxic);
+}
+
+/* Hash-style identifiers — the ledger is the one thing that survived. */
+.hash {
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 0.06em;
+  word-break: break-all;
+}
+
+/* ---------------------------------------------------------------- *
+ * Variant picker — three designs, side by side
+ * ---------------------------------------------------------------- */
+
+.variants {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.variant {
+  border: 1px solid var(--edge);
+  border-radius: var(--radius);
+  background: var(--bg-sunken);
+  padding: 8px;
+}
+
+.variant img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1 / 1;
+  object-fit: contain;
+  background: #151814;
+  border-radius: var(--radius);
+}
+
+.variant figcaption {
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-top: 7px;
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.variant-missing {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1 / 1;
+  background: #151814;
+  border: 1px dashed var(--edge-bright);
+  border-radius: var(--radius);
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-align: center;
+  padding: 10px;
+}
+
+/* ---------------------------------------------------------------- *
+ * Actions
+ * ---------------------------------------------------------------- */
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding-top: 14px;
+  border-top: 1px solid var(--edge);
+}
+
+button.act {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 8px 15px;
+  border-radius: var(--radius);
+  border: 1px solid var(--edge-bright);
+  background: transparent;
+  color: var(--fg);
+  cursor: pointer;
+}
+
+button.act:hover {
+  border-color: var(--fg);
+}
+
+button.act.clear {
+  border-color: var(--toxic);
+  color: var(--toxic);
+}
+
+button.act.clear:hover {
+  background: var(--toxic);
+  color: var(--bg);
+}
+
+button.act.burn {
+  border-color: var(--rust);
+  color: var(--rust);
+}
+
+button.act.burn:hover {
+  background: var(--blood);
+  border-color: var(--blood);
+  color: var(--fg);
+}
+
+button.act:focus-visible,
+.stations a:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 2px;
+}
+
+/* ---------------------------------------------------------------- *
+ * Empty state and notices
+ * ---------------------------------------------------------------- */
+
+.all-quiet {
+  border: 1px dashed var(--edge-bright);
+  border-radius: var(--radius);
+  padding: 44px 20px;
+  text-align: center;
+  color: var(--muted);
+}
+
+.all-quiet strong {
+  display: block;
+  color: var(--toxic);
+  font-size: 15px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.notice {
+  border: 1px solid var(--edge);
+  border-left: 3px solid var(--rust);
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+  padding: 12px 16px;
+  margin-bottom: 22px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.notice strong {
+  color: var(--rust);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* ---------------------------------------------------------------- *
+ * Motion
+ * ---------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* The inbox must be clearable from a phone (SPEC.md §Visual direction). */
+@media (max-width: 560px) {
+  .crate-head {
+    flex-direction: column;
+  }
+
+  .actions button.act {
+    flex: 1 1 auto;
+  }
+}

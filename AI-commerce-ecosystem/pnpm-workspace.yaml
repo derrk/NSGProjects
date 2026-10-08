@@ -5,10 +5,22 @@ packages:
 # drizzle-kit ships an esbuild binary that its postinstall script unpacks. pnpm 10+
 # blocks dependency lifecycle scripts by default, which leaves drizzle-kit installed
 # but non-functional, so esbuild is allowlisted explicitly.
+#
+# NOTE: the key is `allowBuilds` (a map). pnpm 10's `onlyBuiltDependencies` list was
+# removed in 11 and is accepted SILENTLY with exit 0 — the script just never runs.
 allowBuilds:
   esbuild: true
+  # transitive dependency of inngest
+  protobufjs: true
 
-# drizzle-orm 0.45.4 is newer than the default minimum release age. It is pinned
+# This repo lives at a ~90-character path inside OneDrive, which leaves little room
+# before Windows' 260-char MAX_PATH. Past that limit Node's ESM resolver stops reading
+# package.json "imports" fields and fails with ERR_PACKAGE_IMPORT_NOT_DEFINED, which
+# names a random internal specifier and says nothing about path length. Shortening the
+# virtual store directory names buys back the headroom.
+virtualStoreDirMaxLength: 60
+
+# drizzle-orm 0.45.4 is newer than pnpm's default 24h minimumReleaseAge. It is pinned
 # deliberately: it is the last release of the stable 0.4x line, and the 1.0 release
 # candidate is a different API (defineRelations, db._query) that the docs site has
 # already switched to. Do not let a range pull in @rc.
