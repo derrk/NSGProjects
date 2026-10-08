@@ -1,3 +1,16 @@
 packages:
   - apps/*
   - packages/*
+
+# drizzle-kit ships an esbuild binary that its postinstall script unpacks. pnpm 10+
+# blocks dependency lifecycle scripts by default, which leaves drizzle-kit installed
+# but non-functional, so esbuild is allowlisted explicitly.
+allowBuilds:
+  esbuild: true
+
+# drizzle-orm 0.45.4 is newer than the default minimum release age. It is pinned
+# deliberately: it is the last release of the stable 0.4x line, and the 1.0 release
+# candidate is a different API (defineRelations, db._query) that the docs site has
+# already switched to. Do not let a range pull in @rc.
+minimumReleaseAgeExclude:
+  - drizzle-orm@0.45.4
