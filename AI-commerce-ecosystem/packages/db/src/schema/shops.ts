@@ -11,7 +11,7 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core'
 
-import { fulfillmentModel, shopPlatform, shopStatus } from './enums.js'
+import { fulfillmentModel, shopPlatform, shopStatus } from './enums'
 
 /**
  * Shared column shapes. `createdBy` records who wrote the row — `agent:<name>` or

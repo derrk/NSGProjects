@@ -1,3 +1,3 @@
-export * from './types.js'
-export * from './never-auto.js'
-export * from './gate.js'
+export * from './types'
+export * from './never-auto'
+export * from './gate'

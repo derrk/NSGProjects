@@ -5,9 +5,7 @@
   "type": "module",
   "exports": {
     "./approvals": "./src/approvals/index.ts",
-    "./runtime": "./src/runtime/index.ts"
-  },
-  "scripts": {
-    "test": "vitest run"
+    "./runtime": "./src/runtime/index.ts",
+    "./health": "./src/health/index.ts"
   }
 }

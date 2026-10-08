@@ -6,7 +6,7 @@
  * event, so an agent only has to implement `run(ctx)` and return valid JSON.
  */
 
-import { costCentsFor, inputTokensOf, isKnownModel } from './pricing.js'
+import { costCentsFor, inputTokensOf, isKnownModel } from './pricing'
 import {
   AgentRunFailedError,
   NonRetriableError,
@@ -19,7 +19,7 @@ import {
   type RunAgentDeps,
   type TokenUsage,
   type Trigger,
-} from './types.js'
+} from './types'
 
 export interface RunOptions {
   shopId?: string | null

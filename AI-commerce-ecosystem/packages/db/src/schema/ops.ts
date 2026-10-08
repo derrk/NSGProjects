@@ -14,8 +14,8 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core'
 
-import { agentTrigger, approvalDecision, approvalKind, eventLevel, runStatus } from './enums.js'
-import { auditColumns, shops } from './shops.js'
+import { agentTrigger, approvalDecision, approvalKind, eventLevel, runStatus } from './enums'
+import { auditColumns, shops } from './shops'
 
 /** The single inbox the operator works. Mirrors `ApprovalRow` in @acf/core. */
 export const approvals = pgTable(

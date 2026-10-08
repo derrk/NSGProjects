@@ -18,8 +18,8 @@ import {
   nicheStatus,
   productStatus,
   productType,
-} from './enums.js'
-import { auditColumns, shops, suppliers } from './shops.js'
+} from './enums'
+import { auditColumns, shops, suppliers } from './shops'
 
 /**
  * A market the Scout found worth selling into.

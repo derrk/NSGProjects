@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 
-import { gateHarness, type GateHarness } from '../../test/fakes.js'
-import { decideApproval, requestApproval } from './gate.js'
+import { gateHarness, type GateHarness } from '../../test/fakes'
+import { decideApproval, requestApproval } from './gate'
 import {
   AlreadyDecidedError,
   ApprovalNotFoundError,
   type ApprovalRequest,
   type GateDeps,
-} from './types.js'
+} from './types'
 
 let h: GateHarness
 let deps: GateDeps

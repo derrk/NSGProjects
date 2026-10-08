@@ -8,10 +8,10 @@
 
 import { relations } from 'drizzle-orm'
 
-import { concepts, designs, nicheProducts, niches, products } from './catalog.js'
-import { messages, orders, replies } from './commerce.js'
-import { agentRuns, approvals, dailyMetrics, events, pricingRules } from './ops.js'
-import { shopProposals, shops, suppliers } from './shops.js'
+import { concepts, designs, nicheProducts, niches, products } from './catalog'
+import { messages, orders, replies } from './commerce'
+import { agentRuns, approvals, dailyMetrics, events, pricingRules } from './ops'
+import { shopProposals, shops, suppliers } from './shops'
 
 export const shopsRelations = relations(shops, ({ many }) => ({
   niches: many(niches),

@@ -9,7 +9,7 @@
  * Idempotent: every insert is `onConflictDoNothing`, so re-running is safe.
  */
 
-import { createDatabase } from './client.js'
+import { createDatabase } from './client'
 import {
   blockedPhrases,
   concepts,
@@ -18,7 +18,7 @@ import {
   settings,
   shops,
   type Database,
-} from './index.js'
+} from './index'
 
 const SHOP_SLUG = 'launch-shop'
 

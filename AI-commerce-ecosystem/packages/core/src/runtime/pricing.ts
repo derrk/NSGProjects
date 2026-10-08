@@ -8,7 +8,7 @@
  * Last checked: 2026-10-08.
  */
 
-import type { TokenUsage } from './types.js'
+import type { TokenUsage } from './types'
 
 export interface ModelPrice {
   input: number

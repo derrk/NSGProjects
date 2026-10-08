@@ -12,7 +12,7 @@ import { drizzle } from 'drizzle-orm/postgres-js'
 import { migrate } from 'drizzle-orm/postgres-js/migrator'
 import postgres from 'postgres'
 
-import { migrationDatabaseUrl } from './env.js'
+import { migrationDatabaseUrl } from './env'
 
 const migrationsFolder = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'drizzle')
 

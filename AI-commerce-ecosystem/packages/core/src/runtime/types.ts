@@ -6,7 +6,7 @@
  * the terminal event. Agents just implement `run(ctx)`.
  */
 
-import type { Actor, ApprovalKind, ApprovalOutcome, Clock, EventSink } from '../approvals/types.js'
+import type { Actor, ApprovalKind, ApprovalOutcome, Clock, EventSink } from '../approvals/types'
 
 export type Trigger = 'cron' | 'event' | 'manual'
 export type RunStatus = 'running' | 'ok' | 'error'

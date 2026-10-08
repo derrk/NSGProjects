@@ -6,8 +6,8 @@ import {
   FakeEventSink,
   FakeSleeper,
   fixedRandom,
-} from '../../test/fakes.js'
-import { runAgent } from './run-agent.js'
+} from '../../test/fakes'
+import { runAgent } from './run-agent'
 import {
   AgentRunFailedError,
   NonRetriableError,
@@ -15,7 +15,7 @@ import {
   type AgentContext,
   type AgentDefinition,
   type RunAgentDeps,
-} from './types.js'
+} from './types'
 
 let runs: FakeAgentRunStore
 let events: FakeEventSink

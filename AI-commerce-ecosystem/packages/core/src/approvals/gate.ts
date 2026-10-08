@@ -7,7 +7,7 @@
  * when an event fires.
  */
 
-import { neverAutoReason } from './never-auto.js'
+import { neverAutoReason } from './never-auto'
 import {
   AlreadyDecidedError,
   ApprovalNotFoundError,
@@ -20,7 +20,7 @@ import {
   type ApprovalRule,
   type DecisionInput,
   type GateDeps,
-} from './types.js'
+} from './types'
 
 /** Strip the `agent:` prefix so events land on the right station. */
 function stationOf(actor: string): string {

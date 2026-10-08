@@ -13,8 +13,8 @@ import type {
   EventBus,
   EventSink,
   RuleStore,
-} from '../src/approvals/types.js'
-import type { AgentRunRecord, AgentRunStore, Sleeper } from '../src/runtime/types.js'
+} from '../src/approvals/types'
+import type { AgentRunRecord, AgentRunStore, Sleeper } from '../src/runtime/types'
 
 export interface RecordedEvent {
   agent: string

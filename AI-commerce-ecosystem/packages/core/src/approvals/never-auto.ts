@@ -11,7 +11,7 @@
  * these return a reason.
  */
 
-import type { ApprovalRequest } from './types.js'
+import type { ApprovalRequest } from './types'
 
 /** Price moves larger than this must be an operator action, never an agent's. */
 export const MAX_AGENT_PRICE_CHANGE_PCT = 15

@@ -1,7 +1,7 @@
 import { boolean, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core'
 
-import { messageChannel, messageIntent, messageStatus, orderStatus, replyStatus } from './enums.js'
-import { auditColumns, shops } from './shops.js'
+import { messageChannel, messageIntent, messageStatus, orderStatus, replyStatus } from './enums'
+import { auditColumns, shops } from './shops'
 
 /** Synced hourly from Shopify and Printify. An `issue` lights the station red. */
 export const orders = pgTable(
