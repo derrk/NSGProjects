@@ -1,368 +1,470 @@
-# AI Commerce Factory — Build Spec
+# AI Holding Company OS — Build Spec
 
 Oct 8, 2026 · @Derrik Pollock
 
 ## Overview
 
-Build a print-on-demand store run by AI agents, live with 60+ listings by 5 November 2026, so the operator spends 15–20 minutes twice a day approving work instead of doing it. The target is Christmas gift buyers; Printify handles printing and shipping, so "fulfillment" from the operator's side means clearing the approval queue and escalated support, not packing boxes.
+Build a personal holding-company operating system: one platform where every business is a division, every worker is a registered agent, and every decision that spends money or touches a customer lands in one approval inbox. The print-on-demand store is division one, live with 60 products by 5 November 2026; the 3D print farm, card vending and grading, an agency, and trading research are later divisions added through the same interface, not new projects.
 
-**What the system does on its own**
+**The platform's job**
 
-- Finds niches, generates designs, mockups, titles, tags and descriptions
-- Publishes approved products to the store and keeps inventory/pricing in sync
-- Reads customer messages and sends routine replies (shipping ETA, sizing, tracking)
-- Monitors orders, flags Printify production problems, tracks revenue and ad-free margin
+- Register divisions, agents, goals and tasks as data, not code
+- Run agents on schedules or on events, with retries, cost accounting and memory
+- Route every consequential action through an approval queue with graduated autonomy
+- Keep one shared knowledge layer (customers, leads, listings, inventory, opportunities, ledger) that every division reads and writes
+- Show the whole company on one screen: cash, revenue by division, active agents, queues, opportunities, alerts
+- Let the operator add a division or an agent from the dashboard, and eventually by asking an agent to do it
 
-**What the operator does (twice daily, from the command center)**
+**The thin-core rule**
 
-- Approve or reject proposed designs and listings (batch, one click each)
-- Answer escalated support (refunds, complaints, custom requests)
-- Glance at the station board for red lights, resolve the ones the agents could not
+Every core table and screen exists in week 1, but only with the columns and features the POD store needs that week. The agent registry is a table and a list page, not a visual builder. Memory is a table with an embedding column, not a retrieval framework. Self-expansion is a meta-agent on the roadmap, not in the first month. The foundation is right because the shapes are right, not because they are finished.
 
-**Constraints that shape the design**
+**What the operator does (twice daily, 15–20 minutes)**
+
+- Clear the approval inbox across all divisions
+- Read escalations and opportunity briefs; approve, shelve or redirect
+- Drop new ideas into the research desk
+- Scan the floor for red stations
+
+**Constraints**
 
 - One month to build, solo operator, Claude Code doing most of the coding
-- Launch channel is Shopify + Printify. Etsy is added through Printify in week 4 only if the Shopify pipeline is stable, and the Etsy shop must disclose AI-generated designs and be operated as one human-owned shop
-- Fiverr/Upwork automation is out of scope (no API, bots violate their terms)
-- Every action that spends money, publishes publicly or messages a customer goes through the approval queue until its category has a 95% approval rate over 20 items, then it auto-runs
+- Division one launches on Shopify + Printify; Etsy via Printify in week 4 if stable, with AI disclosure
+- No automation of marketplaces whose terms prohibit it (Fiverr, Upwork, Facebook Marketplace); those are scout-and-draft only
+- No autonomous trade execution is designed; trading is a research division
 
-**Done means**
+**Done means (5 November)**
 
-- 60 live products across mugs, tees, sweatshirts and hoodies before 5 Nov
-- Agents run on schedule for 7 days with zero manual restarts
-- Operator session under 20 minutes with everything reachable from the command center
-- First organic sale (goal, not a build criterion)
+- Core OS: divisions, agents, goals, tasks, approvals, events, ledger, memory tables live; registry and inbox UI working; one division created through the UI
+- Division one: 60 products live, created by the pipeline; agents ran 7 days with zero manual restarts
+- Operator session timed under 20 minutes from a single screen
 
-## Architecture and tech stack
+## Platform architecture
 
-One monorepo, one Postgres database, one scheduler. Agents are stateless functions that read and write the database; nothing important lives in an agent's memory.
+Three core layers are built once; divisions plug in underneath and never modify them. A division is a folder of agents, tools and screens plus rows in the registry; the core knows nothing about mugs, filament or Pokémon cards.
 
-&#91;embedded content: system architecture · 4 tiers\]
+&#91;embedded content: platform architecture · core OS and 5 divisions\]
 
-Arrows run top-down: the command center only talks to the orchestrator, the orchestrator dispatches agents, and each agent owns exactly one set of external services.
+Every arrow is the same contract: the core dispatches a division's agents, the agents write into the shared knowledge layer, and the command center reads only from the core, so a new division appears on the floor the moment it registers.
 
 | Layer | Choice | Why |
 | --- | --- | --- |
-| App framework | Next.js 15 (App Router), TypeScript | One codebase for UI, API routes and webhooks |
-| Database | Postgres on Supabase, Drizzle ORM | Hosted, cheap, realtime channel for the UI feed |
-| Job scheduler | Inngest | Cron + event-driven functions, retries, step memoization, local dev server; no infra to run |
-| Agent runtime | Anthropic SDK, `claude-sonnet-4-6` for routine runs, `claude-opus-4-6` for design concepting and escalations | Tool use + structured JSON output |
-| Image generation | fal.ai (Flux for illustration, Ideogram 3 for text-heavy designs) | Reliable lettering, 300 dpi upscales |
-| Print-on-demand | Printify API v1 | Mockups, product creation, order status, Shopify and Etsy publishing |
-| Storefront | Shopify (Basic plan) | Open Admin API, Inbox for messages, no listing-bot risk |
-| Email | Gmail API (OAuth) + Shopify Inbox webhook | One `support@` mailbox the Support agent owns |
-| Web search | Tavily API | Trend scout research |
-| Realtime UI | Supabase Realtime on the `events` table | Station board updates without polling |
-| Hosting | Vercel (app) + Inngest Cloud + Supabase | \~$45/month before API usage |
-| Secrets | Vercel env vars, never committed | Printify, Shopify, fal, Anthropic, Gmail refresh token |
+| App framework | Next.js 15 (App Router), TypeScript, Turborepo monorepo | UI, API routes and webhooks in one codebase; modules as workspace packages |
+| Database | Postgres on Supabase with `pgvector`, Drizzle ORM | Hosted, cheap, realtime channel, embeddings without a second datastore |
+| Job scheduler | Inngest | Cron + event-driven functions, retries, step memoization, per-agent schedules loaded from the registry |
+| Agent runtime | Anthropic SDK; Sonnet for routine runs, Opus for ranking, escalations and research briefs | Tool use with forced structured output |
+| Realtime UI | Supabase Realtime on `events` | Floor and counters update without polling |
+| Auth | Supabase Auth, single operator now, roles table from day one | Adding a second user later is a row, not a refactor |
+| Hosting | Vercel + Inngest Cloud + Supabase | \~$45/month before API usage |
+| Secrets | Vercel env vars; a `credentials` table pointing at env keys by name | Agents never see secrets; tools resolve them |
 
 **Repo layout**
 
 ```markdown
-apps/web            Next.js app: command center UI + API routes + webhooks
-packages/db         Drizzle schema, migrations, typed queries
-packages/agents     One folder per agent: prompt.md, tools.ts, run.ts, schema.ts
-packages/integrations  printify/, shopify/, fal/, gmail/, tavily/ thin typed clients
-packages/jobs       Inngest functions (crons, event handlers)
+apps/web                 Command center UI, API routes, webhooks
+packages/core/db         Drizzle schema for core tables, migrations, typed queries
+packages/core/runtime    Agent runner, tool catalog, memory, approval gate, event log
+packages/core/jobs       Inngest functions that load schedules from the registry
+packages/core/ui         Station, inbox card, division page primitives
+modules/pod              Division 1: agents/, tools/, schema/, screens/, module.ts
+modules/<name>           Each later division, same shape
 ```
 
-## Data model
+## Core data model
 
-Ten tables carry the whole system; the `events` table is the source of truth for the command center and the audit trail. All ids are UUIDs, all timestamps are `timestamptz`, and every row that an agent wrote carries `created_by` (`agent:<name>` or `operator`).
+Thirteen core tables are the shared source of truth; every division reads and writes through them and adds its own tables only under its own schema (`pod.*`, `print.*`). All ids are UUIDs, all timestamps `timestamptz`, every row written by an agent carries `actor` (`agent:<id>` or `user:<id>`), and every core row except `users` and `modules` carries `division_id`.
 
 | Table | Key columns | Notes |
 | --- | --- | --- |
-| `niches` | `name`, `keywords[]`, `audience`, `season`, `score` (0–100), `rationale`, `status` (`proposed` / `approved` / `rejected` / `exhausted`), `source_urls[]` | Written by Trend scout; a niche yields many concepts |
-| `concepts` | `niche_id`, `title`, `prompt_brief`, `style`, `products[]` (mug, tee, sweatshirt, hoodie), `ip_risk` (`low` / `medium` / `high`), `ip_notes`, `status` | One concept = one design idea; approval gate #1 |
-| `designs` | `concept_id`, `image_url` (Supabase storage), `source_model`, `gen_prompt`, `seed`, `width`, `height`, `dpi`, `variant_no`, `status` | 3 variants per concept; operator picks one or rejects all |
-| `products` | `design_id`, `printify_product_id`, `shopify_product_id`, `etsy_listing_id`, `blueprint_id`, `print_provider_id`, `title`, `description`, `tags[]`, `price_cents`, `cost_cents`, `status` (`draft` / `pending_approval` / `published` / `paused` / `retired`), `published_at` | Approval gate #2; one row per design × product type |
-| `orders` | `shopify_order_id`, `printify_order_id`, `customer_email`, `total_cents`, `cost_cents`, `status` (`received` / `in_production` / `shipped` / `delivered` / `issue` / `refunded`), `tracking_url`, `issue_notes` | Synced hourly from both APIs; `issue` lights the station red |
-| `messages` | `channel` (`gmail` / `shopify_inbox`), `external_id`, `thread_id`, `from_email`, `subject`, `body`, `order_id?`, `intent` (`shipping_eta` / `sizing` / `tracking` / `refund` / `complaint` / `custom` / `other`), `status` (`new` / `drafted` / `sent` / `escalated` / `closed`) | Inbound mail; intent set by Support agent |
-| `replies` | `message_id`, `body`, `auto_sent` (bool), `status` (`pending_approval` / `sent` / `rejected`), `sent_at` | Approval gate #3 |
-| `approvals` | `kind` (`concept` / `design` / `product` / `reply` / `price_change`), `ref_id`, `summary`, `payload` (jsonb), `decision` (`pending` / `approved` / `rejected` / `edited`), `decided_at`, `edit_payload` | The single inbox the operator works |
-| `approval_rules` | `kind`, `category`, `approved_count`, `rejected_count`, `auto_enabled` (bool), `threshold` (default 20 items at 95%) | Drives graduated autonomy |
-| `agent_runs` | `agent`, `trigger` (`cron` / `event` / `manual`), `started_at`, `finished_at`, `status` (`running` / `ok` / `error`), `input` (jsonb), `output` (jsonb), `tokens_in`, `tokens_out`, `cost_cents`, `error` | One row per agent invocation |
-| `events` | `ts`, `agent`, `kind`, `level` (`info` / `warn` / `error`), `message`, `ref_table`, `ref_id` | Append-only; command center subscribes to this |
-| `daily_metrics` | `date`, `revenue_cents`, `cogs_cents`, `orders`, `products_live`, `designs_generated`, `messages_handled`, `api_cost_cents` | Finance agent rolls this up nightly |
+| `users` | `email`, `role` (`owner` / `operator` / `viewer`), `settings` (jsonb) | One row today; roles exist so a second user is a row, not a refactor |
+| `modules` | `name`, `version`, `stations` (jsonb), `approval_kinds` (jsonb), `tool_names[]`, `enabled` | Written by each module's `module.ts` on boot; the floor and inbox are rendered from this |
+| `divisions` | `name`, `module_id`, `type`, `status` (`planning` / `active` / `paused` / `closed`), `goal_summary`, `config` (jsonb), `pnl_month_cents` (view) | A division is one business; a module can back several divisions |
+| `agents` | `division_id`, `name`, `description`, `purpose`, `module_agent_key`, `model`, `system_prompt`, `tools[]`, `schedule` (cron or event), `autonomy` (`propose` / `act_with_approval` / `auto`), `status`, `last_run_at` | First-class identity; the registry UI edits these rows |
+| `goals` | `division_id`, `agent_id?`, `statement`, `metric`, `target`, `current`, `deadline`, `status` | Agents read their division's goals into every prompt |
+| `tasks` | `division_id`, `agent_id?`, `parent_task_id?`, `title`, `input` (jsonb), `output` (jsonb), `status` (`queued` / `running` / `blocked` / `done` / `failed`), `priority`, `due_at`, `source` (`schedule` / `event` / `operator` / `agent`) | The universal work queue; agents can create subtasks |
+| `agent_runs` | `agent_id`, `task_id`, `started_at`, `finished_at`, `status`, `tokens_in`, `tokens_out`, `cost_cents`, `tool_calls` (jsonb), `error` | One row per invocation; the agent's run history |
+| `agent_memory` | `agent_id`, `division_id`, `kind` (`decision` / `result` / `lesson` / `fact`), `content`, `embedding` (vector 1536), `task_id?`, `importance` (0–1), `created_at` | Written after each run; top-k by embedding is injected into the next prompt |
+| `approvals` | `division_id`, `kind`, `category`, `ref_table`, `ref_id`, `summary`, `payload` (jsonb), `decision` (`pending` / `approved` / `rejected` / `edited`), `edit_payload`, `decided_by`, `decided_at` | The one inbox; `kind` must be registered in `modules.approval_kinds` |
+| `approval_rules` | `division_id`, `kind`, `category`, `approved_count`, `rejected_count`, `threshold_count` (default 20), `threshold_rate` (default 0.95), `auto_enabled`, `never_auto` | Graduated autonomy per division per category |
+| `opportunities` | `division_id?`, `source`, `title`, `url`, `summary`, `est_profit_cents`, `confidence` (0–1), `risk` (`low` / `med` / `high`), `hours_required`, `score`, `status` (`new` / `reviewed` / `pursuing` / `shelved` / `done`), `evaluated_by` | Written by any scout agent in any division; scored by one shared formula |
+| `entities` | `division_id`, `type` (`customer` / `lead` / `supplier` / `listing` / `inventory_item` / `asset`), `name`, `external_ids` (jsonb), `attributes` (jsonb), `embedding?` | Generic records so a new division has somewhere to write before it earns dedicated tables |
+| `ledger` | `division_id`, `kind` (`revenue` / `cogs` / `expense` / `api_cost` / `asset` / `liability`), `amount_cents`, `occurred_at`, `source`, `ref_table`, `ref_id` | Append-only; revenue, cash flow and net worth are views over this |
+| `events` | `division_id?`, `agent_id?`, `kind`, `level`, `message`, `ref_table`, `ref_id`, `ts` | Append-only; the floor subscribes to inserts; 90-day retention |
 
-**Status machines worth enforcing in code** (not just documentation)
+**Views the dashboard reads**
 
-- `concepts`: proposed → approved → (designs generated) → done; proposed → rejected
-- `products`: draft → pending\_approval → published → paused / retired; pending\_approval → rejected
-- `messages`: new → drafted → sent; new → escalated → closed
+- `v_division_pnl` — revenue, cogs, expenses, api cost, margin per division per month
+- `v_company_cash` — ledger rolled up: cash in, cash out, net, assets minus liabilities
+- `v_agent_health` — last run, success rate over 7 days, cost over 7 days, stale flag
+- `v_queue_depth` — pending approvals and queued tasks per division
 
-Supabase Storage holds design PNGs at `designs/<concept_id>/<variant_no>.png`; mockups are fetched from Printify on demand and cached at `mockups/<product_id>/<view>.jpg`.
+**Module schemas**
 
-## Orchestrator
+A module owns a Postgres schema named after it. Its tables reference core rows by id (`pod.products.entity_id → entities.id`, `pod.designs.task_id → tasks.id`) but core never references module tables. That one rule is what keeps a division removable.
 
-The orchestrator is a set of Inngest functions plus three conventions: every agent run is a job with retries, every side effect goes through the approval gate, and every state change writes an event. Nothing calls an agent directly from the UI; the UI emits an Inngest event and the job runs.
+## Module interface
 
-**Schedule (all times America/Chicago)**
+A division is added by dropping a folder in `modules/` that exports one `module.ts`; the core discovers it on boot, upserts its row in `modules`, and the floor, inbox, tool catalog and schedules update without touching core code.
+
+```markdown
+modules/pod/
+  module.ts        name, version, stations, approvalKinds, agents, tools, screens, migrations
+  agents/          one folder per agent: prompt.md, schema.ts, run.ts
+  tools/           typed tool definitions registered into the shared catalog
+  schema/          Drizzle tables in the `pod` schema
+  screens/         optional division-specific pages mounted at /divisions/:id/<screen>
+  fixtures/        recorded API responses so the division runs in dev with no spend
+```
+
+**What `module.ts` declares**
+
+| Field | Shape | Used by |
+| --- | --- | --- |
+| `name`, `version`, `description` | strings | Registry, division creation picker |
+| `stations[]` | `{key, label, agentKey, counterQuery}` | Factory floor renders one station per entry |
+| `approvalKinds[]` | `{kind, label, cardComponent, neverAuto?}` | Inbox renders the right card; rules table seeds thresholds |
+| `agents[]` | `{key, defaultName, purpose, defaultModel, defaultSchedule, defaultTools[], promptPath, run}` | Registry seeds `agents` rows when a division is created; the runtime calls `run` |
+| `tools[]` | `{name, description, inputSchema, handler, cost?}` | Shared tool catalog; any agent in any division can be granted them |
+| `screens[]` | `{path, component}` | Division page tabs |
+| `migrations` | path | Applied under the module's schema |
+| `onDivisionCreate(division, config)` | function | Creates external accounts/webhooks, seeds entities, writes the first tasks |
+
+**Core tools every module gets for free**
+
+`web_search`, `fetch_page`, `db.query` (read-only SQL against core views), `entities.*`, `opportunities.create`, `tasks.create`, `memory.recall`, `memory.write`, `ledger.post`, `requestApproval`, `notify_operator`, `send_email` (through the division's configured mailbox), `generate_image`, `embed_text`.
+
+**Adding a division, today and later**
+
+1. Now: create a folder from the `modules/_template` scaffold, fill `module.ts`, write agents and tools, run migrations, click "New division" in the dashboard, pick the module, fill its config form. The core seeds agents, goals and the first tasks.
+2. Month 2: the same, but a Research desk brief precedes it, and the division config form is generated from the module's Zod schema.
+3. Month 3+: a meta-agent with `create_division`, `create_agent`, `create_goal`, `create_tasks` and `propose_schema` tools proposes the module folder and registry rows; every call goes through the approval inbox, and the operator approves the plan before any code is scaffolded.
+
+**Rules that keep the core reusable**
+
+- Core never imports from `modules/`; discovery is by filesystem convention plus the `modules` table
+- A module never writes to another module's schema; cross-division data goes through core tables
+- A module cannot define a new approval decision type or bypass `requestApproval`
+- Disabling a module hides its stations and pauses its agents; its data stays
+
+## Agent framework
+
+An agent is a row in `agents` plus a `run` function its module provides; everything about who it is, what it may do and how much it may decide lives in the row, so the operator can create, retune or retire an agent from the registry page without a deploy.
+
+**Identity and goals**
+
+- `name`, `description`, `purpose` are shown on its station and in every prompt it receives
+- `division_id` scopes its data access: core tools filter by division unless the agent is granted `cross_division`
+- Goals are injected at run time: the division's active goals plus any goal assigned to the agent directly, with current vs target values
+
+**Memory**
+
+- After every run the runtime asks the agent for up to 5 memory entries (`decision`, `result`, `lesson`, `fact`) with an importance score; they are embedded and stored in `agent_memory`
+- Before every run the runtime recalls the top 8 entries by cosine similarity to the task input, plus the 3 most recent `lesson` entries regardless of similarity
+- Operator can pin, edit or delete memories from the agent's page; pinned memories always load
+- Run history (`agent_runs`) is the audit trail, not memory; memory is what the agent chose to keep
+
+**Tools**
+
+- `tools[]` on the row lists names from the shared catalog; the runtime builds the tool schema per run and refuses calls outside it
+- Tools do all external I/O and resolve credentials by name from the `credentials` table; agents never see keys
+- Every tool call is logged as an event with arguments (bodies over 2 KB truncated) and a cost estimate
+- Catalog is populated by core tools plus every enabled module's tools, so a cards agent can use the POD module's `generate_image` if granted
+
+**Autonomy levels**
+
+| Level | Meaning | Default for |
+| --- | --- | --- |
+| `propose` | Can only create tasks, opportunities and approval requests | Every new agent |
+| `act_with_approval` | Can call side-effect tools, but each call that matches a registered approval kind is held in the inbox | Agents after their first clean week |
+| `auto` | Side effects run immediately for categories whose `approval_rules` row has graduated; everything else still held | Earned per category, never set by hand except for read-only agents |
+
+The `never_auto` flag on a rule is absolute: refunds, price changes over 15%, purchases over a per-division cap, outbound messages mentioning legal threats or damages, and anything a module marks `neverAuto`.
+
+**The run loop**
+
+1. Load the agent row, division, goals, pinned and recalled memories, and the task
+2. Assemble the prompt: company header, division context, goals, memories, task input, output schema
+3. Call the model with the agent's tool set; loop on tool calls up to `max_steps` (default 12)
+4. Validate the output against the module's Zod schema; a failure is one retry with the error shown
+5. Write output to the task, memories to `agent_memory`, cost to `ledger` (`api_cost`), a terminal event, and any approval requests
+
+**Creating an agent from the dashboard**
+
+Pick a division, pick a module agent key (or `generic` for a prompt-only agent using core tools), name it, edit the prompt, tick tools, set a schedule and autonomy level. Save inserts the row; the orchestrator picks up the schedule on its next tick.
+
+## Orchestrator, tasks and approvals
+
+The orchestrator is a small set of generic Inngest functions that read the registry; no module ever defines a cron. Work enters as tasks, tasks are claimed by agents, side effects wait in approvals, and everything writes events.
+
+**Core jobs**
 
 | Job | Trigger | What it does |
 | --- | --- | --- |
-| `scout.daily` | cron 06:00 | Trend scout proposes 8 concepts across 2–3 niches; creates `approvals` of kind `concept` |
-| `designer.on-concept-approved` | event `concept.approved` | Generates 3 variants, uploads to storage, creates `approvals` of kind `design` |
-| `store.on-design-approved` | event `design.approved` | Builds listing copy for each product type, creates Printify products as drafts, creates `approvals` of kind `product` |
-| `store.on-product-approved` | event `product.approved` | Publishes to Shopify via Printify, verifies the product is live, sets `published_at` |
-| `orders.sync` | cron every hour | Pulls Shopify orders + Printify order status, updates `orders`, emits `order.issue` on production holds or shipping delays over 5 days |
-| `support.inbox` | cron every 30 min + Gmail push | Ingests new mail, classifies intent, drafts a reply; auto-sends if the rule allows, else creates `approvals` of kind `reply` |
-| `finance.nightly` | cron 23:30 | Rolls up `daily_metrics`, computes margin per product, pauses products with negative margin, posts a one-line summary event |
-| `health.heartbeat` | cron every 15 min | Marks any agent whose last run is older than 2× its interval as `stale` (station goes amber); 3 consecutive failures → red + email to operator |
+| `scheduler.tick` | cron every 5 min | Reads `agents.schedule`; for each due agent creates a task with `source = schedule` and emits `task.created` |
+| `task.run` | event `task.created`, `task.retry` | Claims the task, runs the agent's loop, writes output; 3 retries with backoff on transient errors |
+| `task.on-approval` | event `approval.decided` | Looks up the held task, resumes it with the decision and any edited payload |
+| `health.heartbeat` | cron every 15 min | Marks agents stale (amber) at 2× their interval, red after 3 failures; emails the operator on red |
+| `ledger.rollup` | cron 23:30 America/Chicago | Refreshes P&L views, posts the day's API spend, flags divisions over their spend cap |
+| `memory.prune` | cron weekly | Drops memories below importance 0.2 older than 60 days; events older than 90 days |
+| `webhook.ingest` | HTTP | Module webhooks (Shopify, Printify, Gmail, eBay) normalize into `task.created` or `entities` upserts |
+
+**Task queue**
+
+- A task is the only unit of work; an operator request, a schedule tick, a webhook and an agent's subtask all become tasks
+- `blocked` means waiting on an approval or a parent; the inbox shows what is blocked and why
+- Priority is an integer; the scheduler runs `operator` tasks first, then by priority, then age
+- Agents can create subtasks for themselves or other agents in their division; cross-division tasks require `cross_division`
 
 **Approval gate**
 
-- `requestApproval({kind, refId, summary, payload})` is the only way an agent proposes a side effect. It writes an `approvals` row, emits `approval.requested`, and the job ends.
-- `GET /api/approvals?status=pending` feeds the inbox. Decisions post back as `approved`, `rejected` or `edited` (with the edited payload), which emits `<kind>.approved` and resumes the pipeline.
-- `approval_rules` tracks counts per `(kind, category)`. When a category has ≥ 20 decisions and a ≥ 95% approval rate, the orchestrator sets `auto_enabled = true` and skips the inbox for that category. Any rejection after auto-enable resets the counter and disables auto for that category. Categories: concept niche type, reply intent, product type.
-- Hard-coded never-auto list: refunds, price changes above 15%, any reply containing a promise about delivery dates in December, anything tagged `ip_risk = high`.
-
-**Agent run contract**
-
-Each agent exports `run(input, ctx): Promise<output>` where `ctx` gives it `db`, `tools`, `log(event)` and `requestApproval`. The orchestrator wraps every run: inserts an `agent_runs` row, retries up to 3 times with backoff on transient errors, records token usage and cost, and writes a terminal event. Agents return structured JSON validated with Zod; a validation failure is a retry, not a crash.
+- `requestApproval({kind, category, refTable, refId, summary, payload})` writes an `approvals` row, marks the task `blocked`, emits `approval.requested`, and ends the run
+- Decisions post from the inbox as `approved`, `rejected` or `edited` (with the edited payload); the task resumes with the decision in its input
+- `approval_rules` counts decisions per `(division, kind, category)`; at 20 decisions and 95% approval the category graduates to auto; any rejection after graduation resets the counter and revokes auto for that category
+- `never_auto` categories and the per-division spend cap are enforced in `requestApproval` itself, not in prompts
 
 **Event log**
 
-Events are plain rows: `{ts, agent, kind, level, message, ref_table, ref_id}`. The command center subscribes to inserts over Supabase Realtime. Kinds are namespaced (`scout.proposed`, `designer.generated`, `store.published`, `support.sent`, `orders.issue`, `health.stale`), so the station board can filter per agent without parsing messages. Retention: 90 days, then nightly prune.
+Events are plain rows with namespaced kinds (`task.created`, `agent.run_ok`, `approval.requested`, `pod.product_published`, `print.job_queued`). Module kinds carry the module prefix so the floor filters per station without parsing. The command center subscribes to inserts; nothing else reads events for logic.
 
-## Agents
+**Operator control surface**
 
-Five agents, each a folder in `packages/agents/<name>/` with `prompt.md` (system prompt), `tools.ts` (typed tool definitions), `schema.ts` (Zod output) and `run.ts`. Prompts live as files so the operator can edit them from the command center's settings page without a deploy.
+- Pause switch per division and for the whole company (`divisions.status = paused` stops the scheduler for its agents within one tick)
+- Daily spend cap per division (default $25) and per API; breaching one pauses that division's agents and lights its stations amber
+- "Run now" on any agent creates an `operator` task immediately
 
-### Trend scout
+## Command center
 
-- **Model:** Sonnet for search passes, Opus for the final ranking
-- **Input:** today's date, list of niches already in the DB (so it does not repeat), product types available, holiday calendar
-- **Tools:** `web_search(query)`, `fetch_page(url)`, `list_existing_niches()`, `get_sales_by_niche()`
-- **Process:** 6–10 searches on seasonal gift queries ("gifts for nurses 2026", "funny christmas mug ideas", "\[hobby\] gift"), reads 5–8 pages, scores candidates on demand signal, competition, giftability and IP safety. Returns 2–3 niches and 8 concepts.
-- **Output per concept:** `title`, `niche`, `prompt_brief` (what the image should show, in 2–3 sentences), `style` (one of: flat-vector, hand-lettered, retro-badge, line-art, watercolor), `products[]`, `audience`, `ip_risk` with notes, `why_now`
-- **Guardrails:** reject any concept referencing a brand, character, team, celebrity, song lyric or movie quote. Reject phrases that are known registered trademarks on apparel (maintain a `blocked_phrases` list the operator can add to).
-
-### Designer
-
-- **Model:** Sonnet for prompt engineering; fal.ai for the image
-- **Input:** one approved concept
-- **Tools:** `generate_image(model, prompt, width, height, seed)`, `upscale(image_url)`, `remove_background(image_url)`, `check_text_rendering(image_url, expected_text)` (vision call that verifies lettering matches), `upload_to_storage(bytes, path)`
-- **Process:** writes 3 distinct generation prompts from the brief (varying composition, not just colors). Uses Ideogram 3 when the concept has text, Flux otherwise. Generates at 1024², verifies text, upscales the keepers to 4500×5400 px (apparel print area at 300 dpi), removes background, stores PNGs. Requests `design` approval with all 3 variants side by side.
-- **Output:** 3 `designs` rows with `gen_prompt`, `seed`, `image_url`
-- **Guardrails:** if text verification fails twice, regenerate with a simplified phrase; if it fails three times, mark the concept `needs_human` instead of shipping a misspelled design.
-
-### Store ops
-
-- **Model:** Sonnet
-- **Input:** one approved design + product types + the shop's pricing table
-- **Tools:** `printify.list_blueprints()`, `printify.create_product(blueprint, provider, print_areas, variants, title, description, tags)`, `printify.get_mockups(product_id)`, `printify.publish(product_id, channel)`, `shopify.get_product(id)`, `shopify.update_price(variant_id, price)`, `get_pricing_table()`
-- **Process:** writes a title (≤ 140 chars, keyword first), a 3-paragraph description (gift framing, material facts from the blueprint, care/shipping line), 13 tags; picks the blueprint and print provider from a fixed, operator-approved table (e.g. Bella+Canvas 3001 tee from a US provider, 11 oz and 15 oz mugs, Gildan 18000 sweatshirt, Gildan 18500 hoodie); sets price from the pricing table (cost × 2.2, rounded to .99); creates the Printify product; pulls mockups; requests `product` approval with mockups and copy.
-- **On approval:** publishes to Shopify, verifies the product is live and the images loaded, writes `published_at`.
-- **Order monitoring (hourly):** compares Shopify and Printify order status; emits `orders.issue` when Printify shows `on-hold`, `canceled` or no shipment after 5 business days.
-
-### Support
-
-- **Model:** Sonnet for classification and routine drafts, Opus for complaints and refund drafts
-- **Input:** one inbound message + its thread + matched order (by email or order number) + the shop's policy doc
-- **Tools:** `get_order(order_id)`, `get_tracking(order_id)`, `get_policy(topic)`, `search_messages(email)`, `draft_reply(body)`, `send_reply(reply_id)`, `escalate(message_id, reason)`
-- **Process:** classifies intent. Routine intents (`shipping_eta`, `tracking`, `sizing`, `other` with a clear answer in the policy doc) get a drafted reply citing the real order data. `refund`, `complaint` and `custom` always escalate with a suggested reply attached so the operator edits and sends in one click.
-- **Auto-send rule:** only intents whose `approval_rules` row has `auto_enabled`, and never a message that mentions a lawyer, a chargeback, a wrong item, or a damaged item.
-- **Tone file:** `packages/agents/support/voice.md` — friendly, two short paragraphs max, sign-off with the shop name, no emoji
-
-### Finance
-
-- **Model:** none for the rollup (pure SQL); Sonnet writes the nightly one-paragraph summary
-- **Process:** sums Shopify revenue, Printify cost, fal/Anthropic API spend from `agent_runs`, and writes `daily_metrics`. Flags products with no sales after 21 days as `stale` candidates and any product whose margin dropped below 25% (Printify price changes) for a price-change approval.
-
-**Shared prompt conventions**
-
-- Every system prompt opens with the shop's name, audience, and the date, and ends with the JSON schema the agent must return
-- Agents never see API keys; tools do the calls
-- Every tool call is logged as an event with its arguments (minus bodies over 2 KB) so the command center can show what an agent actually did
-
-## External integrations
-
-Each integration is a thin typed client in `packages/integrations/<name>/` with one function per API call, a shared retry/backoff wrapper, and a `mock.ts` that returns recorded fixtures so the pipeline runs end to end in dev without spending money.
-
-| Service | Used for | Auth | Notes for the build |
-| --- | --- | --- | --- |
-| Printify API v1 | Blueprints, print providers, product create/publish, mockups, order status | Personal access token | Rate limit is 600 req/min; batch product creation. Publishing to a connected Shopify store is `POST /shops/{id}/products/{id}/publish.json`. Printify's Etsy channel is enabled in week 4 only. |
-| Shopify Admin API (GraphQL) | Read products and orders, update prices, register webhooks (`orders/create`, `orders/updated`) | Custom app, Admin API access token | Printify owns product creation; Store ops only reads back and adjusts prices. |
-| Shopify Inbox | Customer chat/messages | Via Shopify webhooks | Messages ingest into the same `messages` table as email. |
-| Gmail API | `support@` mailbox read/send | OAuth 2 refresh token for one Google account | Use Pub/Sub push for near-real-time ingest; label handled threads `agent/handled`. |
-| fal.ai | Image generation, upscaling, background removal | API key | Models: `fal-ai/ideogram/v3` for text designs, `fal-ai/flux-pro/v1.1` for illustrative, `fal-ai/clarity-upscaler` or `aura-sr`, `fal-ai/birefnet` for background removal. Store the seed for reproducibility. |
-| Anthropic API | All agent reasoning | API key | Use tool use with `tool_choice` forced on the final structured output; set `max_tokens` per agent; log usage on every call. |
-| Tavily | Trend research | API key | `search_depth: advanced`, limit 8 results per query. |
-| Supabase | Postgres, storage, realtime | Service role key server-side only | Row-level security off for the service role; the UI reads through API routes, never directly. |
-
-**Webhooks the app must expose** (`apps/web/app/api/webhooks/*`)
-
-- `POST /api/webhooks/shopify/orders` — HMAC-verified; upserts `orders`, emits `order.received`
-- `POST /api/webhooks/gmail` — Pub/Sub push; emits `support.message_received`
-- `POST /api/webhooks/printify` — order status changes; emits `order.updated`
-- `POST /api/inngest` — Inngest serve endpoint
-
-**Print area specs to hard-code** (verify against Printify blueprint data at build time)
-
-- Apparel front: 4500 × 5400 px, 300 dpi, PNG with transparency
-- 11 oz mug wrap: 2700 × 1050 px; 15 oz: 3300 × 1200 px
-- All designs are also saved at 1024² for the UI thumbnails
-
-## Command center UI
-
-The command center is one Next.js app with four screens; the operator's twice-daily session should never need a fifth. It is themed as a space factory, but every element maps to a real table or action, so the theme can be swapped without touching data.
+One Next.js app, five screens, every one of them rendered from core tables and the module registry so a new division shows up without UI work. The space-factory theme stays: each division is a wing of the factory, each agent a station on the wing.
 
 **Screens**
 
-1. **Factory floor** (`/`) — the home screen. An SVG floor plan with one station per agent (Scout, Design bay, Listing dock, Support deck, Finance core) connected by conveyor lines. Each station shows a status light (green running / idle, amber stale, red error), today's counter ("12 concepts", "3 published"), and its last 3 events on hover. Items visibly travel along the conveyors when an `approval.requested` or `*.approved` event fires. A top bar shows revenue today, orders in production, pending approvals, and API spend today.
-2. **Inbox** (`/inbox`) — the approval queue, grouped by kind. Concepts render as cards with the brief and `why_now`; designs as a 3-up image picker; products as mockup + editable title/description/tags/price; replies as the customer message on the left and the editable draft on the right. Keyboard: `A` approve, `R` reject, `E` edit, `J`/`K` next/previous. Bulk approve selected. Each card shows the current auto-approval progress for its category ("17 / 20 approved, 100%").
-3. **Orders** (`/orders`) — table of orders with status, production ETA, tracking link, and an issue flag. Issue rows expand to show the Printify status and a "Message customer" button that opens a pre-drafted reply.
-4. **Settings** (`/settings`) — editable agent prompts (`prompt.md` files), pricing table, blocked phrases, approval rules with manual enable/disable per category, API spend caps per day, and a "pause all agents" switch.
+1. **Company** (`/`) — the holding-company dashboard. Top row: cash on hand, revenue this month, expenses this month, net (all from `v_company_cash` and `ledger`). Second row: active divisions with monthly P&L sparkline, active agents and their health, pending approvals, queued tasks, new opportunities. Alerts list: red stations, spend-cap breaches, escalations. This is the first thing the operator sees and the only screen that needs to exist for a non-ecommerce division to feel managed.
+2. **Floor** (`/floor`) — the space factory. One wing per active division, laid out from `modules.stations`; each station shows status light, today's counter, last 3 events, and opens a drawer with run history, memory and a Run now button. Conveyor pulses fire on `approval.requested` and `*.approved` events. Division wings can be collapsed.
+3. **Inbox** (`/inbox`) — one queue across divisions, grouped by division then kind; cards come from the module's `cardComponent`, with a generic JSON card as fallback for any kind without one. Keyboard `A` approve, `R` reject, `E` edit, `J`/`K` navigate, bulk select. Each card shows its category's graduation progress. Opportunity briefs and research-desk reports also land here with pursue / shelve / redirect actions.
+4. **Divisions** (`/divisions`, `/divisions/:id`) — list and detail. Detail shows the division's goals with progress, agents, P&L, entities browser (customers, leads, inventory, listings), opportunities, and any module screens. "New division" opens the module picker and config form.
+5. **Registry** (`/agents`, `/agents/:id`) — every agent across divisions: health, cost, autonomy level, schedule. Detail page edits the prompt, tools, schedule and autonomy, shows run history with tool calls, and lets the operator pin, edit or delete memories. "New agent" creates a row.
 
-**Station component spec**
+**Research desk** (a panel on Company and a station on the floor) — a text box where the operator drops an idea. It becomes a task for the Research desk agent (a core `generic` agent in the holding-company division), which searches, reads, estimates cost and effort, and returns a brief as an opportunity with a recommendation. The operator pursues it (spawns tasks or a new division plan) or shelves it.
 
-- Props: `agent`, `status`, `lastRunAt`, `todayCount`, `recentEvents[]`
-- Status derived server-side by `health.heartbeat`, never guessed by the client
-- Click → drawer with the agent's run history (`agent_runs`), each run expandable to its tool calls and output JSON, and a "Run now" button that emits the agent's manual trigger event
+**Realtime and state**
 
-**Realtime**
+- Server components load snapshots; a client hook subscribes to `events` inserts and patches counters, lights and the inbox badge in place
+- Animations are CSS transforms under 1.5 s and respect `prefers-reduced-motion`
+- Station status is computed server-side by `health.heartbeat`; the client never guesses
 
-- Server component loads the initial snapshot; a client hook subscribes to `events` inserts via Supabase Realtime and patches station state and counters in place
-- Conveyor animations are driven by event kinds, not polling; animations are CSS transforms, under 1.5 s, respecting `prefers-reduced-motion`
+**Daily session (target 15–20 minutes, twice a day)**
 
-**Daily session flow (target: 15–20 minutes, twice a day)**
+1. Company screen: any alert? Handle it
+2. Inbox: clear approvals by division, send escalated replies, decide on opportunity briefs
+3. Research desk: drop any new ideas
+4. Done; everything else runs on schedule
 
-1. Open factory floor; any red station → open its drawer, read the error, hit Run now or fix the config
-2. Open inbox: approve/reject concepts (2 min), pick designs (5 min), approve listings with any copy edits (5 min), send escalated replies (3 min)
-3. Glance at orders for issue flags; message customers if needed
-4. Close. Everything else runs on schedule
+**Auth and visual direction**
 
-**Auth and access**
+- Supabase Auth, magic link, one allowed email now, roles table ready for more
+- Dark navy, thin cyan module edges, status lights as small filled circles, monospace numerals, one display face for wing and station names; contrast ≥ 4.5:1 on all text; mobile layout stacks wings so the inbox clears from a phone
 
-- Single operator: Supabase Auth with one allowed email, magic link login, session cookie
-- All API routes check the session; webhooks check signatures instead
+## Module 1: print-on-demand store
 
-**Visual direction**
+The first division proves the core with zero fulfillment risk: Printify prints and ships, Shopify sells, and the module's four agents move a design from idea to live listing through three approval gates. Target is 60 products live by 5 November and 150 by Black Friday.
 
-- Dark navy background, stations as rounded modules with thin cyan edges, status lights as small filled circles, monospace numerals for counters, one display typeface for station names
-- Keep it legible first: no glow effects on text, contrast ratio ≥ 4.5:1 for all labels
-- Mobile layout stacks the stations vertically so the inbox can be cleared from a phone
+**Registration (`modules/pod/module.ts`)**
 
-## API endpoints
+- Stations: Trend scout, Design bay, Listing dock, Support deck
+- Approval kinds: `concept` (card: brief + why now), `design` (3-up image picker), `product` (mockup + editable copy and price), `reply` (customer message beside editable draft), `price_change`
+- Tools: `printify.*` (blueprints, create product, mockups, publish, order status), `shopify.*` (products, orders, prices, webhooks), `fal.generate`, `fal.upscale`, `fal.remove_bg`, `vision.check_text`, `gmail.*`
+- Schema `pod`: `niches`, `concepts`, `designs`, `products`, `orders`, `messages`, `replies`; products and customers also upsert into core `entities`, every sale and Printify charge posts to `ledger`
+- `onDivisionCreate`: validates Printify and Shopify tokens, registers Shopify webhooks, seeds the pricing table, blueprint table and blocked-phrase list, creates the four agents at `propose` autonomy
 
-All routes live under `apps/web/app/api/`, return JSON, and require the operator session except the webhooks. Mutations emit an Inngest event rather than doing the work inline, so the UI stays fast and every action is retried and logged.
+**Agents**
 
-| Method and path | Purpose | Emits |
+| Agent | Schedule | Model | Does | Requests |
+| --- | --- | --- | --- | --- |
+| Trend scout | daily 06:00 | Sonnet search, Opus ranking | 6–10 seasonal gift searches, reads 5–8 pages, scores demand, competition, giftability and IP risk; writes niches and 8 concepts; also writes each niche to `opportunities` | `concept` approval |
+| Designer | on `concept.approved` | Sonnet + fal.ai | 3 distinct prompts per concept; Ideogram 3 for text designs, Flux otherwise; verifies lettering, upscales keepers to 4500×5400 px at 300 dpi, removes background, stores PNGs | `design` approval |
+| Store ops | on `design.approved`; hourly order sync | Sonnet | Title ≤ 140 chars, 3-paragraph description, 13 tags; blueprint and provider from the approved table; price = cost × 2.2 rounded to .99; creates Printify product and mockups; on approval publishes to Shopify and verifies live; flags production holds and 5-day shipping delays | `product` approval; `orders.issue` events |
+| Support | every 30 min + Gmail push | Sonnet; Opus for complaints | Classifies intent, drafts replies from real order and tracking data; routine intents auto-send once graduated; refunds, complaints and custom requests always escalate with a suggested reply | `reply` approval |
+
+**Integrations**
+
+| Service | Used for | Notes |
 | --- | --- | --- |
-| `GET /api/stations` | Status, last run, today's count per agent | — |
-| `GET /api/events?agent=&since=&limit=` | Event log page for a station drawer | — |
-| `GET /api/approvals?status=pending&kind=` | Inbox contents with payloads and media URLs | — |
-| `POST /api/approvals/:id` `{decision, editPayload?}` | Approve, reject or edit one item | `<kind>.approved` / `.rejected` |
-| `POST /api/approvals/bulk` `{ids[], decision}` | Bulk approve/reject | one event per item |
-| `GET /api/orders?status=` | Orders table | — |
-| `POST /api/orders/:id/message` `{body}` | Send a customer message about an order | `support.reply_sent` |
-| `GET /api/products?status=` | Products with mockups and metrics | — |
-| `POST /api/products/:id/pause` / `/retire` | Unpublish or retire a product | `store.product_paused` |
-| `GET /api/agents/:name/runs` | Run history with tool calls | — |
-| `POST /api/agents/:name/run` | Manual trigger | `<agent>.manual` |
-| `GET` / `PUT /api/settings/prompts/:agent` | Read or edit an agent's `prompt.md` | `settings.prompt_updated` |
-| `GET` / `PUT /api/settings/rules` | Approval rules and spend caps | `settings.rules_updated` |
-| `POST /api/settings/pause` `{paused: bool}` | Pause or resume all crons | `system.paused` |
-| `GET /api/metrics?from=&to=` | Daily metrics for the top bar and charts | — |
-| `POST /api/webhooks/shopify/orders` | Shopify order create/update (HMAC) | `order.received` / `order.updated` |
-| `POST /api/webhooks/printify` | Printify order status | `order.updated` |
-| `POST /api/webhooks/gmail` | Gmail Pub/Sub push | `support.message_received` |
-| `POST /api/inngest` | Inngest serve endpoint | — |
+| Printify API v1 | Blueprints, providers, product create/publish, mockups, order status | 600 req/min; publish to Shopify through Printify; Etsy channel enabled in week 4 only |
+| Shopify Admin API (GraphQL) | Products, orders, prices, `orders/create` and `orders/updated` webhooks, Shopify Inbox | Custom app on your own store |
+| Gmail API | `support@` mailbox read/send | OAuth refresh token; Pub/Sub push; handled threads labelled `agent/handled` |
+| fal.ai | Image generation, upscale, background removal | `ideogram/v3`, `flux-pro/v1.1`, `clarity-upscaler`, `birefnet`; store seeds |
+| Tavily | Trend research | `search_depth: advanced`, 8 results per query |
 
-**Inngest events (the internal contract)**
+Print areas to hard-code and verify against Printify blueprint data: apparel front 4500 × 5400 px; 11 oz mug 2700 × 1050 px; 15 oz mug 3300 × 1200 px.
 
-`concept.approved`, `design.approved`, `product.approved`, `reply.approved`, `approval.requested`, `order.received`, `order.updated`, `order.issue`, `support.message_received`, `<agent>.manual`, `system.paused`. Every event payload carries `{refId, actor, ts}` plus the kind-specific fields; payload shapes are Zod schemas in `packages/jobs/events.ts` and are the only place they are defined.
+**Compliance and guardrails specific to this module**
+
+- Disclose AI-generated designs on product pages and the About page; on Etsy, mark AI as the production method per Etsy's Creativity Standards and operate it as one human-owned shop through Printify's integration, never a custom Etsy API app
+- `blocked_phrases` seeded with common trademarked apparel phrases; no brands, characters, logos, celebrities, teams, lyrics or quotes in any concept; no "in the style of \[living artist\]"
+- `design` graduation threshold is 50, not 20
+- Support never promises delivery dates the tracking does not show; `never_auto` on refunds and any message mentioning a lawyer, chargeback, wrong or damaged item
+
+**Launch economics (estimates, replace with ledger data after week 2)**
+
+Margin after Printify cost at 2.2× pricing is roughly $6–10 on apparel and $4–6 on mugs; fixed costs at launch scale are about $110–245/month including API spend; break-even is about 25–35 orders a month.
 
 ## Four-week build plan
 
-The order is deliberate: the pipeline that produces sellable products comes first, the pretty factory floor comes third, and trend research comes last because the first 60 concepts can be written by hand in an afternoon.
+Core first, store second, polish third. The core adds about four days versus a store-only build; those days come out of factory-floor polish, not out of the 5 November launch.
 
 &#91;embedded content: build timeline · 4 weeks, 3 milestones\]
 
-Each week is one Claude Code sprint; the week's checklist is the acceptance test. The holiday cutoff is a placeholder until Printify publishes its 2026 provider deadlines.
+Each week is one Claude Code sprint and its checklist is the acceptance test. The holiday cutoff is a placeholder until Printify publishes 2026 provider deadlines.
 
-**Week 1 (9–15 Oct): foundation and Designer**
+**Week 1 (9–15 Oct): core OS and the Designer agent**
 
-- [ ] Monorepo scaffold, Supabase project, Drizzle schema for all tables, migrations, seed script
-- [ ] Inngest wired to Next.js with `health.heartbeat` and the agent run wrapper
-- [ ] fal.ai client + Designer agent end to end: concept row in → 3 PNGs in storage → `design` approval row
-- [ ] Minimal `/inbox` that lists design approvals and records a decision
-- [ ] Printify and Shopify accounts created, custom app tokens stored, one product published by hand to learn the shape of the API responses
+- [ ] Turborepo scaffold, Supabase project with `pgvector`, Drizzle schema for all 13 core tables and views, migrations, seed script
+- [ ] Module discovery and the `modules` registry; `modules/_template` scaffold; `modules/pod/module.ts` registering stations, approval kinds and agents
+- [ ] Inngest: `scheduler.tick`, `task.run`, `task.on-approval`, `health.heartbeat`; the agent run loop with memory write/recall, cost accounting and Zod validation
+- [ ] Core tools: `web_search`, `fetch_page`, `requestApproval`, `memory.*`, `tasks.create`, `ledger.post`, `generate_image`
+- [ ] Auth (one email), Company screen with placeholder metrics, Inbox with the generic JSON card and the `design` picker card
+- [ ] Designer agent end to end: concept row in → 3 PNGs in storage → `design` approval → decision recorded
+- [ ] Printify and Shopify accounts, tokens in env, one product published by hand to learn the API shapes
 
-* Acceptance: 10 hand-written concepts produce 30 designs the operator can pick from
+* Acceptance: a division created through the UI; 10 hand-written concepts produce 30 designs the operator picks from in the inbox
 
-**Week 2 (16–22 Oct): Store ops and the full inbox**
+**Week 2 (16–22 Oct): POD pipeline and the full inbox**
 
-- [ ] Printify client: blueprints, product create, mockups, publish; Shopify client: products, orders, webhooks
-- [ ] Store ops agent: listing copy, product creation, `product` approval with mockups, publish on approval
-- [ ] Inbox handles all four approval kinds with keyboard shortcuts and bulk approve
-- [ ] `orders.sync` and the `/orders` screen
+- [ ] Printify and Shopify tools; Gmail OAuth
+- [ ] Store ops agent: copy, product creation, mockups, `product` approval, publish on approval, hourly order sync; sales and costs posting to `ledger`
+- [ ] Inbox cards for `concept`, `product`, `reply`; keyboard shortcuts; bulk approve; graduation progress
+- [ ] Divisions list and detail (goals, agents, P&L, entities browser)
 
-* Acceptance: 20 products live on Shopify, all created by the pipeline; a test order flows to Printify
+* Acceptance: 20 products live on Shopify created by the pipeline; a test order flows to Printify and appears in the ledger
 
-**Week 3 (23–29 Oct): factory floor and Support**
+**Week 3 (23–29 Oct): floor, registry and Support**
 
-- [ ] Factory floor SVG, station component, realtime event feed, conveyor animations, top bar metrics
-- [ ] Gmail OAuth + Pub/Sub, Shopify Inbox webhook, Support agent with intent classification and drafts
-- [ ] Approval rules table and graduated autonomy logic, settings screen for prompts and rules
-- [ ] Store policy doc (shipping, returns, sizing) written and loaded for the Support agent
+- [ ] Factory floor rendered from `modules.stations`, station drawer with run history and memories, realtime feed, conveyor pulses
+- [ ] Agent registry list and detail: edit prompt, tools, schedule, autonomy; pin/edit memories; New agent
+- [ ] Support agent with intent classification, drafts from order data, auto-send once graduated; Shopify Inbox webhook
+- [ ] Research desk agent and panel
+- [ ] Store policy doc written and loaded
 
-* Acceptance: a test support email gets a correct drafted reply citing real order data within 30 minutes; the floor shows it happening
+* Acceptance: a test support email gets a correct drafted reply within 30 minutes; a generic agent created from the registry runs on schedule
 
-**Week 4 (30 Oct – 5 Nov): Scout, Finance, hardening, launch**
+**Week 4 (30 Oct – 5 Nov): Scout, ledger views, hardening, launch**
 
-- [ ] Trend scout with Tavily; Finance nightly rollup; `daily_metrics` charts on the floor
-- [ ] Spend caps, pause switch, error alerting email, 7-day stability run with crons live
-- [ ] Etsy channel in Printify if Shopify has been stable for 5 days; AI-disclosure text in the Etsy shop profile and listings
-- [ ] Product photography pass: regenerate any mockups that look flat, write the store's About page
+- [ ] Trend scout with Tavily, writing niches to `opportunities`; Company dashboard on real ledger views
+- [ ] Spend caps, pause switches, alert emails, memory prune, 7-day stability run
+- [ ] Etsy channel via Printify if Shopify has been stable 5 days; AI disclosure in shop profile and listings
+- [ ] Mockup quality pass, About page, SPEC.md updated with every decision made
 
-* Acceptance: 60 products live, agents ran 7 days without a manual restart, operator session timed under 20 minutes
+* Acceptance: 60 products live; agents ran 7 days without a manual restart; operator session timed under 20 minutes
 
 **After launch (Nov–Dec)**
 
-- Scout runs daily; approve 5–10 new concepts per session, aim for 150 products by Black Friday
+- Scout runs daily; approve 5–10 concepts per session toward 150 products by Black Friday
 - Pause products with zero views after 21 days; double down on niches with sales
-- Tighten reply auto-send as categories graduate
+- Start the Opportunity engine and 3D printing module scaffolds in December as the store runs itself
 
-## Guardrails, compliance, costs and open questions
+## Future divisions
 
-The system is designed to fail quiet and safe: a stuck agent costs a day of listings, never a customer's money or the store's account standing.
+Each outline below is what its `module.ts` would register plus the one or two things that make it different; each is a two-week add once the core exists. Order follows your priorities: the opportunity engine first because every later division uses it, then the print farm because it is the closest cousin of the store.
 
-**Platform compliance**
+### Research desk (core, month 1)
 
-- Shopify: a custom app on your own store is fully within terms. Disclose AI-generated designs on the product page footer and the About page.
-- Etsy (week 4, optional): one shop, owned and operated by you; the Creativity Standards require disclosing AI as the production method on listings; do not automate account creation, mass messaging or review solicitation. Publish through Printify's Etsy integration, which is an approved channel, rather than a custom Etsy API app that would need Etsy's approval.
-- Fiverr, Upwork and similar marketplaces are excluded: no public API and their terms prohibit automated accounts.
-- Email: `support@` only replies to inbound mail; the system never sends marketing or cold outreach.
+- A `generic` agent in the holding-company division with `web_search`, `fetch_page`, `db.query`, `opportunities.create`, `tasks.create`
+- Input: one idea from the operator. Output: a brief as an `opportunities` row with market summary, what exists, estimated cost and hours, confidence, a recommendation, and a proposed first three tasks
+- Pursue spawns the tasks; "turn into a division plan" produces a draft `module.ts` outline and config for the operator to hand to Claude Code
 
-**IP and content guardrails**
+### Opportunity engine (month 2)
 
-- `blocked_phrases` list seeded with common trademarked apparel phrases; Scout and Store ops both check against it
-- No brands, characters, logos, celebrities, sports teams, song lyrics or movie quotes in any concept
-- Designs that look like a specific living artist's style are rejected at concept stage (the prompt forbids "in the style of \[artist\]")
-- Operator reviews every design until the `design` category graduates; graduation for designs is set to 50 items, not 20
+- Not a division but a core capability: scout agents in any division write `opportunities`; one shared scoring formula ranks them; the Company screen shows the top 10
+- Score = expected profit × confidence ÷ (hours required × risk weight), with per-division weights the operator can tune
+- First sources: eBay Browse and Finding APIs (sold comps, live listings), TCGplayer and PriceCharting price history, estate-sale and auction listing pages that permit fetching, manual import (paste a URL and the evaluator agent prices it). Facebook Marketplace has no API and scraping violates its terms, so it is manual-import only
+- Agents: Market scanner (scheduled searches against a watchlist of categories), Comps evaluator (prices one item against sold history), Deal alert (notifies when score crosses a threshold)
 
-**Operational guardrails**
+### 3D printing division (month 2–3)
 
-- Daily spend cap per API (default: fal $15, Anthropic $10, Tavily $2); the cap pauses that agent and lights its station amber
-- No agent can issue a refund, change a price by more than 15%, or delete a product; those are operator-only actions
-- All outbound customer text is drafted from real order data; the Support prompt forbids promising delivery dates the tracking does not show
-- Pause-all switch kills every cron within one tick (15 minutes)
+- Stations: Product research, Listing, Production queue, Materials
+- Approval kinds: `product_concept`, `listing`, `print_job_batch`, `material_order`
+- Agents: Research (which printable products are selling, from the opportunity engine), Product (listing copy, photos, pricing from print time and filament cost), Operations (turns orders into a print queue ordered by due date and machine availability, estimates hours and grams per job, flags when a bestseller needs a second machine), Materials (tracks filament inventory in `entities`, requests reorders)
+- Schema `print`: `models`, `print_jobs`, `machines`, `materials`
+- Storefront reuses the POD module's Shopify tools; fulfillment is you, so the production queue is the operator's daily list
+- Later integration: OctoPrint or Bambu Lab APIs for direct job dispatch and status, which becomes a tool, not a core change
 
-**Estimated monthly cost at launch scale** (60 products, \~8 concepts/day)
+### Card vending and grading division (month 3–4)
+
+- Stations: Sourcing, Grading desk, Listing, Vault
+- Approval kinds: `buy_lot` (with spend cap), `grading_submission`, `listing`, `price_adjust`
+- Agents: Sourcing scout (eBay lots, auctions, local listings via manual import; scores against sold comps), Grading evaluator (from photos and set data, estimates grade and PSA/CGC value uplift versus fee and turnaround; recommends submit or sell raw), Listing agent (writes and prices listings across eBay and TCGplayer), Vault (inventory in `entities` with cost basis, location and status)
+- Schema `cards`: `cards`, `lots`, `submissions`, `sales`
+- Vending machines, if you go that route, are a `machines` table plus a restock task generator
+
+### Agency division (month 3–4)
+
+- Stations: Lead finder, Audit bay, Proposals, Follow-up
+- Approval kinds: `outreach_message`, `proposal`, `contract`
+- Agents: Lead finder (local businesses with weak sites or no reviews response, from search and directories), Auditor (site speed, SEO, accessibility, AI-readiness report), Proposal writer (scoped offer and price from a rate card), Follow-up (sequenced messages, every send approved until graduated)
+- Scout-and-draft only on Fiverr, Upwork and similar: the agent finds and drafts, the operator sends from the platform
+
+### Trade research division (any time; read-only)
+
+- Stations: Watchlist, Morning brief, Signals, Risk
+- Agents: Watchlist researcher (news, filings, earnings calendar for your tickers), Signal generator (rule-based and model-assisted setups written to `opportunities` with confidence and risk), Risk calculator (position size against a stated max-loss rule)
+- Approval kinds: `signal_review` only. The division is designed through phase 3 of your staged plan (research, human approval, partial automation of research tasks). No order-execution tool is in the catalog, and the design does not reserve a place for one; this is a deliberate boundary, not a gap to fill later. Not financial advice: the system is a research assistant for your own decisions
+
+### Self-expansion (month 3+)
+
+- A Founder meta-agent in the holding-company division with `create_division`, `create_agent`, `create_goal`, `create_tasks`, `propose_schema`
+- Every call is an approval; the first version only proposes (writes a plan the operator approves), then scaffolds `modules/<name>` from the template, then seeds registry rows
+- Prerequisite: three divisions created by hand so the template captures what they share
+
+**Sequencing**
+
+| Horizon | Ships |
+| --- | --- |
+| 30 days (to 5 Nov) | Core OS; POD store live; Research desk; one division created through the UI |
+| 60 days (to 5 Dec) | Opportunity engine with eBay and manual import; agent memory tuned on real runs; 3D printing module scaffold with product research and listing agents; 150 POD products |
+| 90 days (to 5 Jan) | 3D printing production queue live; cards division sourcing and grading evaluator; agency lead finder and auditor; trade research watchlist; Founder meta-agent in proposal-only mode |
+
+## Guardrails and costs
+
+The platform fails quiet and safe: a stuck agent costs a day of output in one division, never money, a customer, or an account's standing. Module-specific rules live in each module section; these apply everywhere.
+
+**Money**
+
+- Every agent starts at `propose`; autonomy is earned per category, never granted wholesale
+- Per-division daily spend cap (default $25) and per-API caps enforced in the tool layer; breaching one pauses the division's agents
+- Purchases, refunds, price changes over 15%, and contracts are `never_auto` in every module
+- No tool in the catalog executes trades, transfers funds, or enters payment credentials; those are operator-only, outside the system
+
+**Platforms and people**
+
+- No automation of marketplaces whose terms prohibit it: Fiverr, Upwork, Facebook Marketplace are scout-and-draft only; Etsy only through Printify's integration with AI disclosure
+- Outbound messages to customers, leads or clients are approved per message until the category graduates, and never auto-sent when they mention legal threats, chargebacks, damages or disputes
+- No cold outreach by email from the platform's mailboxes until the agency division has its own consented list and unsubscribe handling
+- Customer and lead data stays in `entities` with `division_id`; agents cannot read another division's people without `cross_division`
+
+**Content and IP**
+
+- `blocked_phrases` and the no-brands/characters/lyrics/living-artist rules apply to every design-producing agent, not only the POD store
+- Images, listings and proposals carry an AI-assisted disclosure where the platform or law requires it
+
+**Operational**
+
+- Pause-all stops every scheduler tick within 5 minutes; pause-division within one tick
+- Secrets only in env; `credentials` table maps names to env keys; prompts and tool logs never contain secret values
+- Every side effect is reconstructible from `events` plus `agent_runs`; retention 90 days
+- Weekly review task for the operator: top rejected categories, cost per division, stale memories
+
+**Estimated monthly cost** (core plus the POD store at launch scale; later divisions add API spend, not infrastructure)
 
 | Item | Estimate |
 | --- | --- |
+| Vercel, Supabase, Inngest | $0–45 |
 | Shopify Basic | \~$39 |
-| Vercel, Supabase, Inngest (hobby/free tiers early) | $0–45 |
-| Image generation (\~30 images/day) | $40–80 |
-| Anthropic API (agents) | $30–60 |
-| Tavily | $0–20 |
-| Printify | $0 (pay per order) |
-| Total before product cost | \~$110–245 |
+| Image generation (\~30/day) | $40–80 |
+| Anthropic API (all agents, memory embeddings) | $40–80 |
+| Tavily and eBay APIs | $0–20 |
+| Total before product cost | \~$120–265 |
 
-Margin per item after Printify cost at 2.2× pricing is roughly $6–10 on apparel and $4–6 on mugs; break-even on fixed costs is about 25–35 orders a month. Treat these as estimates to replace with real numbers from `daily_metrics` after week 2.
+## Open questions and handoff
 
 **Open questions to settle before week 1**
 
