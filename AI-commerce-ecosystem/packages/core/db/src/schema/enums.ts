@@ -1,132 +1,48 @@
 import { pgEnum } from 'drizzle-orm/pg-core'
 
-/* ------------------------------------------------------------------ *
- * Shops
- * ------------------------------------------------------------------ */
-
-/** A shop is proposed by the Strategist, built by the operator, then goes live. */
-export const shopStatus = pgEnum('shop_status', [
-  'proposed',
-  'building',
-  'live',
-  'paused',
-  'retired',
-])
-
-export const shopPlatform = pgEnum('shop_platform', ['shopify', 'etsy'])
-
 /**
- * How a shop's products get made and shipped.
+ * Core enums only.
  *
- * `pod` is the launch model and the one the economics in SPEC.md assume: the design
- * is the product, so it differentiates without advertising. `dropship` is modelled so
- * the Strategist can propose and score it, not because it is the recommended path —
- * commodity dropshipping is ad-dependent, which breaks the ad-free margin premise.
+ * Note what is deliberately NOT an enum: `approvals.kind`, `agents.model`,
+ * `agents.schedule`, `divisions.type` and `entities.type` are all text. A module
+ * registers its own approval kinds in `modules.approval_kinds`, and a new module must
+ * never require a core migration — that is what keeps a division droppable.
  */
-export const fulfillmentModel = pgEnum('fulfillment_model', ['pod', 'dropship', 'hybrid'])
 
-/* ------------------------------------------------------------------ *
- * Research and catalog
- * ------------------------------------------------------------------ */
+export const userRole = pgEnum('user_role', ['owner', 'operator', 'viewer'])
 
-export const nicheStatus = pgEnum('niche_status', [
-  'proposed',
-  'approved',
-  'rejected',
-  'exhausted',
-])
-
-export const ipRisk = pgEnum('ip_risk', ['low', 'medium', 'high'])
-
-export const conceptStatus = pgEnum('concept_status', [
-  'proposed',
-  'approved',
-  'rejected',
-  'designed',
-  /** Text rendering failed three times; a human has to intervene. */
-  'needs_human',
-])
-
-export const designStyle = pgEnum('design_style', [
-  'flat-vector',
-  'hand-lettered',
-  'retro-badge',
-  'line-art',
-  'watercolor',
-])
-
-export const designStatus = pgEnum('design_status', [
-  'generated',
-  'pending_approval',
-  'approved',
-  'rejected',
-])
-
-export const productStatus = pgEnum('product_status', [
-  'draft',
-  'pending_approval',
-  'published',
+export const divisionStatus = pgEnum('division_status', [
+  'planning',
+  'active',
   'paused',
-  'retired',
-  'rejected',
-])
-
-export const productType = pgEnum('product_type', [
-  'mug_11oz',
-  'mug_15oz',
-  'tee',
-  'sweatshirt',
-  'hoodie',
-])
-
-/* ------------------------------------------------------------------ *
- * Commerce
- * ------------------------------------------------------------------ */
-
-export const orderStatus = pgEnum('order_status', [
-  'received',
-  'in_production',
-  'shipped',
-  'delivered',
-  'issue',
-  'refunded',
-])
-
-export const messageChannel = pgEnum('message_channel', ['gmail', 'shopify_inbox'])
-
-export const messageIntent = pgEnum('message_intent', [
-  'shipping_eta',
-  'sizing',
-  'tracking',
-  'refund',
-  'complaint',
-  'custom',
-  'other',
-])
-
-export const messageStatus = pgEnum('message_status', [
-  'new',
-  'drafted',
-  'sent',
-  'escalated',
   'closed',
 ])
 
-export const replyStatus = pgEnum('reply_status', ['pending_approval', 'sent', 'rejected'])
+/**
+ * How much an agent may do on its own (SPEC.md §Agent framework).
+ *
+ * Every new agent starts at `propose`. `auto` is earned per category through
+ * `approval_rules`, never granted wholesale.
+ */
+export const agentAutonomy = pgEnum('agent_autonomy', ['propose', 'act_with_approval', 'auto'])
 
-/* ------------------------------------------------------------------ *
- * Orchestration
- * ------------------------------------------------------------------ */
+export const agentStatus = pgEnum('agent_status', ['active', 'paused', 'retired'])
 
-/** Must stay in step with `ApprovalKind` in @acf/core. */
-export const approvalKind = pgEnum('approval_kind', [
-  'concept',
-  'design',
-  'product',
-  'reply',
-  'price_change',
-  'shop_proposal',
+/** `blocked` means waiting on an approval or a parent task. */
+export const taskStatus = pgEnum('task_status', [
+  'queued',
+  'running',
+  'blocked',
+  'done',
+  'failed',
 ])
+
+export const taskSource = pgEnum('task_source', ['schedule', 'event', 'operator', 'agent'])
+
+export const runStatus = pgEnum('run_status', ['running', 'ok', 'error'])
+
+/** What an agent chose to remember. Run history is the audit trail; this is memory. */
+export const memoryKind = pgEnum('memory_kind', ['decision', 'result', 'lesson', 'fact'])
 
 export const approvalDecision = pgEnum('approval_decision', [
   'pending',
@@ -135,8 +51,35 @@ export const approvalDecision = pgEnum('approval_decision', [
   'edited',
 ])
 
-export const agentTrigger = pgEnum('agent_trigger', ['cron', 'event', 'manual'])
+export const opportunityRisk = pgEnum('opportunity_risk', ['low', 'med', 'high'])
 
-export const runStatus = pgEnum('run_status', ['running', 'ok', 'error'])
+export const opportunityStatus = pgEnum('opportunity_status', [
+  'new',
+  'reviewed',
+  'pursuing',
+  'shelved',
+  'done',
+])
+
+export const entityType = pgEnum('entity_type', [
+  'customer',
+  'lead',
+  'supplier',
+  'listing',
+  'inventory_item',
+  'asset',
+])
+
+/** Append-only accounting. Revenue, cash flow and net worth are views over this. */
+export const ledgerKind = pgEnum('ledger_kind', [
+  'revenue',
+  'cogs',
+  'expense',
+  'api_cost',
+  'asset',
+  'liability',
+])
 
 export const eventLevel = pgEnum('event_level', ['info', 'warn', 'error'])
+
+export const goalStatus = pgEnum('goal_status', ['active', 'met', 'missed', 'abandoned'])

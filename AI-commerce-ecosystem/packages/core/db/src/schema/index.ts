@@ -1,13 +1,17 @@
 /**
- * Single entry point for the whole schema.
+ * The core schema: thirteen tables that know nothing about mugs, filament or cards.
  *
- * drizzle.config.ts points at THIS file rather than a `src/schema/*.ts` glob: a glob
- * that picks a table up twice only produces a soft warning and then emits a corrupt
- * migration, which is a bad failure mode for something that runs unattended.
+ * drizzle.config.ts points at THIS file rather than a glob, so a table can never be
+ * collected twice (which drizzle-kit reports as a warning and then emits a corrupt
+ * migration from).
+ *
+ * Module tables live in their own Postgres schema (`pod.*`) and reference core rows by
+ * id. Core never references a module table — that one rule is what keeps a division
+ * removable.
  */
 export * from './enums'
-export * from './shops'
-export * from './catalog'
-export * from './commerce'
-export * from './ops'
+export * from './registry'
+export * from './work'
+export * from './governance'
+export * from './knowledge'
 export * from './relations'

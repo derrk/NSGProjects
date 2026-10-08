@@ -1,88 +1,83 @@
 /**
  * Relational metadata for `db.query.*`.
  *
- * This is the drizzle-orm 0.45.x `relations()` API. Do NOT reach for `defineRelations`
- * from the v1 release candidate — that export does not exist on the stable line, and
- * mixing the two tracks breaks the migration folder format.
+ * drizzle-orm 0.45.x `relations()` API. Do NOT reach for `defineRelations` from the
+ * 1.0 release candidate — that export does not exist on the stable line.
  */
 
 import { relations } from 'drizzle-orm'
 
-import { concepts, designs, nicheProducts, niches, products } from './catalog'
-import { messages, orders, replies } from './commerce'
-import { agentRuns, approvals, dailyMetrics, events, pricingRules } from './ops'
-import { shopProposals, shops, suppliers } from './shops'
+import { approvalRules, approvals } from './governance'
+import { entities, events, ledger, opportunities } from './knowledge'
+import { agents, divisions, goals, modules } from './registry'
+import { agentMemory, agentRuns, tasks } from './work'
 
-export const shopsRelations = relations(shops, ({ many }) => ({
-  niches: many(niches),
-  concepts: many(concepts),
-  products: many(products),
-  orders: many(orders),
-  messages: many(messages),
+export const modulesRelations = relations(modules, ({ many }) => ({
+  divisions: many(divisions),
+}))
+
+export const divisionsRelations = relations(divisions, ({ one, many }) => ({
+  module: one(modules, { fields: [divisions.moduleId], references: [modules.id] }),
+  agents: many(agents),
+  goals: many(goals),
+  tasks: many(tasks),
   approvals: many(approvals),
-  agentRuns: many(agentRuns),
+  approvalRules: many(approvalRules),
+  entities: many(entities),
+  opportunities: many(opportunities),
+  ledger: many(ledger),
   events: many(events),
-  dailyMetrics: many(dailyMetrics),
-  pricingRules: many(pricingRules),
-  proposals: many(shopProposals),
 }))
 
-export const shopProposalsRelations = relations(shopProposals, ({ one }) => ({
-  shop: one(shops, { fields: [shopProposals.shopId], references: [shops.id] }),
-  niche: one(niches, { fields: [shopProposals.nicheId], references: [niches.id] }),
+export const agentsRelations = relations(agents, ({ one, many }) => ({
+  division: one(divisions, { fields: [agents.divisionId], references: [divisions.id] }),
+  runs: many(agentRuns),
+  memories: many(agentMemory),
+  tasks: many(tasks),
+  goals: many(goals),
 }))
 
-export const suppliersRelations = relations(suppliers, ({ many }) => ({
-  products: many(products),
+export const goalsRelations = relations(goals, ({ one }) => ({
+  division: one(divisions, { fields: [goals.divisionId], references: [divisions.id] }),
+  agent: one(agents, { fields: [goals.agentId], references: [agents.id] }),
 }))
 
-export const nichesRelations = relations(niches, ({ one, many }) => ({
-  shop: one(shops, { fields: [niches.shopId], references: [shops.id] }),
-  concepts: many(concepts),
-  observedProducts: many(nicheProducts),
-  proposals: many(shopProposals),
-}))
-
-export const nicheProductsRelations = relations(nicheProducts, ({ one }) => ({
-  niche: one(niches, { fields: [nicheProducts.nicheId], references: [niches.id] }),
-}))
-
-export const conceptsRelations = relations(concepts, ({ one, many }) => ({
-  shop: one(shops, { fields: [concepts.shopId], references: [shops.id] }),
-  niche: one(niches, { fields: [concepts.nicheId], references: [niches.id] }),
-  designs: many(designs),
-}))
-
-export const designsRelations = relations(designs, ({ one, many }) => ({
-  concept: one(concepts, { fields: [designs.conceptId], references: [concepts.id] }),
-  products: many(products),
-}))
-
-export const productsRelations = relations(products, ({ one }) => ({
-  shop: one(shops, { fields: [products.shopId], references: [shops.id] }),
-  design: one(designs, { fields: [products.designId], references: [designs.id] }),
-  supplier: one(suppliers, { fields: [products.supplierId], references: [suppliers.id] }),
-}))
-
-export const ordersRelations = relations(orders, ({ one, many }) => ({
-  shop: one(shops, { fields: [orders.shopId], references: [shops.id] }),
-  messages: many(messages),
-}))
-
-export const messagesRelations = relations(messages, ({ one, many }) => ({
-  shop: one(shops, { fields: [messages.shopId], references: [shops.id] }),
-  order: one(orders, { fields: [messages.orderId], references: [orders.id] }),
-  replies: many(replies),
-}))
-
-export const repliesRelations = relations(replies, ({ one }) => ({
-  message: one(messages, { fields: [replies.messageId], references: [messages.id] }),
-}))
-
-export const approvalsRelations = relations(approvals, ({ one }) => ({
-  shop: one(shops, { fields: [approvals.shopId], references: [shops.id] }),
+export const tasksRelations = relations(tasks, ({ one, many }) => ({
+  division: one(divisions, { fields: [tasks.divisionId], references: [divisions.id] }),
+  agent: one(agents, { fields: [tasks.agentId], references: [agents.id] }),
+  runs: many(agentRuns),
+  approvals: many(approvals),
 }))
 
 export const agentRunsRelations = relations(agentRuns, ({ one }) => ({
-  shop: one(shops, { fields: [agentRuns.shopId], references: [shops.id] }),
+  agent: one(agents, { fields: [agentRuns.agentId], references: [agents.id] }),
+  task: one(tasks, { fields: [agentRuns.taskId], references: [tasks.id] }),
+  division: one(divisions, { fields: [agentRuns.divisionId], references: [divisions.id] }),
+}))
+
+export const agentMemoryRelations = relations(agentMemory, ({ one }) => ({
+  agent: one(agents, { fields: [agentMemory.agentId], references: [agents.id] }),
+  division: one(divisions, { fields: [agentMemory.divisionId], references: [divisions.id] }),
+}))
+
+export const approvalsRelations = relations(approvals, ({ one }) => ({
+  division: one(divisions, { fields: [approvals.divisionId], references: [divisions.id] }),
+  task: one(tasks, { fields: [approvals.taskId], references: [tasks.id] }),
+}))
+
+export const opportunitiesRelations = relations(opportunities, ({ one }) => ({
+  division: one(divisions, { fields: [opportunities.divisionId], references: [divisions.id] }),
+}))
+
+export const ledgerRelations = relations(ledger, ({ one }) => ({
+  division: one(divisions, { fields: [ledger.divisionId], references: [divisions.id] }),
+}))
+
+export const entitiesRelations = relations(entities, ({ one }) => ({
+  division: one(divisions, { fields: [entities.divisionId], references: [divisions.id] }),
+}))
+
+export const eventsRelations = relations(events, ({ one }) => ({
+  division: one(divisions, { fields: [events.divisionId], references: [divisions.id] }),
+  agent: one(agents, { fields: [events.agentId], references: [agents.id] }),
 }))

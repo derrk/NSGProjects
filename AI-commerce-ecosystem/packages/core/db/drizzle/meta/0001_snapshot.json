@@ -1,6 +1,6 @@
 {
-  "id": "d3de4f97-f618-412b-8590-feb4d6525d52",
-  "prevId": "00000000-0000-0000-0000-000000000000",
+  "id": "08100629-1440-4a44-a14b-e35da640f4e3",
+  "prevId": "d3de4f97-f618-412b-8590-feb4d6525d52",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -142,9 +142,9 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         },
         "agents_status_schedule_idx": {
           "name": "agents_status_schedule_idx",
@@ -163,9 +163,9 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         },
         "agents_division_name_idx": {
           "name": "agents_division_name_idx",
@@ -184,24 +184,24 @@
             }
           ],
           "isUnique": true,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {
         "agents_division_id_divisions_id_fk": {
           "name": "agents_division_id_divisions_id_fk",
           "tableFrom": "agents",
-          "tableTo": "divisions",
           "columnsFrom": [
             "division_id"
           ],
+          "tableTo": "divisions",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         }
       },
       "compositePrimaryKeys": {},
@@ -285,9 +285,9 @@
             }
           ],
           "isUnique": true,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {},
@@ -395,9 +395,9 @@
             }
           ],
           "isUnique": true,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         },
         "divisions_status_idx": {
           "name": "divisions_status_idx",
@@ -410,24 +410,24 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {
         "divisions_module_id_modules_id_fk": {
           "name": "divisions_module_id_modules_id_fk",
           "tableFrom": "divisions",
-          "tableTo": "modules",
           "columnsFrom": [
             "module_id"
           ],
+          "tableTo": "modules",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "restrict"
         }
       },
       "compositePrimaryKeys": {},
@@ -538,37 +538,37 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {
         "goals_division_id_divisions_id_fk": {
           "name": "goals_division_id_divisions_id_fk",
           "tableFrom": "goals",
-          "tableTo": "divisions",
           "columnsFrom": [
             "division_id"
           ],
+          "tableTo": "divisions",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "goals_agent_id_agents_id_fk": {
           "name": "goals_agent_id_agents_id_fk",
           "tableFrom": "goals",
-          "tableTo": "agents",
           "columnsFrom": [
             "agent_id"
           ],
+          "tableTo": "agents",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         }
       },
       "compositePrimaryKeys": {},
@@ -668,9 +668,9 @@
             }
           ],
           "isUnique": true,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {},
@@ -746,9 +746,9 @@
             }
           ],
           "isUnique": true,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {},
@@ -854,9 +854,9 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         },
         "agent_memory_kind_idx": {
           "name": "agent_memory_kind_idx",
@@ -881,50 +881,50 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {
         "agent_memory_agent_id_agents_id_fk": {
           "name": "agent_memory_agent_id_agents_id_fk",
           "tableFrom": "agent_memory",
-          "tableTo": "agents",
           "columnsFrom": [
             "agent_id"
           ],
+          "tableTo": "agents",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "agent_memory_division_id_divisions_id_fk": {
           "name": "agent_memory_division_id_divisions_id_fk",
           "tableFrom": "agent_memory",
-          "tableTo": "divisions",
           "columnsFrom": [
             "division_id"
           ],
+          "tableTo": "divisions",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "agent_memory_task_id_tasks_id_fk": {
           "name": "agent_memory_task_id_tasks_id_fk",
           "tableFrom": "agent_memory",
-          "tableTo": "tasks",
           "columnsFrom": [
             "task_id"
           ],
+          "tableTo": "tasks",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         }
       },
       "compositePrimaryKeys": {},
@@ -1076,9 +1076,9 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         },
         "agent_runs_status_idx": {
           "name": "agent_runs_status_idx",
@@ -1091,9 +1091,9 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         },
         "agent_runs_task_idx": {
           "name": "agent_runs_task_idx",
@@ -1106,50 +1106,50 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {
         "agent_runs_agent_id_agents_id_fk": {
           "name": "agent_runs_agent_id_agents_id_fk",
           "tableFrom": "agent_runs",
-          "tableTo": "agents",
           "columnsFrom": [
             "agent_id"
           ],
+          "tableTo": "agents",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         },
         "agent_runs_task_id_tasks_id_fk": {
           "name": "agent_runs_task_id_tasks_id_fk",
           "tableFrom": "agent_runs",
-          "tableTo": "tasks",
           "columnsFrom": [
             "task_id"
           ],
+          "tableTo": "tasks",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         },
         "agent_runs_division_id_divisions_id_fk": {
           "name": "agent_runs_division_id_divisions_id_fk",
           "tableFrom": "agent_runs",
-          "tableTo": "divisions",
           "columnsFrom": [
             "division_id"
           ],
+          "tableTo": "divisions",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         }
       },
       "compositePrimaryKeys": {},
@@ -1312,9 +1312,9 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         },
         "tasks_division_status_idx": {
           "name": "tasks_division_status_idx",
@@ -1333,9 +1333,9 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         },
         "tasks_agent_idx": {
           "name": "tasks_agent_idx",
@@ -1348,9 +1348,9 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         },
         "tasks_parent_idx": {
           "name": "tasks_parent_idx",
@@ -1363,37 +1363,37 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {
         "tasks_division_id_divisions_id_fk": {
           "name": "tasks_division_id_divisions_id_fk",
           "tableFrom": "tasks",
-          "tableTo": "divisions",
           "columnsFrom": [
             "division_id"
           ],
+          "tableTo": "divisions",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "tasks_agent_id_agents_id_fk": {
           "name": "tasks_agent_id_agents_id_fk",
           "tableFrom": "tasks",
-          "tableTo": "agents",
           "columnsFrom": [
             "agent_id"
           ],
+          "tableTo": "agents",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         }
       },
       "compositePrimaryKeys": {},
@@ -1526,24 +1526,24 @@
             }
           ],
           "isUnique": true,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {
         "approval_rules_division_id_divisions_id_fk": {
           "name": "approval_rules_division_id_divisions_id_fk",
           "tableFrom": "approval_rules",
-          "tableTo": "divisions",
           "columnsFrom": [
             "division_id"
           ],
+          "tableTo": "divisions",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         }
       },
       "compositePrimaryKeys": {},
@@ -1690,9 +1690,9 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         },
         "approvals_kind_idx": {
           "name": "approvals_kind_idx",
@@ -1705,9 +1705,9 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         },
         "approvals_task_idx": {
           "name": "approvals_task_idx",
@@ -1720,9 +1720,9 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         },
         "approvals_live_ref_idx": {
           "name": "approvals_live_ref_idx",
@@ -1753,38 +1753,38 @@
             }
           ],
           "isUnique": true,
-          "where": "\"approvals\".\"decision\" <> 'rejected'",
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "where": "\"approvals\".\"decision\" <> 'rejected'",
+          "concurrently": false
         }
       },
       "foreignKeys": {
         "approvals_division_id_divisions_id_fk": {
           "name": "approvals_division_id_divisions_id_fk",
           "tableFrom": "approvals",
-          "tableTo": "divisions",
           "columnsFrom": [
             "division_id"
           ],
+          "tableTo": "divisions",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "approvals_task_id_tasks_id_fk": {
           "name": "approvals_task_id_tasks_id_fk",
           "tableFrom": "approvals",
-          "tableTo": "tasks",
           "columnsFrom": [
             "task_id"
           ],
+          "tableTo": "tasks",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         }
       },
       "compositePrimaryKeys": {},
@@ -1883,9 +1883,9 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         },
         "entities_name_idx": {
           "name": "entities_name_idx",
@@ -1898,24 +1898,24 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {
         "entities_division_id_divisions_id_fk": {
           "name": "entities_division_id_divisions_id_fk",
           "tableFrom": "entities",
-          "tableTo": "divisions",
           "columnsFrom": [
             "division_id"
           ],
+          "tableTo": "divisions",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         }
       },
       "compositePrimaryKeys": {},
@@ -2005,9 +2005,9 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         },
         "events_division_ts_idx": {
           "name": "events_division_ts_idx",
@@ -2026,9 +2026,9 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         },
         "events_agent_ts_idx": {
           "name": "events_agent_ts_idx",
@@ -2047,9 +2047,9 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         },
         "events_level_idx": {
           "name": "events_level_idx",
@@ -2062,37 +2062,37 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {
         "events_division_id_divisions_id_fk": {
           "name": "events_division_id_divisions_id_fk",
           "tableFrom": "events",
-          "tableTo": "divisions",
           "columnsFrom": [
             "division_id"
           ],
+          "tableTo": "divisions",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "events_agent_id_agents_id_fk": {
           "name": "events_agent_id_agents_id_fk",
           "tableFrom": "events",
-          "tableTo": "agents",
           "columnsFrom": [
             "agent_id"
           ],
+          "tableTo": "agents",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         }
       },
       "compositePrimaryKeys": {},
@@ -2209,9 +2209,9 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         },
         "ledger_kind_idx": {
           "name": "ledger_kind_idx",
@@ -2224,24 +2224,24 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {
         "ledger_division_id_divisions_id_fk": {
           "name": "ledger_division_id_divisions_id_fk",
           "tableFrom": "ledger",
-          "tableTo": "divisions",
           "columnsFrom": [
             "division_id"
           ],
+          "tableTo": "divisions",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         }
       },
       "compositePrimaryKeys": {},
@@ -2386,9 +2386,9 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         },
         "opportunities_division_idx": {
           "name": "opportunities_division_idx",
@@ -2401,24 +2401,24 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {
         "opportunities_division_id_divisions_id_fk": {
           "name": "opportunities_division_id_divisions_id_fk",
           "tableFrom": "opportunities",
-          "tableTo": "divisions",
           "columnsFrom": [
             "division_id"
           ],
+          "tableTo": "divisions",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         }
       },
       "compositePrimaryKeys": {},
@@ -2581,10 +2581,10 @@
     }
   },
   "schemas": {},
+  "views": {},
   "sequences": {},
   "roles": {},
   "policies": {},
-  "views": {},
   "_meta": {
     "columns": {},
     "schemas": {},
