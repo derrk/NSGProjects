@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, Clock, CheckCircle, DollarSign, AlertTriangle, Upload, ImageIcon, CreditCard } from "lucide-react";
 import { useReservation } from "./ReservationContext";
 import { formatUSD, EVENT } from "./tables";
+import { fileToLogoDataUrl } from "../lib/image-upload";
 
 function fmt(ms: number) {
   const total = Math.max(0, Math.ceil(ms / 1000));
@@ -84,30 +85,14 @@ export default function CheckoutModal({
         [k]: e.target.type === "checkbox" ? (e.target as HTMLInputElement).checked : e.target.value,
       }));
 
-  // Downscale the uploaded photo to a small square data URL so it fits in
-  // localStorage and renders crisply on the map.
+  // Downscale the uploaded logo to a crisp, aspect-preserved data URL — big
+  // enough to download/print clearly, small enough to store + fetch cheaply.
   const onPhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const img = new window.Image();
-      img.onload = () => {
-        const size = 200;
-        const canvas = document.createElement("canvas");
-        canvas.width = size;
-        canvas.height = size;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) return;
-        const scale = Math.max(size / img.width, size / img.height);
-        const w = img.width * scale;
-        const h = img.height * scale;
-        ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
-        setForm((f) => ({ ...f, photo: canvas.toDataURL("image/jpeg", 0.82) }));
-      };
-      img.src = reader.result as string;
-    };
-    reader.readAsDataURL(file);
+    fileToLogoDataUrl(file)
+      .then((photo) => setForm((f) => ({ ...f, photo })))
+      .catch(() => {});
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

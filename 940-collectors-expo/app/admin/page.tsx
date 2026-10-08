@@ -5,6 +5,7 @@ import { formatUSD, getTable, SEATING_TABLES, TABLE_LAYOUT } from "../reserve/ta
 import { EVENT_DATE_ISO, EVENT_DATE_LABEL } from "../lib/site";
 import ExpoFloorMap, { type FloorStatus } from "../reserve/ExpoFloorMap";
 import { saveImageDataUrl } from "../lib/save-image";
+import { fileToLogoDataUrl } from "../lib/image-upload";
 
 // Sellable vendor tables (category "vendor" — excludes ticketing / HQ / seating / reserved).
 const BOOKABLE_TABLE_COUNT = TABLE_LAYOUT.filter((t) => (t.category ?? "vendor") === "vendor").length;
@@ -1269,25 +1270,9 @@ function EditReservationModal({
   const onPhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const img = new window.Image();
-      img.onload = () => {
-        const size = 200;
-        const canvas = document.createElement("canvas");
-        canvas.width = size;
-        canvas.height = size;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) return;
-        const scale = Math.max(size / img.width, size / img.height);
-        const w = img.width * scale;
-        const h = img.height * scale;
-        ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
-        setForm((f) => ({ ...f, photo: canvas.toDataURL("image/jpeg", 0.82) }));
-      };
-      img.src = reader.result as string;
-    };
-    reader.readAsDataURL(file);
+    fileToLogoDataUrl(file)
+      .then((photo) => setForm((f) => ({ ...f, photo })))
+      .catch(() => {});
   };
 
   const save = async () => {
