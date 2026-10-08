@@ -26,3 +26,4 @@ virtualStoreDirMaxLength: 60
 # already switched to. Do not let a range pull in @rc.
 minimumReleaseAgeExclude:
   - drizzle-orm@0.45.4
+  - '@anthropic-ai/sdk@0.132.1'

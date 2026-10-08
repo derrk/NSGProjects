@@ -1,0 +1,19 @@
+{
+  "name": "@acf/integrations",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./fal": "./src/fal/index.ts",
+    "./storage": "./src/storage/index.ts",
+    "./anthropic": "./src/anthropic/index.ts"
+  },
+  "dependencies": {
+    "@acf/core": "workspace:*",
+    "@anthropic-ai/sdk": "^0.132.1",
+    "@fal-ai/client": "^1.10.1",
+    "@supabase/supabase-js": "^2.117.3",
+    "zod": "^4.6.5"
+  }
+}
