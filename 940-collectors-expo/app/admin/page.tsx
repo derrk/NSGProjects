@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { formatUSD, getTable, SEATING_TABLES, TABLE_LAYOUT } from "../reserve/tables";
 import { EVENT_DATE_ISO, EVENT_DATE_LABEL } from "../lib/site";
 import ExpoFloorMap, { type FloorStatus } from "../reserve/ExpoFloorMap";
+import { saveImageDataUrl } from "../lib/save-image";
 
 // Sellable vendor tables (category "vendor" — excludes ticketing / HQ / seating / reserved).
 const BOOKABLE_TABLE_COUNT = TABLE_LAYOUT.filter((t) => (t.category ?? "vendor") === "vendor").length;
@@ -1405,13 +1406,18 @@ function EditReservationModal({
                     {form.photo ? "Change image" : "Upload image"}
                   </button>
                   {form.photo && (
-                    <a
-                      href={form.photo}
-                      download={`${(form.business || "vendor").replace(/[^a-z0-9]+/gi, "-").toLowerCase() || "vendor"}-logo.jpg`}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        saveImageDataUrl(
+                          form.photo,
+                          `${(form.business || "vendor").replace(/[^a-z0-9]+/gi, "-").toLowerCase() || "vendor"}-logo`
+                        )
+                      }
                       className="text-xs text-[#A855F7] hover:underline"
                     >
                       Save image
-                    </a>
+                    </button>
                   )}
                   {form.photo && (
                     <button
