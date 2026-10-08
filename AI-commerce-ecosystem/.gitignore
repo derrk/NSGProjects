@@ -1,0 +1,31 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# builds
+.next/
+out/
+dist/
+build/
+*.tsbuildinfo
+
+# env / secrets — never commit
+.env
+.env.*
+!.env.example
+
+# test & coverage
+coverage/
+.vitest/
+
+# local tooling
+.turbo/
+.vercel/
+.inngest/
+
+# fixtures recorded from live APIs may contain account ids
+packages/integrations/**/fixtures/*.local.json
+
+# os
+Thumbs.db
+.DS_Store
