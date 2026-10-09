@@ -19,7 +19,8 @@ import { and, eq } from 'drizzle-orm'
 
 import { and as andSql } from 'drizzle-orm'
 
-import { concepts, designs, niches } from '../../schema/index'
+import { checkIpRisk } from '../../ip-risk'
+import { blockedPhrases, concepts, designs, niches } from '../../schema/index'
 import { planPrompt, resolvePrompt, simplifyPrompt, textCheckPrompt, type PromptContext } from './prompt'
 import {
   conceptIdFrom,
@@ -258,6 +259,54 @@ export function createDesignerAgent(
       }
       if (concept.ipRisk === 'high') {
         throw new NonRetriableError(`concept ${conceptId} is ip_risk=high and must not be designed`)
+      }
+
+      /*
+       * The blocked-phrase list, actually consulted.
+       *
+       * `ipRisk` above is a column a model filled in about its own proposal, which is
+       * the weakest possible gate on the one failure that closes a shop. The
+       * blocked_phrases table has been seeded since week one and nothing read it.
+       * Checked here rather than only at proposal time because this is the last point
+       * before money is spent generating artwork, and because a concept can be edited
+       * after it was scored.
+       */
+      const blocked = await db
+        .select()
+        .from(blockedPhrases)
+        .where(eq(blockedPhrases.divisionId, divisionId))
+
+      const ipFindings = checkIpRisk({
+        text: [concept.title, concept.promptBrief, concept.whyNow].filter(Boolean).join('\n'),
+        blocked: blocked as Array<{ phrase: string; reason?: string | null }>,
+      })
+      const blockingIp = ipFindings.filter((f) => f.severity === 'blocking')
+
+      if (blockingIp.length > 0) {
+        await db
+          .update(concepts)
+          .set({ ipRisk: 'high', status: 'rejected', updatedAt: new Date() })
+          .where(eq(concepts.id, conceptId))
+
+        await ctx.log(
+          'pod.ip_blocked',
+          `concept "${concept.title}" hit ${blockingIp.length} blocked phrase(s): ` +
+            blockingIp.map((f) => f.matched).join(', '),
+          { level: 'warn', refTable: 'pod.concepts', refId: conceptId },
+        )
+
+        throw new NonRetriableError(
+          `concept ${conceptId} contains blocked content and must not be designed: ` +
+            blockingIp.map((f) => f.message).join(' '),
+        )
+      }
+
+      for (const warning of ipFindings) {
+        await ctx.log('pod.ip_warning', `${warning.rule}: ${warning.message}`, {
+          level: 'warn',
+          refTable: 'pod.concepts',
+          refId: conceptId,
+        })
       }
 
       /*

@@ -23,7 +23,7 @@ import { createMockModelClient } from '@acf/integrations/anthropic'
 import { createMockFalPipeline } from '@acf/integrations/fal'
 import { createMockStorage } from '@acf/integrations/storage'
 
-import { concepts, designs, niches } from '../../schema/index'
+import { blockedPhrases, concepts, designs, niches } from '../../schema/index'
 import { createDesignerAgent } from './run'
 
 let h: TestDatabase
@@ -578,6 +578,66 @@ describe('Designer refusals and idempotency', () => {
     ).rejects.toThrow(/ip_risk=high/)
 
     expect(await h.db.select().from(designs)).toHaveLength(0)
+  })
+
+  it('refuses a concept containing a blocked phrase, whatever its ip_risk column says', async () => {
+    /*
+     * ip_risk is a column a model filled in about its own proposal — the weakest
+     * possible gate on the one failure that closes a shop. The blocked_phrases table
+     * has been seeded since week one and nothing read it until now, so a concept
+     * rated `low` by the model went straight to paid image generation.
+     */
+    const { division, concept } = await seedConcept({
+      title: 'Just do it, dog mom',
+      ipRisk: 'low',
+    })
+    await h.db.insert(blockedPhrases).values({
+      divisionId: division!.id,
+      phrase: 'just do it',
+      reason: 'Nike registered mark',
+    })
+
+    // An empty model queue is part of the assertion: refusing before the first model
+    // call is what makes this free rather than merely safe.
+    await expect(
+      runDesigner({ division, conceptId: concept.id, modelQueue: [] }),
+    ).rejects.toThrow(/blocked content/)
+
+    expect(await h.db.select().from(designs)).toHaveLength(0)
+
+    const [after] = await h.db.select().from(concepts).where(eq(concepts.id, concept.id))
+    expect(after!.ipRisk).toBe('high')
+    expect(after!.status).toBe('rejected')
+  })
+
+  it('catches a blocked phrase written without its spaces', async () => {
+    // The spelling a filter written from one example misses.
+    const { division, concept } = await seedConcept({ title: 'JUSTDOIT mug', ipRisk: 'low' })
+    await h.db.insert(blockedPhrases).values({
+      divisionId: division!.id,
+      phrase: 'just do it',
+      reason: 'Nike registered mark',
+    })
+
+    await expect(
+      runDesigner({ division, conceptId: concept.id, modelQueue: [] }),
+    ).rejects.toThrow(/blocked content/)
+  })
+
+  it('does not block a concept whose blocked phrase belongs to another division', async () => {
+    // The list is per-division, and a shop must not be stopped by somebody else's.
+    const { division, concept } = await seedConcept({ title: 'Just do it, dog mom' })
+    const [other] = await h.db
+      .insert(divisions)
+      .values({ name: 'Other', slug: 'other-ip', type: 'pod', status: 'active' })
+      .returning()
+    await h.db
+      .insert(blockedPhrases)
+      .values({ divisionId: other!.id, phrase: 'just do it', reason: 'Nike' })
+
+    await expect(
+      runDesigner({ division, conceptId: concept.id, modelQueue: [plan(false)] }),
+    ).resolves.toBeDefined()
   })
 
   it('does not pay to regenerate when the same concept is designed twice', async () => {
