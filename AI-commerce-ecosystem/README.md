@@ -56,24 +56,32 @@ path. What you lose is cron scheduling and automatic handoff between agents.
    leaves design proposals here. Each shows three variants; pick one or burn all three.
    Watch the clearance counter move: a category earns auto-approval at 20 decisions and
    95% approval, 50 for designs.
-3. **Outfits** (`/divisions`) — raise a second division from the `generic` blueprint. It
+3. **The Yard** (`/floor`) — every station across every division, its counter, its
+   health light and what was last logged there. A station with no wired runner is red
+   whatever its agent row says: it is not waiting, it is stranded. A counter that cannot
+   be resolved shows a dash, never a zero.
+4. **Outfits** (`/divisions`) — raise a second division from the `generic` blueprint. It
    appears with its own agents, its own approval rules and its own spend cap. Nothing in
    core changed to make that work.
-4. **The Crew** (`/agents`) — every agent, its health, its editable orders. Hit **Run
+5. **The Crew** (`/agents`) — every agent, its health, its editable orders. Hit **Run
    now** on Design bay and it takes the next waiting concept, produces three variants and
    files them in Quarantine.
-5. **Treasury** (`/treasury`) — every ledger entry with its provenance: estimate,
+6. **Comms Lab** (`/comms`) — every outbound draft, the customer message it answers, and
+   the facts the draft was allowed to cite. The first figure is the count of messages
+   sent, ever. It is counted, not asserted, so if a send path is ever added the claim
+   below it stops being made on its own.
+7. **Treasury** (`/treasury`) — every ledger entry with its provenance: estimate,
    simulated, entered by hand, or verified. Nothing here is verified yet, and the screen
    says so rather than letting you assume.
-6. **Supply Lines** (`/supply`) — which integrations are `live`, which are `demo`, and
+8. **Supply Lines** (`/supply`) — which integrations are `live`, which are `demo`, and
    which are `manual` because no agent can do them. Out of the box nothing is live, and
    the screen says so in the first line rather than letting you assume otherwise.
-7. **Dry Run** (`/dry-run`) — the whole commerce pipeline end to end on demo adapters:
+9. **Dry Run** (`/dry-run`) — the whole commerce pipeline end to end on demo adapters:
    research, channel review, supplier quote, draft, approval, publish, order, routing,
    fulfilment, tracking, support draft, margin report. Twelve steps, nothing real
    touched. Rendered by calling the same function the tests assert against, so it cannot
    keep showing a green screen after the pipeline behind it breaks.
-8. **Archives** (`/archives`) — search everything that happened. Open a record to see the
+10. **Archives** (`/archives`) — search everything that happened. Open a record to see the
    chain: input, runs, cost, approvals, what the agent chose to remember, and the event
    log. **Export Markdown** gives you an Obsidian-ready file.
 
@@ -190,6 +198,11 @@ each platform's own flow, which is both the safe answer and the only one that wo
 - **Auto-approvals do not count toward their own graduation.** Otherwise a category would
   hold its approval rate at 100% forever and could never be re-tested.
 - **Retrieved pages and inbound messages are data, never instructions.**
+- **The gate stops requests, it does not hide pages.** An earlier version checked the
+  session while rendering and showed a sign-in form instead of the page. That protects
+  nothing: the page component still runs and its output goes into the RSC payload, so
+  `curl` returned the whole ledger while a browser showed a locked door. The check belongs
+  in middleware, and every server action re-checks for itself.
 
 ### Costs are estimates unless stated otherwise
 
@@ -209,8 +222,16 @@ pipeline. No revenue figure in this app has been earned.
 
 These are real gaps, not polish:
 
-- **No authentication.** The inbox says so on the screen. Run it locally; do not deploy
-  it to a public URL until operator sign-in lands.
+- **A passphrase, not authentication.** `ACF_OPERATOR_PASSPHRASE` gates the whole app
+  through middleware. It identifies nobody: two people who share it are indistinguishable
+  in every log and every approval this system records, so "a human approved this" is as
+  specific as the audit trail gets. Unset, the app runs open and says so on every screen.
+  There is also no rate limiting on sign-in — a single-process dev app has nowhere to keep
+  a counter that survives a reload, and a counter that resets on reload reads as protection
+  without being any. Put a real limiter in front of anything internet-facing.
+- **`/api/inngest` is not behind the passphrase.** It is called by a service rather than a
+  person, and `INNGEST_SIGNING_KEY` is the credential that belongs on it. Set that key
+  before this is reachable from anywhere but your own machine.
 - **Memory similarity is lexical, not semantic.** Memories are embedded on write and
   recall ranks by pgvector cosine distance, so it is real similarity search — but the
   default provider matches shared vocabulary, not meaning. Two differently-worded
@@ -262,6 +283,10 @@ the Designer end to end — runs against PGlite applying the actual generated mi
 
 Copy [`.env.example`](.env.example). For local development `apps/web/.env.local` is
 already set up by the quickstart above and needs no keys.
+
+`ACF_OPERATOR_PASSPHRASE` gates the app. At least 12 characters; a shorter one is refused
+rather than accepted, because a short passphrase removes the warning without removing the
+risk. Leave it unset for local work and the app runs open with a banner on every screen.
 
 Secrets never go in the database. The `credentials` table maps a credential *name* to an
 environment variable name, so an agent's prompt and its tool logs can reference
