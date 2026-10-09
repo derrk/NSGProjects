@@ -103,24 +103,32 @@ export function integrationMatrix(env: IntegrationEnv): IntegrationStatus[] {
     {
       key: 'shopify',
       label: 'Shopify (dropship storefront)',
-      mode: 'manual',
+      // Never `live`, whatever is in the environment: there is no live adapter for a
+      // token to switch on. A key present is not a connection.
+      mode: 'demo',
       summary:
-        'Not implemented. Listings are drafted and held; nothing reaches Shopify. ' +
-        'The channel adapter is the next thing to build.',
+        'Offline stand-in. Products are drafted, handle collisions and empty stock are ' +
+        'caught, and publishing requires a cited approval — but nothing reaches Shopify ' +
+        'and no product is purchasable.',
       toGoLive:
-        'Build the Shopify channel adapter, then create a custom app on your store and set ' +
-        'SHOPIFY_SHOP_DOMAIN and SHOPIFY_ADMIN_ACCESS_TOKEN.',
+        'Build the Shopify channel adapter against the Admin API, then create a custom app ' +
+        'on your store and set SHOPIFY_SHOP_DOMAIN and SHOPIFY_ADMIN_ACCESS_TOKEN.',
       requires: ['SHOPIFY_SHOP_DOMAIN', 'SHOPIFY_ADMIN_ACCESS_TOKEN'],
       deepLink: 'https://admin.shopify.com/settings/apps/development',
     },
     {
       key: 'etsy',
       label: 'Etsy (original + personalised POD)',
-      mode: 'manual',
+      // As with Shopify: a token cannot make this live, because nothing yet speaks to
+      // Etsy. Reporting `live` off the presence of a key would be the lie this whole
+      // module exists to prevent.
+      mode: 'demo',
       summary:
-        'Not implemented. Listings are drafted, checked against Etsy’s rules, and held. ' +
-        'Opening the shop is yours to do regardless: identity, bank and tax details must go ' +
-        'through Etsy’s own flow and are never stored here.',
+        'Offline stand-in. Listings are drafted, checked against Etsy’s rules and its ' +
+        'title, tag and personalisation limits, and publishing requires a cited approval ' +
+        '— but no listing exists on Etsy and no buyer can see anything. Opening the shop ' +
+        'is yours to do regardless: identity, bank and tax details go through Etsy’s own ' +
+        'flow and are never stored here.',
       toGoLive:
         'Open the Etsy shop yourself, register an app for API access, then build the Etsy ' +
         'channel adapter and set ETSY_ACCESS_TOKEN.',

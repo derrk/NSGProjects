@@ -39,10 +39,17 @@ describe('integrationMatrix', () => {
     expect(find({ falKey: 'k' }, 'fal').toGoLive).toBeNull()
   })
 
-  it('marks unbuilt channels as manual rather than demo', () => {
-    // `demo` would imply a working simulation of publishing to Etsy. There isn't one.
-    expect(find({ etsyToken: 'anything' }, 'etsy').mode).toBe('manual')
-    expect(find({ shopifyToken: 'anything' }, 'shopify').mode).toBe('manual')
+  it('never reports a channel live off the presence of a token alone', () => {
+    // There is no live Etsy or Shopify adapter yet. A key in the environment is not a
+    // connection, and reporting one would be the exact lie this module exists to stop.
+    expect(find({ etsyToken: 'anything' }, 'etsy').mode).toBe('demo')
+    expect(find({ shopifyToken: 'anything' }, 'shopify').mode).toBe('demo')
+  })
+
+  it('says of the demo channels both what works and what does not', () => {
+    const etsy = find({}, 'etsy')
+    expect(etsy.summary).toMatch(/no listing exists on Etsy/i)
+    expect(etsy.toGoLive).toMatch(/channel adapter/)
   })
 
   it('is honest that nothing has ever been emailed', () => {
