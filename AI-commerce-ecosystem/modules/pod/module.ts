@@ -19,6 +19,7 @@ import type { ModuleDefinition } from '@acf/core/modules'
 import { designerAgentSpec } from './agents/designer/index'
 import { POD_COUNTER_NAMES } from './counters'
 import { financeAgentSpec } from './agents/finance/index'
+import { scoutAgentSpec } from './agents/scout/index'
 import { storeOpsAgentSpec } from './agents/store-ops/index'
 import { supplierScoutAgentSpec } from './agents/supplier-scout/index'
 import { supportAgentSpec } from './agents/support/index'
@@ -26,6 +27,7 @@ import { supportAgentSpec } from './agents/support/index'
 export { createDesignerAgent, designerAgentSpec } from './agents/designer/index'
 export { createStoreOpsAgent, storeOpsAgentSpec } from './agents/store-ops/index'
 export * from './agents/finance/index'
+export * from './agents/scout/index'
 export * from './agents/supplier-scout/index'
 export * from './agents/support/index'
 export * from './pricing'
@@ -136,26 +138,7 @@ export const podModule: ModuleDefinition = {
   agents: [
     designerAgentSpec,
     storeOpsAgentSpec,
-
-    {
-      key: 'scout',
-      defaultName: 'Trend scout',
-      purpose:
-        'Find seasonal gift niches worth selling into, and write what is actually selling inside them as evidence.',
-      description: 'Researches niches and proposes concepts. Week 4.',
-      defaultModel: 'claude-sonnet-5-5',
-      defaultSchedule: 'TZ=America/Chicago 0 6 * * *',
-      defaultTools: ['web_search', 'fetch_page', 'opportunities.create', 'memory.recall'],
-      defaultStatus: 'paused',
-      systemPrompt: `You are the Trend scout for a print-on-demand gift shop.
-
-You gather EVIDENCE, not opinions. For each niche you report what is already selling, where you saw it, what it costs, and what signal suggests demand. Another agent decides what to do about it; your job is to be right about the facts and honest about the gaps.
-
-Score each niche on demand signal, competition, giftability and IP safety, and say which of those you are least sure about.
-
-Reject outright any concept referencing a brand, character, sports team, celebrity, song lyric or movie quote, and never describe a design as being in the style of a living artist.`,
-    },
-
+    scoutAgentSpec,
     supportAgentSpec,
     supplierScoutAgentSpec,
     financeAgentSpec,
