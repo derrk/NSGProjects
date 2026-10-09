@@ -59,7 +59,10 @@ path. What you lose is cron scheduling and automatic handoff between agents.
 4. **The Crew** (`/agents`) — every agent, its health, its editable orders. Hit **Run
    now** on Design bay and it takes the next waiting concept, produces three variants and
    files them in Quarantine.
-5. **Archives** (`/archives`) — search everything that happened. Open a record to see the
+5. **Treasury** (`/treasury`) — every ledger entry with its provenance: estimate,
+   simulated, entered by hand, or verified. Nothing here is verified yet, and the screen
+   says so rather than letting you assume.
+6. **Archives** (`/archives`) — search everything that happened. Open a record to see the
    chain: input, runs, cost, approvals, what the agent chose to remember, and the event
    log. **Export Markdown** gives you an Obsidian-ready file.
 
