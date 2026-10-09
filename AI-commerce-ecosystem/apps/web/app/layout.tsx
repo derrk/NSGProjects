@@ -17,6 +17,7 @@ export const metadata: Metadata = {
  *   THE YARD    -> /floor     the factory floor (week 3)
  *   OUTFITS     -> /divisions divisions list and detail (week 2)
  *   THE CREW    -> /agents    agent registry (week 3)
+ *   COMMS LAB   -> /comms     every outbound draft, and the count that has been sent
  *   SUPPLY LINES-> /supply    what is actually connected, and what is pretending
  *   DRY RUN     -> /dry-run   the whole pipeline on demo adapters, touching nothing
  */
@@ -26,6 +27,7 @@ const STATIONS = [
   { href: '/floor', label: 'The Yard' },
   { href: '/divisions', label: 'Outfits' },
   { href: '/agents', label: 'The Crew' },
+  { href: '/comms', label: 'Comms Lab' },
   { href: '/treasury', label: 'Treasury' },
   { href: '/supply', label: 'Supply Lines' },
   { href: '/dry-run', label: 'Dry Run' },
