@@ -1,4 +1,5 @@
 import { healthHeartbeat } from './heartbeat'
+import { memoryPrune } from './memory-prune'
 import { schedulerTick } from './scheduler'
 import { taskOnApproval } from './task-approval'
 import { createTaskRunner } from './task-run'
@@ -15,8 +16,14 @@ import type { AgentResolver } from './types'
  * adding a division adds no infrastructure at all.
  */
 export function createCoreFunctions(resolveAgent: AgentResolver) {
-  return [schedulerTick, createTaskRunner(resolveAgent), taskOnApproval, healthHeartbeat]
+  return [
+    schedulerTick,
+    createTaskRunner(resolveAgent),
+    taskOnApproval,
+    healthHeartbeat,
+    memoryPrune,
+  ]
 }
 
-export { healthHeartbeat, schedulerTick, taskOnApproval, createTaskRunner }
+export { healthHeartbeat, memoryPrune, schedulerTick, taskOnApproval, createTaskRunner }
 export type { AgentResolver }
