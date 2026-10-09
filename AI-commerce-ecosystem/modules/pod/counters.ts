@@ -15,7 +15,7 @@ import { and, count, eq, gte, lt } from 'drizzle-orm'
 
 import type { CounterContext, CounterResolvers } from '@acf/core/modules'
 
-import { concepts, designs, products, replies, suppliers } from './schema/index'
+import { concepts, designs, orders, products, replies, suppliers } from './schema/index'
 
 type Db = Record<string, unknown>
 
@@ -107,6 +107,37 @@ export function createPodCounters(db: Db): CounterResolvers {
      * agent.
      */
     'pod.reports_filed': async () => null,
+
+    /*
+     * The two below are goal metrics rather than station counters.
+     *
+     * They resolve through the same mechanism because a goal asks the same question
+     * a counter does — "how many of X does this division have" — and a second
+     * parallel way to answer it is a second place for the answer to be wrong.
+     * Cumulative: the window is ignored, which is what a goal means.
+     */
+
+    /** Products currently published. What "60 products live" counts. */
+    'pod.products_live': async (ctx) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- structural db type
+      const database = db as any
+      const [row] = await database
+        .select({ n: count() })
+        .from(products)
+        .where(and(eq(products.divisionId, ctx.divisionId), eq(products.status, 'published')))
+      return Number(row?.n ?? 0)
+    },
+
+    /** Orders received, ever. */
+    'pod.orders_total': async (ctx) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- structural db type
+      const database = db as any
+      const [row] = await database
+        .select({ n: count() })
+        .from(orders)
+        .where(eq(orders.divisionId, ctx.divisionId))
+      return Number(row?.n ?? 0)
+    },
   }
 }
 
@@ -118,4 +149,6 @@ export const POD_COUNTER_NAMES = [
   'pod.replies_today',
   'pod.suppliers_reviewed',
   'pod.reports_filed',
+  'pod.products_live',
+  'pod.orders_total',
 ]

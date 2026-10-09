@@ -11,3 +11,21 @@ export type AgentResolver = (
   moduleName: string,
   agentKey: string,
 ) => AgentDefinition<never, never> | null
+
+/**
+ * Resolves a module's named counters against a live database.
+ *
+ * Supplied by the composition root for the same reason as `AgentResolver`: the
+ * queries belong to a module, and core must not import one. A module with no
+ * counters returns an empty record.
+ */
+export type CounterResolver = (moduleName: string) => Record<
+  string,
+  (ctx: { divisionId: string; since: Date; until: Date }) => Promise<number | null>
+>
+
+/** Everything the composition root hands core so its jobs can reach module code. */
+export interface JobResolvers {
+  agents: AgentResolver
+  counters?: CounterResolver
+}

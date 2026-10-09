@@ -2,7 +2,7 @@ import { createCoreFunctions } from '@acf/jobs/functions'
 import { inngest } from '@acf/jobs'
 import { serve } from 'inngest/next'
 
-import { resolveAgentDefinition } from '@/lib/modules'
+import { resolveAgentDefinition, resolveCounters } from '@/lib/modules'
 
 /**
  * All three verbs are required:
@@ -13,8 +13,15 @@ import { resolveAgentDefinition } from '@/lib/modules'
  */
 export const { GET, POST, PUT } = serve({
   client: inngest,
-  // The composition root supplies the agent resolver; core never imports modules/.
-  functions: createCoreFunctions(resolveAgentDefinition),
+  /*
+   * The composition root supplies both resolvers; core never imports modules/.
+   * `counters` is what lets goals.refresh turn a goal's metric — `pod.products_live`
+   * — into a number, without core learning what a product is.
+   */
+  functions: createCoreFunctions({
+    agents: resolveAgentDefinition,
+    counters: resolveCounters,
+  }),
 })
 
 // Checkpointing runs several steps per request; give the route room. This must stay
