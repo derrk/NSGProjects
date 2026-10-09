@@ -84,6 +84,35 @@ describe('demo Etsy channel', () => {
     expect(etsy.listings.size).toBe(1)
   })
 
+  it('records every approval that published it, not just the first', async () => {
+    /*
+     * Returning early and keeping only the first id meant a second, distinct
+     * approval resolved as a success while nothing on the listing cited it — so the
+     * inbox showed that approval executed-and-succeeded with no trace of what it did.
+     */
+    const etsy = createDemoEtsyChannel()
+    const listing = await etsy.createDraft(etsyDraft())
+
+    await etsy.publish(listing.externalId, AUTH)
+    const second = await etsy.publish(listing.externalId, {
+      approvalId: 'apr_999',
+      approvedBy: 'another-operator',
+    })
+
+    expect(second.approvalIds).toEqual(['apr_123', 'apr_999'])
+    expect(etsy.listings.size).toBe(1)
+  })
+
+  it('does not record the same approval twice on a redelivery', async () => {
+    const etsy = createDemoEtsyChannel()
+    const listing = await etsy.createDraft(etsyDraft())
+
+    await etsy.publish(listing.externalId, AUTH)
+    const again = await etsy.publish(listing.externalId, AUTH)
+
+    expect(again.approvalIds).toEqual(['apr_123'])
+  })
+
   it('refuses a dropshipped listing outright', async () => {
     // Etsy's API would accept this and act on the shop later. Refusing here is why
     // the adapter exists rather than a thin HTTP wrapper.
@@ -208,6 +237,62 @@ describe('demo Shopify channel', () => {
     expect(handles).toEqual(['reusable-pet-hair-remover', 'reusable-pet-hair-remover-1'])
   })
 
+  it('decrements stock when something sells', async () => {
+    /*
+     * The header claims overselling is one of the two things this adapter models, and
+     * it was not: inventory was a frozen snapshot, so a product with 1 in stock could
+     * sell 50 and still report 1 — and the empty-stock publish guard could never fire
+     * again, because the number it reads could not reach zero.
+     */
+    const shopify = createDemoShopifyChannel()
+    const product = await shopify.createDraft(shopifyDraft({ quantity: 10 }))
+
+    shopify.seedOrder({
+      channelOrderId: 'S-1',
+      orderNumber: '1',
+      customerEmail: null,
+      totalCents: 1899,
+      paid: true,
+      hasValidAddress: true,
+      placedAt: new Date('2026-10-05'),
+      lines: [
+        { channelLineItemId: 'S-1-1', sku: 'pet-hair-remover', quantity: 3, unitPriceCents: 1899 },
+      ],
+    })
+
+    expect(shopify.products.get(product.externalId)!.inventory).toBe(7)
+  })
+
+  it('lets stock go negative, because that is what overselling is', async () => {
+    const shopify = createDemoShopifyChannel()
+    const product = await shopify.createDraft(shopifyDraft({ quantity: 1 }))
+
+    shopify.seedOrder({
+      channelOrderId: 'S-2',
+      orderNumber: '2',
+      customerEmail: null,
+      totalCents: 1899,
+      paid: true,
+      hasValidAddress: true,
+      placedAt: new Date('2026-10-05'),
+      lines: [
+        { channelLineItemId: 'S-2-1', sku: 'pet-hair-remover', quantity: 50, unitPriceCents: 1899 },
+      ],
+    })
+
+    // A floor at zero would hide the thing worth seeing.
+    expect(shopify.products.get(product.externalId)!.inventory).toBe(-49)
+  })
+
+  it('refuses a negative quantity rather than storing it', async () => {
+    // Stored unchecked, a product was born already oversold and the publish guard
+    // reported it as out of stock rather than as nonsense someone typed.
+    const shopify = createDemoShopifyChannel()
+    await expect(shopify.createDraft(shopifyDraft({ quantity: -5 }))).rejects.toThrow(
+      /cannot be negative/,
+    )
+  })
+
   it('refuses to publish a product with no stock', async () => {
     const shopify = createDemoShopifyChannel()
     const product = await shopify.createDraft(shopifyDraft({ quantity: 0 }))
@@ -229,8 +314,27 @@ describe('toHandle', () => {
     expect(toHandle('  --Dog & Cat--  ')).toBe('dog-cat')
   })
 
-  it('does not return an empty handle for a title of punctuation', () => {
+  it('returns an empty handle for a title of pure punctuation', () => {
+    // The name used to say the opposite of what this asserts. toHandle genuinely
+    // returns ''; the non-empty fallback lives in uniqueHandle, and is tested below.
     expect(toHandle('!!!')).toBe('')
+  })
+})
+
+describe('Shopify handle fallback', () => {
+  it('gives a punctuation-only title a real handle rather than a blank one', async () => {
+    /*
+     * The fallback nothing exercised. Change `toHandle(title) || 'product'` to
+     * `|| ''` and every test used to still pass, while a punctuation-titled product
+     * silently got a blank handle and the collision suffixing started keying on the
+     * empty string.
+     */
+    const shopify = createDemoShopifyChannel()
+    await shopify.createDraft(shopifyDraft({ title: '!!!', sku: 'a' }))
+    await shopify.createDraft(shopifyDraft({ title: '???', sku: 'b' }))
+
+    const handles = [...shopify.products.values()].map((p) => p.handle)
+    expect(handles).toEqual(['product', 'product-1'])
   })
 })
 

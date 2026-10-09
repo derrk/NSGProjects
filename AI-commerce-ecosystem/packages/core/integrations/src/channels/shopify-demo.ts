@@ -36,7 +36,6 @@ interface DemoProductRow extends ChannelListing {
   handle: string
   draft: ChannelListingDraft
   inventory: number
-  approvalId: string | null
 }
 
 export interface DemoShopifyChannel extends SalesChannel {
@@ -83,6 +82,17 @@ export function createDemoShopifyChannel(): DemoShopifyChannel {
         )
       }
 
+      if (draft.quantity < 0) {
+        // Stored unchecked, a negative quantity meant a product was born already
+        // oversold, and the publish guard reported it as out of stock rather than as
+        // nonsense someone typed.
+        throw new ChannelError(
+          `Quantity cannot be negative (got ${draft.quantity}).`,
+          'shopify',
+          'quantity.invalid',
+        )
+      }
+
       seq += 1
       const externalId = `DEMO-SHOP-${String(seq).padStart(4, '0')}`
       const handle = uniqueHandle(draft.title)
@@ -99,7 +109,7 @@ export function createDemoShopifyChannel(): DemoShopifyChannel {
         handle,
         draft,
         inventory: draft.quantity,
-        approvalId: null,
+        approvalIds: [],
       }
       products.set(externalId, row)
       return { ...row }
@@ -115,7 +125,10 @@ export function createDemoShopifyChannel(): DemoShopifyChannel {
           'approval.missing',
         )
       }
-      if (row.state === 'active') return { ...row }
+      // Appended, not replaced: a second distinct approval that publishes the same
+      // product must leave a trace, or the inbox records a decision nothing cites.
+      if (!row.approvalIds.includes(auth.approvalId)) row.approvalIds.push(auth.approvalId)
+      if (row.state === 'active') return { ...row, approvalIds: [...row.approvalIds] }
 
       /*
        * A dropshipped product goes live with whatever stock the supplier confirmed.
@@ -131,8 +144,7 @@ export function createDemoShopifyChannel(): DemoShopifyChannel {
       }
 
       row.state = 'active'
-      row.approvalId = auth.approvalId
-      return { ...row }
+      return { ...row, approvalIds: [...row.approvalIds] }
     },
 
     async getListing(externalId) {
@@ -161,6 +173,23 @@ export function createDemoShopifyChannel(): DemoShopifyChannel {
 
     seedOrder(order) {
       orders.push({ ...order, channel: 'shopify', provenance: 'simulated' })
+
+      /*
+       * Stock actually moves when something sells.
+       *
+       * The header above claims overselling is one of the two things this adapter
+       * models, and it was not: inventory was a frozen snapshot of whatever the
+       * draft was created with, so a product with 1 in stock could sell 50 and still
+       * report 1 — and the empty-stock publish guard could never fire again, because
+       * the number it reads could not reach zero. Allowed to go negative on purpose:
+       * that is what overselling is, and a floor at zero would hide it.
+       */
+      for (const line of order.lines) {
+        if (!line.sku) continue
+        for (const product of products.values()) {
+          if (product.sku === line.sku) product.inventory -= line.quantity
+        }
+      }
     },
   }
 }

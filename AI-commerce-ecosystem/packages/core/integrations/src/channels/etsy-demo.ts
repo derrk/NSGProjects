@@ -1,11 +1,16 @@
 /**
  * An offline Etsy.
  *
- * Worth being clear about what this is and is not. It is not a simulation of Etsy's
- * API — there is no live adapter for it to stand in for yet, and the integration
- * matrix reports Etsy as `manual` for exactly that reason. What it is: a place for
- * the rest of the pipeline to run end to end, enforcing the constraints Etsy really
- * does enforce, so the shape of a listing is wrong here rather than wrong there.
+ * Worth being clear about what this is and is not. There is no live adapter yet, so
+ * nothing here reaches Etsy. What it is: a place for the rest of the pipeline to run
+ * end to end, enforcing the constraints Etsy really does enforce, so the shape of a
+ * listing is wrong here rather than wrong there.
+ *
+ * The integration matrix reports Etsy as `demo`, not `manual` — this file is the
+ * working simulation that distinction turns on, and an earlier version of this
+ * comment said `manual`, contradicting the project's own reason for having two
+ * labels. A token in the environment still cannot make it `live`, because nothing
+ * here speaks to the platform.
  *
  * The limits below are the ones a listing gets rejected on. They are copied from
  * Etsy's published listing rules as of Oct 2026 and will drift; re-check them before
@@ -38,7 +43,6 @@ const NOTE =
 
 interface DemoListingRow extends ChannelListing {
   draft: ChannelListingDraft
-  approvalId: string | null
 }
 
 export interface DemoEtsyChannel extends SalesChannel {
@@ -139,7 +143,7 @@ export function createDemoEtsyChannel(): DemoEtsyChannel {
         provenance: 'simulated',
         simulatedNote: NOTE,
         draft,
-        approvalId: null,
+        approvalIds: [],
       }
       listings.set(externalId, row)
       return { ...row }
@@ -156,12 +160,20 @@ export function createDemoEtsyChannel(): DemoEtsyChannel {
           'approval.missing',
         )
       }
-      // Idempotent: a redelivered approval event must not create a second listing.
-      if (row.state === 'active') return { ...row }
+      /*
+       * Idempotent on the listing, but every approval that published it is recorded.
+       *
+       * Returning early and keeping only the FIRST approval id meant a second,
+       * distinct approval — re-publishing after an edit, or a second operator
+       * deciding the same listing — resolved as a success while nothing on the
+       * listing cited it. The inbox then shows that approval executed-and-succeeded
+       * with no trace of what it actually did.
+       */
+      if (!row.approvalIds.includes(auth.approvalId)) row.approvalIds.push(auth.approvalId)
+      if (row.state === 'active') return { ...row, approvalIds: [...row.approvalIds] }
 
       row.state = 'active'
-      row.approvalId = auth.approvalId
-      return { ...row }
+      return { ...row, approvalIds: [...row.approvalIds] }
     },
 
     async getListing(externalId) {

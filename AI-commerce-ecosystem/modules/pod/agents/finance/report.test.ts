@@ -95,6 +95,40 @@ describe('buildFinanceReport', () => {
     expect(r.caveats.some((c) => /The worst is worse at \$-9\.00/.test(c))).toBe(true)
   })
 
+  it('does not describe an empty period as containing catalogue estimates', () => {
+    // There are no costs in an empty period, so saying some of them are estimates is
+    // a statement about figures that do not exist — in the field the finance prompt
+    // calls the most important one on the page.
+    const r = report({ entries: [], orders: [] })
+
+    expect(r.caveats.some((c) => /catalogue estimates/.test(c))).toBe(false)
+    expect(r.caveats.some((c) => /simulated figures/.test(c))).toBe(false)
+    expect(r.caveats.some((c) => /not because the business broke even/.test(c))).toBe(true)
+  })
+
+  it('never calls a loss-maker something to scale', () => {
+    /*
+     * The caveat filtered on order count alone, so on a list sorted by contribution
+     * it fell through a verified winner to a known loser and told the operator to
+     * confirm its costs "before scaling it" — in the same report that had just named
+     * it the worst loss-maker.
+     */
+    const r = report({
+      orders: [
+        ...Array.from({ length: 5 }, () => ({
+          sku: 'loser',
+          revenueCents: 1000,
+          contributionCents: -100,
+          provenance: 'estimated' as const,
+        })),
+        { sku: 'winner', revenueCents: 2000, contributionCents: 2000, provenance: 'verified' as const },
+      ],
+    })
+
+    expect(r.lossMakers[0]!.sku).toBe('loser')
+    expect(r.caveats.some((c) => /loser.*before scaling it/.test(c))).toBe(false)
+  })
+
   it('reports the worst loss-maker PER ORDER, not its running total', () => {
     /*
      * marginReport collapses a SKU's orders into one total. Calling that total a

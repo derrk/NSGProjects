@@ -189,11 +189,19 @@ export function scoreSuppliers(candidates: SupplierCandidate[]): SupplierScore[]
       }
     })
     .sort((a, b) => {
-      // A blocked supplier sorts below every usable one however well it scored,
-      // because the list is read top-down and the top of it should be actionable.
-      if (a.blockers.length !== b.blockers.length) {
-        return (a.blockers.length > 0 ? 1 : 0) - (b.blockers.length > 0 ? 1 : 0)
-      }
+      /*
+       * Blocked-ness, then score — and blocked-ness is a boolean, not a count.
+       *
+       * The guard was `a.blockers.length !== b.blockers.length`, which is true for
+       * two blocked suppliers with different counts; the branch then computed
+       * (1) - (1) = 0 and the score tiebreak never ran. Two blockers at 20 points
+       * sorted above one blocker at 100, and the comparator was not a total order.
+       * The old test only compared 0 blockers against 1, where the bug happens to
+       * give the right answer.
+       */
+      const aBlocked = a.blockers.length > 0 ? 1 : 0
+      const bBlocked = b.blockers.length > 0 ? 1 : 0
+      if (aBlocked !== bBlocked) return aBlocked - bBlocked
       return b.score - a.score
     })
 }

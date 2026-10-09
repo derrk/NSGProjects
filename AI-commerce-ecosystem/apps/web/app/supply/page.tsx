@@ -1,3 +1,6 @@
+import { db, ledger } from '@acf/db'
+import { sql } from 'drizzle-orm'
+
 import { integrationMatrix, OWNER_SETUP_STEPS, readIntegrationEnv } from '@acf/pod/integrations'
 
 export const dynamic = 'force-dynamic'
@@ -8,12 +11,18 @@ const MODE_LABEL = {
   manual: 'yours to do',
 } as const
 
-export default function SupplyLinesPage() {
+export default async function SupplyLinesPage() {
   const env = readIntegrationEnv()
   const matrix = integrationMatrix(env)
 
   const liveCount = matrix.filter((i) => i.mode === 'live').length
   const anythingLive = liveCount > 0
+
+  // What the environment cannot tell you: whether anything has ever been spent.
+  const [counted] = await db()
+    .select({ n: sql<number>`COUNT(*)::int` })
+    .from(ledger)
+  const ledgerRowCount = counted?.n ?? 0
 
   return (
     <>
@@ -22,16 +31,32 @@ export default function SupplyLinesPage() {
         What is actually connected, and what is pretending. {liveCount} of {matrix.length} live.
       </p>
 
+      {/*
+        Present tense, deliberately.
+
+        This page reads the environment, which describes how THIS process is
+        configured and nothing else. An earlier version said "nothing in this system
+        has reached an outside service" — a claim about history, from a current env
+        read. Run an agent with a real ANTHROPIC_API_KEY, restart with
+        ACF_MOCK_INTEGRATIONS=1, and the page would assert that nothing had ever
+        happened while the ledger held the metered spend from the run that did.
+
+        The ledger is the thing that knows what happened. This says what is wired.
+      */}
       {!anythingLive ? (
         <div className="notice">
-          <strong>Everything is simulated</strong> — nothing in this system has reached an outside
-          service. No listing exists, no order was placed, no message was sent, and no money has
-          moved. Figures elsewhere in the app are modelled, not earned.
+          <strong>Nothing is connected right now</strong> — no integration in this process can
+          reach an outside service, so nothing done from here will create a listing, place an
+          order, send a message or spend money. That describes how this process is configured,
+          not its history: a run with real credentials at any point would still have spent and
+          would still be in the ledger. <a href="/treasury">Treasury</a> is the record of what
+          actually happened{ledgerRowCount > 0 ? ` — ${ledgerRowCount} entries so far` : ''}.
         </div>
       ) : (
         <div className="notice">
           <strong>{liveCount} live connection(s)</strong> — actions through these reach real
-          services and can cost real money. Everything else is still simulated.
+          services and can cost real money. Everything else is simulated.{' '}
+          <a href="/treasury">Treasury</a> is the record of what has actually been spent.
         </div>
       )}
 

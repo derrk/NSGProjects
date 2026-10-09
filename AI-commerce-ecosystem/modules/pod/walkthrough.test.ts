@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { createDemoEtsyChannel, createDemoShopifyChannel } from '@acf/integrations/channels'
 
+import { checkReplyGrounding } from './agents/support/grounding'
 import { DEMO_LABEL, runPetNicheWalkthrough } from './walkthrough'
 
 const approve = vi.fn(async () => ({ approvalId: 'apr_demo_1', approvedBy: 'operator' }))
@@ -156,6 +157,92 @@ describe('pet-niche walkthrough', () => {
 
     expect(fulfilment.detail).toMatch(/higher than the quote/)
     expect(fulfilment.provenance).toBe('verified')
+  })
+
+  describe('when the routing gate holds the order', () => {
+    /*
+     * The gate must be obeyed, not merely printed. An earlier version rendered
+     * "held — fulfilment would cost more than the ceiling" and then placed the
+     * supplier order on the very next line, which teaches a reader that the gate is
+     * decorative — the opposite of what this walkthrough exists to show.
+     */
+    async function heldRun() {
+      const { createDemoDropshipSupplier } = await import('@acf/integrations/channels')
+      const dear = createDemoDropshipSupplier(
+        [
+          {
+            supplierSku: 'PHR-001',
+            title: 'Reusable pet hair remover roller',
+            // Over the division's 3000c per-order ceiling.
+            itemCostCents: 4000,
+            shippingCostCents: { US: 180, '*': 640 },
+            leadTimeDaysMin: 7,
+            leadTimeDaysMax: 21,
+            inStock: true,
+          },
+        ],
+        { key: 'too-dear' },
+      )
+      return { ...(await run({ supplier: dear })), supplier: dear }
+    }
+
+    it('places no supplier order at all', async () => {
+      const { steps, supplier } = await heldRun()
+
+      expect(supplier.orders.size).toBe(0)
+      const fulfilment = steps.find((s) => s.key === 'fulfilment')!
+      expect(fulfilment.title).toMatch(/Nothing was sent to the supplier/)
+      expect(fulfilment.facts!.find((f) => f.label === 'Charged')!.value).toMatch(/no order/)
+    })
+
+    it('invents no tracking number to keep the walkthrough tidy', async () => {
+      const { steps } = await heldRun()
+      const tracking = steps.find((s) => s.key === 'tracking')!
+
+      expect(tracking.facts!.every((f) => !/\d{8,}/.test(f.value))).toBe(true)
+    })
+
+    it('drafts a reply the grounding checks would actually pass', async () => {
+      /*
+       * Asserted against the real checks rather than against a phrase, because a
+       * phrase test is what let grounding.ts ship broken in the first place. The
+       * walkthrough's own sample draft must survive the gate the walkthrough is
+       * demonstrating.
+       */
+      const { supportDraft } = await heldRun()
+
+      const problems = checkReplyGrounding(supportDraft.body, {
+        orderNumber: '1001',
+        status: 'needs_review',
+        placedAt: new Date('2026-10-07'),
+        shippedAt: null,
+        carrier: null,
+        trackingNumber: null,
+        leadTimeDaysMin: 7,
+        leadTimeDaysMax: 21,
+        items: [],
+        decidedRemedies: [],
+      })
+
+      expect(problems.filter((p) => p.severity === 'blocking')).toEqual([])
+      expect(supportDraft.body).toMatch(/has not been sent to our supplier/)
+    })
+
+    it('reports the gadget margin as estimated, since nobody invoiced us', async () => {
+      const { margins } = await heldRun()
+      expect(margins.find((m) => m.sku === 'pet-hair-remover-v1')!.provenance).toBe('estimated')
+    })
+  })
+
+  it('carries the supplier’s simulated note into the fulfilment step', async () => {
+    // "verified" here means the demo supplier reported a charge, not that anyone was
+    // charged. The fulfilment step was the one place stating the first without the
+    // second, while the UI gave it the only green badge on the page.
+    const { steps } = await run()
+    const fulfilment = steps.find((s) => s.key === 'fulfilment')!
+
+    expect(fulfilment.detail).toMatch(/Simulated\./)
+    expect(fulfilment.facts!.some((f) => /simulated/i.test(f.value))).toBe(true)
   })
 
   it('is reproducible: two runs produce the same steps', async () => {

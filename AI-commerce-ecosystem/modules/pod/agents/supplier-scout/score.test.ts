@@ -74,6 +74,37 @@ describe('scoreSuppliers', () => {
     expect(only!.blockers.some((b) => /No tracking/.test(b))).toBe(true)
   })
 
+  it('orders blocked suppliers among themselves by score', () => {
+    /*
+     * The old comparator keyed on blocker COUNT, so two blocked suppliers with
+     * different counts hit a branch that returned zero and the score tiebreak never
+     * ran — a 20-point candidate sorted above a 100-point one. The old test only
+     * compared 0 blockers against 1, the case where that bug gives the right answer.
+     */
+    const scores = scoreSuppliers([
+      candidate({
+        key: 'two-blockers-weak',
+        samplesInspected: false,
+        providesTracking: false,
+        leadTimeDaysMax: 35,
+        returnsWindowDays: null,
+        trackRecordMonths: null,
+      }),
+      candidate({ key: 'one-blocker-strong', samplesInspected: false }),
+    ])
+
+    expect(scores.map((s) => s.key)).toEqual(['one-blocker-strong', 'two-blockers-weak'])
+    expect(scores[0]!.score).toBeGreaterThan(scores[1]!.score)
+  })
+
+  it('orders usable suppliers among themselves by score', () => {
+    const scores = scoreSuppliers([
+      candidate({ key: 'weaker', leadTimeDaysMax: 28, returnsWindowDays: 7 }),
+      candidate({ key: 'stronger' }),
+    ])
+    expect(scores.map((s) => s.key)).toEqual(['stronger', 'weaker'])
+  })
+
   it('sorts every blocked supplier below every usable one', () => {
     // The list is read top-down, so the top of it has to be actionable.
     const scores = scoreSuppliers([

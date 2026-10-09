@@ -125,12 +125,16 @@ export function buildFinanceReport(input: FinanceReportInput): FinanceReport {
   ])
 
   const caveats: string[] = []
+  // An empty period has no figures to be worth anything. Describing it as containing
+  // catalogue estimates is a statement about costs that do not exist, and provenance
+  // is the field the finance prompt calls the most important one on the page.
+  const isEmpty = inPeriod.length === 0 && input.orders.length === 0
 
-  if (provenance === 'simulated') {
+  if (!isEmpty && provenance === 'simulated') {
     caveats.push(
       'This period contains simulated figures. Nothing here describes money that moved.',
     )
-  } else if (provenance === 'estimated') {
+  } else if (!isEmpty && provenance === 'estimated') {
     caveats.push(
       'Some costs in this period are catalogue estimates rather than amounts charged. ' +
         'Treat the net as a direction, not a balance.',
@@ -164,9 +168,18 @@ export function buildFinanceReport(input: FinanceReportInput): FinanceReport {
     )
   }
 
-  // A SKU selling well on estimated costs is the one most likely to be quietly
-  // unprofitable, because nothing has forced the estimate to be checked.
-  const unverifiedTop = skus.find((s) => s.provenance !== 'verified' && s.orders >= 3)
+  /*
+   * A SKU selling well on estimated costs is the one most likely to be quietly
+   * unprofitable, because nothing has forced the estimate to be checked.
+   *
+   * "Selling well" has to mean contributing. The filter was only `orders >= 3`, so
+   * on a list sorted by contribution it would fall through a verified winner to a
+   * known loss-maker and describe it as something to scale — in the same report that
+   * had just named it the worst loser.
+   */
+  const unverifiedTop = skus.find(
+    (s) => s.provenance !== 'verified' && s.orders >= 3 && s.contributionCents > 0,
+  )
   if (unverifiedTop) {
     caveats.push(
       `${unverifiedTop.sku} has ${unverifiedTop.orders} orders and its costs are still ` +

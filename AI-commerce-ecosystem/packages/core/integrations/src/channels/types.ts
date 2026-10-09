@@ -60,6 +60,15 @@ export interface ChannelListing {
   url: string | null
   state: 'draft' | 'active' | 'inactive'
   provenance: ChannelProvenance
+  /**
+   * Every approval that published this listing, in order.
+   *
+   * A list rather than one id, because re-publishing after an edit and a second
+   * operator deciding the same listing are both real, and both produce an approval
+   * the inbox records as executed. Keeping only the first meant those later
+   * approvals showed as succeeded with nothing citing them.
+   */
+  approvalIds: string[]
   /** Present on every simulated result, in the operator's words. */
   simulatedNote?: string
 }

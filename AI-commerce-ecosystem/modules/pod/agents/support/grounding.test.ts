@@ -174,6 +174,26 @@ describe('checkReplyGrounding', () => {
       const draft = 'Order 1001 ships from our supplier, so allow 7–21 days.'
       expect(codes(draft, inProduction)).not.toContain('status.not_shipped')
     })
+
+    const denials = [
+      // The honest sentences an unshipped order deserves. Refusing these pushes the
+      // agent away from the only truthful thing it can say.
+      'Order 1001 has not shipped yet.',
+      'Nothing has shipped on order 1001.',
+      'Order 1001 has not been dispatched.',
+      'There is no tracking on order 1001 because nothing has shipped.',
+    ]
+
+    for (const draft of denials) {
+      it(`allows the denial: ${draft}`, () => {
+        expect(codes(draft, inProduction)).not.toContain('status.not_shipped')
+      })
+    }
+
+    it('still catches a claim made after a denial in the same sentence', () => {
+      const draft = "Order 1001 has not shipped yet, but it's on its way."
+      expect(codes(draft, inProduction)).toContain('status.not_shipped')
+    })
   })
 
   describe('tracking numbers', () => {

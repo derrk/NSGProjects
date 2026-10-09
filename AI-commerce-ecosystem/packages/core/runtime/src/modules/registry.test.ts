@@ -518,10 +518,27 @@ describe('createDivision', () => {
     expect(rules.rows.filter((r) => r.divisionId === second.division.id)).toHaveLength(2)
   })
 
-  it('does not run setup when the module does not define any', async () => {
-    const spy = vi.fn()
-    await createDivision({ name: 'POD', slug: 'p1', moduleName: 'pod' }, mods, deps)
-    expect(spy).not.toHaveBeenCalled()
+  it('creates the division cleanly when the module defines no setup hook', async () => {
+    /*
+     * This used to create a `vi.fn()` and assert it had not been called, without ever
+     * handing it to anything — so it was green no matter what the code did. Deleting
+     * the `if (mod.onDivisionCreate)` guard entirely left it passing.
+     *
+     * What it should check is that the absence is handled rather than crashed on, and
+     * that nothing logs a setup step that never ran.
+     */
+    const withoutHook = makeModule()
+    expect(withoutHook.onDivisionCreate).toBeUndefined()
+
+    const { division } = await createDivision(
+      { name: 'POD', slug: 'p1', moduleName: 'pod' },
+      [withoutHook],
+      deps,
+    )
+
+    expect(division.slug).toBe('p1')
+    expect(events.kinds()).toContain('division.created')
+    expect(events.kinds()).not.toContain('division.setup')
   })
 })
 

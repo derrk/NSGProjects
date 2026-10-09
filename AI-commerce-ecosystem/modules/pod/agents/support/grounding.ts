@@ -148,6 +148,21 @@ function normaliseId(value: string): string {
   return value.replace(/[^A-Za-z0-9]/g, '').toUpperCase()
 }
 
+/** Words that turn the claim immediately after them into its own denial. */
+const NEGATOR =
+  /\b(not|n'?t|no|nothing|never|neither|nor|yet to|without|un(?:able|likely))\b[^.!?]{0,12}$/i
+
+/**
+ * Whether a claim at `index` is being denied rather than made.
+ *
+ * Looks only at the short run of text immediately before the match, so that
+ * "nothing has shipped" is read as a denial while "it has not shipped yet, but it is
+ * on its way" still trips on the second clause — where the claim really is made.
+ */
+function isNegated(sentence: string, index: number): boolean {
+  return NEGATOR.test(sentence.slice(Math.max(0, index - 30), index))
+}
+
 /** Every "N days/weeks/months" figure in a sentence, as days. */
 function dayFigures(sentence: string): number[] {
   const out: number[] = []
@@ -283,14 +298,24 @@ export function checkReplyGrounding(draft: string, facts: OrderFacts): Grounding
       )
     }
 
-    // A claim that it shipped, when the record has no shipping date.
-    if (!facts.shippedAt && SHIPPED_CLAIM.test(sentence)) {
-      add(
-        'status.not_shipped',
-        'blocking',
-        `The draft says the order is on its way, but the record has it as "${facts.status}" ` +
-          'with no shipping date.',
-      )
+    /*
+     * A claim that it shipped, when the record has no shipping date.
+     *
+     * Negations are not claims. "Nothing has shipped" and "it has not been dispatched
+     * yet" are the honest sentences an unshipped order deserves, and an earlier
+     * version of this check refused both — which would have pushed the agent away
+     * from the only truthful thing it could say.
+     */
+    if (!facts.shippedAt) {
+      const claim = SHIPPED_CLAIM.exec(sentence)
+      if (claim && !isNegated(sentence, claim.index)) {
+        add(
+          'status.not_shipped',
+          'blocking',
+          `The draft says the order is on its way, but the record has it as "${facts.status}" ` +
+            'with no shipping date.',
+        )
+      }
     }
   }
 

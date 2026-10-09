@@ -291,21 +291,24 @@ async function main() {
     })
     .returning()
 
-  await db.insert(supplierOrders).values({
-    divisionId: d,
-    orderLineId: removerLine!.id,
-    supplierId: petSupplier!.id,
-    externalId: 'DEMO-SUP-0001',
-    status: 'shipped',
-    // What the supplier actually charged, which is 90c above the quote. The drift is
-    // deliberate: a demo where the invoice always matches the quote leaves the
-    // estimate-versus-verified split looking like bookkeeping.
-    costCents: 690,
-    submittedAt: PLACED_AT,
-    trackingNumber: 'DEMO9400100000000000',
-    shippedAt: SHIPPED_AT,
-    actor: 'system',
-  })
+  const [removerSupplierOrder] = await db
+    .insert(supplierOrders)
+    .values({
+      divisionId: d,
+      orderLineId: removerLine!.id,
+      supplierId: petSupplier!.id,
+      externalId: 'DEMO-SUP-0001',
+      status: 'shipped',
+      // What the supplier actually charged, which is 90c above the quote. The drift is
+      // deliberate: a demo where the invoice always matches the quote leaves the
+      // estimate-versus-verified split looking like bookkeeping.
+      costCents: 690,
+      submittedAt: PLACED_AT,
+      trackingNumber: 'DEMO9400100000000000',
+      shippedAt: SHIPPED_AT,
+      actor: 'system',
+    })
+    .returning()
 
   /* Ledger ------------------------------------------------------------ *
    * Signed by effect on the company, and every row sourced `simulated:` so
@@ -349,7 +352,10 @@ async function main() {
       source: 'simulated:supplier-invoice',
       description: 'Supplier charge DEMO-SUP-0001, 90c above quote (DEMO)',
       refTable: 'pod.supplier_orders',
-      refId: removerLine!.id,
+      // The supplier order's own id, not the order line's. Both are random uuids, so
+      // pointing at the wrong one looked fine and failed only when followed — and
+      // following a cost-basis reference is the entire point of the ledger.
+      refId: removerSupplierOrder!.id,
       occurredAt: SHIPPED_AT,
     },
   ])

@@ -414,77 +414,147 @@ export async function runPetNicheWalkthrough(deps: WalkthroughDeps): Promise<Wal
   })
 
   /* 9. Fulfilment ---------------------------------------------------------- */
-  const supplierOrder = await supplier.placeOrder({
-    referenceId: 'DEMO-SHOP-ORDER-1',
-    lines: [{ supplierSku: SUPPLIER_SKU, quantity: 1 }],
-    destination: { countryCode: 'US' },
-    shippingName: 'A Buyer',
-    shippingAddress: '1 Example Street, Austin TX',
-  })
-
+  /*
+   * The routing decision above is obeyed, not merely printed.
+   *
+   * An earlier version rendered "held — fulfilment would cost more than the ceiling"
+   * and then placed the supplier order on the next line regardless. A walkthrough
+   * that shows a gate refusing something and then does it anyway teaches the reader
+   * the gate is decorative, which is the opposite of what this file exists to
+   * demonstrate — and it is reachable, because `deps.supplier` is injectable and a
+   * dearer catalogue trips the ceiling.
+   */
   const quotedTotal = quote.itemCostCents + quote.shippingCostCents
-  const chargedTotal = supplierOrder.chargedItemCostCents + supplierOrder.chargedShippingCostCents
+  const supplierOrder = removerRouting.route
+    ? await supplier.placeOrder({
+        referenceId: 'DEMO-SHOP-ORDER-1',
+        lines: [{ supplierSku: SUPPLIER_SKU, quantity: 1 }],
+        destination: { countryCode: 'US' },
+        shippingName: 'A Buyer',
+        shippingAddress: '1 Example Street, Austin TX',
+      })
+    : null
 
-  step({
-    key: 'fulfilment',
-    room: 'orders',
-    title: 'Supplier order placed, and now the cost is a fact',
-    detail:
-      chargedTotal === quotedTotal
-        ? 'The invoice matched the quote this time. It will not always.'
-        : `The invoice came back ${chargedTotal > quotedTotal ? 'higher' : 'lower'} than the quote. ` +
-          'This is why the two are tracked separately.',
-    humanGate: false,
-    provenance: 'verified',
-    facts: [
-      { label: 'Quoted', value: `$${(quotedTotal / 100).toFixed(2)} (estimated)` },
-      { label: 'Charged', value: `$${(chargedTotal / 100).toFixed(2)} (verified)` },
-      { label: 'Supplier order', value: supplierOrder.supplierOrderId },
-      { label: 'Status', value: supplierOrder.status },
-    ],
-  })
+  if (!supplierOrder) {
+    step({
+      key: 'fulfilment',
+      room: 'orders',
+      title: 'Nothing was sent to the supplier',
+      detail:
+        `The routing gate held this order — ${removerRouting.route ? '' : removerRouting.reason}. ` +
+        'No supplier order was placed, so there is no charge to report and no cost that ' +
+        'has moved from estimated to verified.',
+      humanGate: true,
+      provenance: 'simulated',
+      facts: [
+        { label: 'Quoted', value: `$${(quotedTotal / 100).toFixed(2)} (estimated)` },
+        { label: 'Charged', value: 'nothing — no order was placed' },
+      ],
+    })
+  } else {
+    const chargedTotal =
+      supplierOrder.chargedItemCostCents + supplierOrder.chargedShippingCostCents
+
+    step({
+      key: 'fulfilment',
+      room: 'orders',
+      title: 'Supplier order placed, and now the cost is a fact',
+      detail:
+        (chargedTotal === quotedTotal
+          ? 'The invoice matched the quote this time. It will not always. '
+          : `The invoice came back ${chargedTotal > quotedTotal ? 'higher' : 'lower'} than the quote. ` +
+            'This is why the two are tracked separately. ') +
+        // Carried, not dropped. "verified" here means the demo supplier reported a
+        // charge, not that anyone was charged — and the fulfilment step was the one
+        // place that stated the first without the second.
+        supplierOrder.simulatedNote,
+      humanGate: false,
+      provenance: 'verified',
+      facts: [
+        { label: 'Quoted', value: `$${(quotedTotal / 100).toFixed(2)} (estimated)` },
+        {
+          label: 'Charged',
+          value: `$${(chargedTotal / 100).toFixed(2)} (verified against the supplier’s own reply — which is simulated)`,
+        },
+        { label: 'Supplier order', value: supplierOrder.supplierOrderId },
+        { label: 'Status', value: supplierOrder.status },
+        { label: 'Reality', value: supplierOrder.simulatedNote ?? 'simulated' },
+      ],
+    })
+  }
 
   /* 10. Tracking ------------------------------------------------------------ */
-  supplier.advance(supplierOrder.supplierOrderId, 'shipped', {
-    carrier: 'USPS',
-    trackingNumber: 'DEMO9400100000000000',
-  })
-  const shipped = (await supplier.getOrder(supplierOrder.supplierOrderId))!
-  const shipment = await shopify.reportShipment('DEMO-SHOP-ORDER-1', {
-    carrier: shipped.tracking!.carrier,
-    trackingNumber: shipped.tracking!.trackingNumber,
-  })
+  // Nothing was ordered, so nothing can be tracked. A tracking number invented to
+  // keep the walkthrough tidy is the single worst thing this file could contain.
+  const tracking = supplierOrder
+    ? await (async () => {
+        supplier.advance(supplierOrder.supplierOrderId, 'shipped', {
+          carrier: 'USPS',
+          trackingNumber: 'DEMO9400100000000000',
+        })
+        const shipped = (await supplier.getOrder(supplierOrder.supplierOrderId))!
+        const shipment = await shopify.reportShipment('DEMO-SHOP-ORDER-1', {
+          carrier: shipped.tracking!.carrier,
+          trackingNumber: shipped.tracking!.trackingNumber,
+        })
+        return { shipped, shipment }
+      })()
+    : null
 
   step({
     key: 'tracking',
     room: 'orders',
-    title: 'Tracking recorded; the buyer was not told',
-    detail:
-      'The shipment is recorded against the order. notifiedBuyer is false because in ' +
-      'demo mode no email left this machine — the support draft below assumes the ' +
-      'customer has heard nothing.',
+    title: tracking ? 'Tracking recorded; the buyer was not told' : 'No tracking, because nothing shipped',
+    detail: tracking
+      ? 'The shipment is recorded against the order. notifiedBuyer is false because in ' +
+        'demo mode no email left this machine — the support draft below assumes the ' +
+        'customer has heard nothing.'
+      : 'The order was held before it reached the supplier, so there is no shipment and ' +
+        'no tracking number. Inventing one to keep the walkthrough tidy is the single ' +
+        'worst thing this file could do.',
     humanGate: false,
     provenance: 'simulated',
-    facts: [
-      { label: 'Carrier', value: shipped.tracking!.carrier },
-      { label: 'Tracking', value: shipped.tracking!.trackingNumber },
-      { label: 'Buyer notified', value: String(shipment.notifiedBuyer) },
-    ],
+    facts: tracking
+      ? [
+          { label: 'Carrier', value: tracking.shipped.tracking!.carrier },
+          { label: 'Tracking', value: tracking.shipped.tracking!.trackingNumber },
+          { label: 'Buyer notified', value: String(tracking.shipment.notifiedBuyer) },
+        ]
+      : [{ label: 'Tracking', value: 'none — the order never reached a supplier' }],
   })
 
   /* 11. Support draft -------------------------------------------------------- */
-  const supportDraft = {
-    to: 'buyer2@example.test',
-    subject: 'Your pet hair remover is on its way (order 1001)',
-    body:
-      'Hi,\n\n' +
-      'Your order has shipped. USPS tracking: DEMO9400100000000000.\n\n' +
-      `It ships from our supplier, so allow ${quote.leadTimeDaysMin}–${quote.leadTimeDaysMax} ` +
-      'days for it to reach you. Tracking can take a day or two to start updating.\n\n' +
-      'Reply to this message if anything looks wrong and a person will pick it up.\n\n' +
-      '— Support',
-    sent: false as const,
-  }
+  /*
+   * Written from what happened, not from the happy path.
+   *
+   * The grounding checks in agents/support refuse a reply that claims an order
+   * shipped when the record has no shipping date. A walkthrough whose own sample
+   * draft would fail that check is demonstrating the wrong thing.
+   */
+  const supportDraft = tracking
+    ? {
+        to: 'buyer2@example.test',
+        subject: 'Your pet hair remover is on its way (order 1001)',
+        body:
+          'Hi,\n\n' +
+          `Your order has shipped. USPS tracking: ${tracking.shipped.tracking!.trackingNumber}.\n\n` +
+          `It ships from our supplier, so allow ${quote.leadTimeDaysMin}–${quote.leadTimeDaysMax} ` +
+          'days for it to reach you. Tracking can take a day or two to start updating.\n\n' +
+          'Reply to this message if anything looks wrong and a person will pick it up.\n\n' +
+          '— Support',
+        sent: false as const,
+      }
+    : {
+        to: 'buyer2@example.test',
+        subject: 'About your order (order 1001)',
+        body:
+          'Hi,\n\n' +
+          'Your order is on hold with us and has not been sent to our supplier yet. ' +
+          'There is no tracking number because nothing has shipped.\n\n' +
+          'Someone here is looking at it and will reply.\n\n' +
+          '— Support',
+        sent: false as const,
+      }
 
   step({
     key: 'support-draft',
@@ -511,11 +581,16 @@ export async function runPetNicheWalkthrough(deps: WalkthroughDeps): Promise<Wal
     shippingCostCents: POSTER_SHIP_COST_CENTS,
     assumptions: defaultEtsyAssumptions(),
   })
+  /*
+   * Costed from the invoice when there is one, and from the quote when there is not
+   * — with the row's provenance following, rather than staying `verified` because
+   * the happy path usually produces an invoice.
+   */
   const removerEconomics = orderEconomics({
     itemPriceCents: 1899,
     shippingChargedCents: 0,
-    itemCostCents: supplierOrder.chargedItemCostCents,
-    shippingCostCents: supplierOrder.chargedShippingCostCents,
+    itemCostCents: supplierOrder?.chargedItemCostCents ?? quote.itemCostCents,
+    shippingCostCents: supplierOrder?.chargedShippingCostCents ?? quote.shippingCostCents,
     assumptions: defaultShopifyAssumptions(),
   })
 
@@ -532,7 +607,7 @@ export async function runPetNicheWalkthrough(deps: WalkthroughDeps): Promise<Wal
       sku: SHOPIFY_SKU,
       revenueCents: removerEconomics.revenueCents,
       contributionCents: removerEconomics.contributionCents,
-      provenance: 'verified',
+      provenance: supplierOrder ? 'verified' : 'estimated',
     },
   ])
 
@@ -541,9 +616,12 @@ export async function runPetNicheWalkthrough(deps: WalkthroughDeps): Promise<Wal
     room: 'treasury',
     title: 'Margin report, with each row marked for how much it can be trusted',
     detail:
-      'The gadget row is verified — we know what the supplier charged. The poster row ' +
-      'is estimated, because nothing was ever printed. Ranked by contribution, not ' +
-      'revenue: the bigger number is not the better product.',
+      (supplierOrder
+        ? 'The gadget row is verified — we know what the supplier charged. '
+        : 'The gadget row is estimated too: the order was held, so no supplier ever ' +
+          'invoiced us and its cost is still a catalogue figure. ') +
+      'The poster row is estimated, because nothing was ever printed. Ranked by ' +
+      'contribution, not revenue: the bigger number is not the better product.',
     humanGate: false,
     provenance: 'estimated',
     facts: margins.map((m) => ({
