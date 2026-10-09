@@ -11,6 +11,7 @@
  * sends. That is the whole design, not a gap waiting to be filled.
  */
 
+import { inboundEscalationReason } from '@acf/core/approvals'
 import type { AgentContext, AgentDefinition } from '@acf/core/runtime'
 import { NonRetriableError } from '@acf/core/runtime'
 import { MODELS, type ModelClient } from '@acf/integrations/anthropic'
@@ -653,7 +654,11 @@ export function createSupportAgent(deps: SupportDeps): AgentDefinition<SupportIn
       let redraftAttempts = 0
 
       const escalate = async (
-        escalationReason: 'not_draftable' | 'no_order_facts' | 'no_grounded_draft',
+        escalationReason:
+          | 'not_draftable'
+          | 'no_order_facts'
+          | 'no_grounded_draft'
+          | 'inbound_escalation',
         why: string,
         extra: Record<string, unknown> = {},
       ): Promise<SupportOutput> => {
@@ -710,6 +715,32 @@ export function createSupportAgent(deps: SupportDeps): AgentDefinition<SupportIn
           warnings: [],
           redraftAttempts,
         }
+      }
+
+      /*
+       * Harm, a legal threat, or a platform complaint: straight to the operator,
+       * unanswered.
+       *
+       * The system prompt has promised this since it was written and nothing
+       * implemented it. "My dog was sick after chewing this, is the coating
+       * non-toxic?" classifies as product_question — it IS one — passes isDraftable,
+       * and gets a reassuring, grounded reply about materials. The one thing that
+       * must not happen here is an agent reassuring somebody about a possible injury.
+       *
+       * The list is never-auto's own, so the thing that drafts and the thing that
+       * approves cannot disagree about what counts.
+       */
+      const inboundEscalation = inboundEscalationReason(
+        `${message.subject ?? ''}
+${message.body}`,
+      )
+      if (inboundEscalation) {
+        await ctx.log('pod.support_escalated_inbound', inboundEscalation, {
+          level: 'warn',
+          refTable: 'pod.messages',
+          refId: messageId,
+        })
+        return escalate('inbound_escalation', inboundEscalation)
       }
 
       if (!isDraftable(resolved)) {

@@ -111,7 +111,14 @@ export const supportOutputSchema = z.object({
     'auto_approved',
   ]),
   escalationReason: z
-    .enum(['not_draftable', 'no_order_facts', 'no_grounded_draft', 'already_escalated'])
+    .enum([
+      'not_draftable',
+      'no_order_facts',
+      'no_grounded_draft',
+      'already_escalated',
+      /* Harm, a legal threat, or a platform complaint in the inbound text. */
+      'inbound_escalation',
+    ])
     .nullable(),
   /**
    * Non-blocking grounding problems. Filed with the draft, not swallowed.

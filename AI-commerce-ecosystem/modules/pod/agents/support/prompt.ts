@@ -24,18 +24,45 @@ export const CUSTOMER_MESSAGE_CLOSE = 'END_UNTRUSTED_CUSTOMER_MESSAGE>>>'
  * would otherwise end the quoted block early and have the rest of their message read
  * as if we had written it.
  */
+export const MAX_CUSTOMER_BODY_CHARS = 4_000
+
+/**
+ * Any near-miss of either marker.
+ *
+ * Splitting on the exact literal only caught an exact paste. "END_UNTRUSTED_CUSTOMER_MESSAGE >>>"
+ * — one space before the chevrons — survived verbatim, and to a model it reads as the
+ * end of the quoted block, with everything after it looking like shop-authored
+ * context rather than customer text. The marker words are what carry the meaning, so
+ * the words are what gets removed, in any spacing or casing.
+ */
+const MARKER_SHAPED = /<{0,3}\s*\/?\s*(?:BEGIN|END)[_\s-]*UNTRUSTED[_\s-]*CUSTOMER[_\s-]*MESSAGE\s*>{0,3}/gi
+
 export function untrustedCustomerBlock(input: {
   subject: string | null
   body: string
 }): string {
-  const scrub = (text: string) =>
-    text.split(CUSTOMER_MESSAGE_CLOSE).join('[marker removed]').split(CUSTOMER_MESSAGE_OPEN).join('[marker removed]')
+  const scrub = (text: string) => text.replace(MARKER_SHAPED, '[marker removed]')
+
+  /*
+   * Truncated, because the body is attacker-controlled and the model is billed by
+   * the token.
+   *
+   * One inbound email reaches the model up to sixteen times — one classification,
+   * three drafts, and the run loop's four attempts over all of it. A 2 MB pasted log
+   * is then half a million input tokens, sixteen times, against the division's spend
+   * cap, for a single message anyone can send.
+   */
+  const body = scrub(input.body)
+  const trimmed =
+    body.length > MAX_CUSTOMER_BODY_CHARS
+      ? `${body.slice(0, MAX_CUSTOMER_BODY_CHARS)}\n[truncated: the message is ${body.length} characters and only the first ${MAX_CUSTOMER_BODY_CHARS} are shown. Do not assume the rest is unimportant; say in customerAsk that it was cut off.]`
+      : body
 
   return [
     CUSTOMER_MESSAGE_OPEN,
-    `Subject: ${scrub(input.subject ?? '(none)')}`,
+    `Subject: ${scrub(input.subject ?? '(none)').slice(0, 300)}`,
     '',
-    scrub(input.body),
+    trimmed,
     CUSTOMER_MESSAGE_CLOSE,
   ].join('\n')
 }
