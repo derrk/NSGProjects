@@ -29,6 +29,10 @@ export function createDatabase(options: CreateDatabaseOptions = {}) {
   const url = options.url ?? runtimeDatabaseUrl()
   const client = postgres(url, {
     max: poolSize(options.max),
+    // Postgres NOTICEs ("schema already exists, skipping") are printed as a raw object
+    // dump by default, which reads exactly like a crash to anyone running `seed` for
+    // the first time. Real errors still throw.
+    onnotice: () => {},
     ...(needsPreparedStatementsDisabled(url) ? { prepare: false } : {}),
   })
   return drizzle(client, { schema })

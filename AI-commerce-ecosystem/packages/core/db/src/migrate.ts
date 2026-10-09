@@ -29,8 +29,10 @@ export interface MigrateOptions {
 
 export async function runMigrations(options: MigrateOptions = {}): Promise<void> {
   const url = options.url ?? migrationDatabaseUrl()
-  // max: 1 — the migrator must run every statement on one session.
-  const client = postgres(url, { max: 1 })
+  // max: 1 because the migrator must run every statement on one session. Notices are
+  // suppressed for the same reason as in client.ts: "already exists, skipping" is not
+  // an error and should not look like one.
+  const client = postgres(url, { max: 1, onnotice: () => {} })
   try {
     const db = drizzle(client)
     // The second argument is REQUIRED on drizzle-orm 0.45.x. The one-argument form
