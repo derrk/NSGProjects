@@ -6,6 +6,7 @@ import { and, eq, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 
 import { resolveAgentDefinition } from '@/lib/modules'
+import { requireOperator } from '@/lib/auth'
 
 /**
  * Agent keys that accept a free-text idea as their task input.
@@ -29,6 +30,10 @@ export interface IdeaState {
  * immediately, through the same executor the queue uses.
  */
 export async function submitIdea(_prev: IdeaState, formData: FormData): Promise<IdeaState> {
+  // A server action is a POST endpoint with its own id, reachable without any page
+  // ever rendering. The layout gate does not cover it; this does.
+  await requireOperator()
+
   const title = String(formData.get('title') ?? '').trim()
   const summary = String(formData.get('summary') ?? '').trim()
   const divisionId = String(formData.get('divisionId') ?? '').trim()
@@ -99,6 +104,10 @@ export async function submitIdea(_prev: IdeaState, formData: FormData): Promise<
  * each tick, so this takes effect within one tick rather than needing a deploy.
  */
 export async function setAllDivisionsPaused(formData: FormData): Promise<void> {
+  // A server action is a POST endpoint with its own id, reachable without any page
+  // ever rendering. The layout gate does not cover it; this does.
+  await requireOperator()
+
   const paused = String(formData.get('paused') ?? '') === 'true'
 
   await db()

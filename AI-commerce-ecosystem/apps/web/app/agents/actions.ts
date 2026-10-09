@@ -6,6 +6,7 @@ import { eq } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 
 import { resolveAgentDefinition } from '@/lib/modules'
+import { requireOperator } from '@/lib/auth'
 
 /**
  * "Run now".
@@ -16,6 +17,10 @@ import { resolveAgentDefinition } from '@/lib/modules'
  * immediate feedback, and it works whether or not the Inngest dev server is up.
  */
 export async function runAgentNow(formData: FormData): Promise<void> {
+  // A server action is a POST endpoint with its own id, reachable without any page
+  // ever rendering. The layout gate does not cover it; this does.
+  await requireOperator()
+
   const agentId = String(formData.get('agentId') ?? '')
   if (!agentId) throw new Error('agentId is required')
 
@@ -62,6 +67,10 @@ export async function runAgentNow(formData: FormData): Promise<void> {
 
 /** Pause or resume one agent. */
 export async function setAgentStatus(formData: FormData): Promise<void> {
+  // A server action is a POST endpoint with its own id, reachable without any page
+  // ever rendering. The layout gate does not cover it; this does.
+  await requireOperator()
+
   const agentId = String(formData.get('agentId') ?? '')
   const status = String(formData.get('status') ?? '')
   if (!agentId) throw new Error('agentId is required')

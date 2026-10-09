@@ -13,6 +13,7 @@ import { eq } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 
 import { MODULES } from '@/lib/modules'
+import { requireOperator } from '@/lib/auth'
 
 function registryDeps() {
   const database = db()
@@ -51,6 +52,10 @@ export async function createDivisionAction(
   _prev: CreateDivisionState,
   formData: FormData,
 ): Promise<CreateDivisionState> {
+  // A server action is a POST endpoint with its own id, reachable without any page
+  // ever rendering. The layout gate does not cover it; this does.
+  await requireOperator()
+
   const name = String(formData.get('name') ?? '').trim()
   const moduleName = String(formData.get('moduleName') ?? '').trim()
   const activate = formData.get('activate') === 'on'
@@ -95,6 +100,10 @@ export async function createDivisionAction(
 
 /** Pause or resume a division. Pausing stops its agents within one scheduler tick. */
 export async function setDivisionStatus(formData: FormData): Promise<void> {
+  // A server action is a POST endpoint with its own id, reachable without any page
+  // ever rendering. The layout gate does not cover it; this does.
+  await requireOperator()
+
   const id = String(formData.get('divisionId') ?? '')
   const status = String(formData.get('status') ?? '')
   if (!id) throw new Error('divisionId is required')

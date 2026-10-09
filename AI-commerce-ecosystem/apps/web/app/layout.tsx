@@ -1,6 +1,10 @@
 import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
 
+import { currentSession } from '@/lib/auth'
+
+import { signOut } from './sign-in/actions'
+
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -34,7 +38,21 @@ const STATIONS = [
   { href: '/archives', label: 'Archives' },
 ] as const
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+/**
+ * The shell.
+ *
+ * No gate here. An earlier version of this checked the session and rendered a
+ * sign-in form instead of `children`, which does not protect anything: the page
+ * component still executes and its output is serialised into the RSC payload, so
+ * `curl` on a "locked" page returned the whole ledger while a browser showed a form.
+ * The gate is `middleware.ts`, which stops the request before any of that.
+ *
+ * What is left here is the one thing a layout can usefully do about it: show, on
+ * every screen, whether a lock exists at all.
+ */
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  const session = await currentSession()
+
   return (
     <html lang="en">
       <body>
@@ -53,13 +71,41 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                     <a href={s.href}>{s.label}</a>
                   </li>
                 ))}
+                {session.status === 'valid' ? (
+                  <li>
+                    <form action={signOut}>
+                      <button className="act" type="submit">
+                        Lock up
+                      </button>
+                    </form>
+                  </li>
+                ) : null}
               </ul>
             </nav>
           </header>
           <div className="hazard-rule" style={{ marginTop: 18 }} />
           <main>{children}</main>
+          {session.status === 'open' ? <OpenDoorWarning /> : null}
         </div>
       </body>
     </html>
+  )
+}
+
+/**
+ * Shown on every screen while no passphrase is set.
+ *
+ * Deliberately not dismissible and deliberately on every page rather than one.
+ * Running open is a legitimate local-development choice; forgetting that you are is
+ * not.
+ */
+function OpenDoorWarning() {
+  return (
+    <div className="notice" style={{ marginTop: 28 }}>
+      <strong>No lock on this door.</strong> ACF_OPERATOR_PASSPHRASE is not set, so anyone who
+      can reach this URL can approve listings, run agents and read the ledger. Fine on your own
+      machine. Set a passphrase of at least 12 characters before this is reachable from
+      anywhere else.
+    </div>
   )
 }

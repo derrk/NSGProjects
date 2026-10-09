@@ -4,6 +4,7 @@ import { decideApproval } from '@acf/core/approvals'
 import { revalidatePath } from 'next/cache'
 
 import { gateDeps } from '@/lib/gate'
+import { requireOperator } from '@/lib/auth'
 
 /**
  * Record the operator's choice of one design variant.
@@ -15,6 +16,10 @@ import { gateDeps } from '@/lib/gate'
  * earned autonomy.
  */
 export async function chooseVariant(formData: FormData): Promise<void> {
+  // A server action is a POST endpoint with its own id, reachable without any page
+  // ever rendering. The layout gate does not cover it; this does.
+  await requireOperator()
+
   const approvalId = String(formData.get('approvalId') ?? '')
   const designId = String(formData.get('designId') ?? '')
   const variantNo = Number(formData.get('variantNo') ?? 0)
@@ -36,6 +41,10 @@ export async function chooseVariant(formData: FormData): Promise<void> {
 
 /** Reject all variants. The concept goes back for a fresh set. */
 export async function burnCrate(formData: FormData): Promise<void> {
+  // A server action is a POST endpoint with its own id, reachable without any page
+  // ever rendering. The layout gate does not cover it; this does.
+  await requireOperator()
+
   const approvalId = String(formData.get('approvalId') ?? '')
   if (!approvalId) throw new Error('approvalId is required')
 
@@ -50,6 +59,10 @@ export async function burnCrate(formData: FormData): Promise<void> {
  * still fully usable from the inbox.
  */
 export async function decideGeneric(formData: FormData): Promise<void> {
+  // A server action is a POST endpoint with its own id, reachable without any page
+  // ever rendering. The layout gate does not cover it; this does.
+  await requireOperator()
+
   const approvalId = String(formData.get('approvalId') ?? '')
   const raw = String(formData.get('decision') ?? '')
   if (!approvalId) throw new Error('approvalId is required')
