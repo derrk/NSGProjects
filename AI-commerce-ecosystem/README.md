@@ -198,6 +198,15 @@ each platform's own flow, which is both the safe answer and the only one that wo
 - **Auto-approvals do not count toward their own graduation.** Otherwise a category would
   hold its approval rate at 100% forever and could never be re-tested.
 - **Retrieved pages and inbound messages are data, never instructions.**
+- **The rules that cost the most are code, not prompt text.** Three of them, each
+  written because a prompt asking nicely is a request an agent can talk its way past:
+  `ip-risk.ts` checks every concept against the blocked-phrase list before a penny is
+  spent generating artwork; `agents/support/grounding.ts` refuses a customer reply that
+  promises a date, commits money nobody decided, or quotes a tracking number the record
+  does not have; `agents/scout/niche-score.ts` throws out research whose figures carry
+  no source url. Each has its own test file, and each of those files is written
+  evasion-first — the canonical spelling is one case among many, because a filter
+  written from one example catches that example and reports everything else as clean.
 - **The gate stops requests, it does not hide pages.** An earlier version checked the
   session while rendering and showed a sign-in form instead of the page. That protects
   nothing: the page component still runs and its output goes into the RSC payload, so
@@ -242,12 +251,14 @@ These are real gaps, not polish:
   "SIMULATED" in the title until `TAVILY_API_KEY` is set, and `embed_text` uses a local
   lexical vectoriser that reports `semantic: false` — it captures shared vocabulary,
   not meaning. Both are honest about it in their own output.
-- **Four of six POD agents are seeded paused.** The Designer and Store ops have runners.
-  The Trend scout, Support deck, Supply scout and Counting house are declared so their
-  stations appear, and each already has its decision logic built and tested — the
-  support grounding checks, the supplier scoring, the finance report. What is missing is
-  the model wiring, not the judgement. The registry marks them "no runner yet" rather
-  than pretending.
+- **One of six POD agents has no runner.** The Designer, Store ops, Support deck, Supply
+  scout and Counting house are all wired. The Trend scout has its scoring built and
+  tested but no runner yet, so The Yard shows its station red — which is the honest
+  rendering of "nobody can work this post", and is deliberately red whatever the agent
+  row says, because an idle agent with no runner is not waiting, it is stranded.
+- **The agents are seeded `paused` and at `propose` autonomy.** Nothing runs on a
+  schedule until you turn it on, and nothing auto-approves until a category has earned
+  it. That is the intended starting state, not a gap.
 - **No live Etsy or Shopify adapter.** Both have demo adapters that enforce the real
   constraints — Etsy's title, tag and personalisation limits, its refusal of ordinary
   resale, Shopify's handle collisions and empty stock — and both refuse to publish
@@ -260,10 +271,18 @@ These are real gaps, not polish:
 
 ### The next thing to build
 
-The live Etsy channel adapter. Everything upstream of it is finished and tested — the
-compliance gate, the listing draft, the approval requirement, the order ingest, the
-margin maths. What is missing is the HTTP client that turns a drafted listing into a
-real one, and the owner-side setup on Supply Lines that has to happen first.
+Two, in order.
+
+The Trend scout's runner. Its scoring is built and tested; what it needs is the
+retrieval layer, and the one in `agents/supplier-scout/run.ts` — bounded searches,
+fenced untrusted documents, attempts counted rather than successes — should be lifted
+out and shared rather than copied, because two copies of security-critical fencing
+code is how one of them quietly becomes wrong.
+
+Then the live Etsy channel adapter. Everything upstream of it is finished and tested:
+the compliance gate, the listing draft, the approval requirement, the order ingest,
+the margin maths. What is missing is the HTTP client that turns a drafted listing into
+a real one, and the owner-side setup on Supply Lines that has to happen first.
 
 ---
 
