@@ -80,8 +80,21 @@ class FakeRuleSeedStore implements ApprovalRuleSeedStore {
     thresholdCount: number
   }> = []
 
+  /**
+   * Models the real store's `onConflictDoNothing` on (division, kind, category).
+   *
+   * The fake originally pushed unconditionally, so it could not tell a reconcile
+   * that re-seeds safely from one that resets a bucket's earned counters — the whole
+   * reason the real adapter has that clause.
+   */
   async seed(rows: typeof this.rows): Promise<void> {
-    this.rows.push(...rows)
+    for (const row of rows) {
+      const clash = this.rows.some(
+        (r) =>
+          r.divisionId === row.divisionId && r.kind === row.kind && r.category === row.category,
+      )
+      if (!clash) this.rows.push(row)
+    }
   }
 }
 
@@ -555,6 +568,71 @@ describe('reconcileDivisionAgents', () => {
 
     expect(await reconcileDivisionAgents(division, mod, deps)).toEqual([])
     expect(events.kinds()).not.toContain('division.agents_reconciled')
+  })
+
+  it('seeds a rule for an approval kind the module has since declared', async () => {
+    /*
+     * The guardrail this protects. A division created before its module declared
+     * `{ kind: 'refund', neverAuto: true }` has no rule row for it, so the gate reads
+     * `rule?.neverAuto` as undefined, nothing blocks, and the category graduates to
+     * automatic on its own counters. A never-auto list that applies only to divisions
+     * created after it was written is not a guardrail.
+     */
+    const before = makeModule()
+    const { division } = await createDivision(
+      { name: 'Deadstock', slug: 'pod-store', moduleName: 'pod' },
+      [before],
+      deps,
+    )
+    expect(rules.rows.some((r) => r.kind === 'refund')).toBe(false)
+
+    await reconcileDivisionAgents(
+      division,
+      makeModule({
+        approvalKinds: [...before.approvalKinds, { kind: 'refund', label: 'Refund', neverAuto: true }],
+      }),
+      deps,
+    )
+
+    const seeded = rules.rows.find((r) => r.kind === 'refund' && r.divisionId === division.id)
+    expect(seeded).toMatchObject({ neverAuto: true, category: '*' })
+  })
+
+  it('seeds the missing rule even when no agent is missing', async () => {
+    // The rule pass must not sit behind the agent early-return, or a module that
+    // gains only an approval kind reconciles nothing at all.
+    const before = makeModule()
+    const { division } = await createDivision(
+      { name: 'Deadstock', slug: 'pod-store', moduleName: 'pod' },
+      [before],
+      deps,
+    )
+
+    const added = await reconcileDivisionAgents(
+      division,
+      makeModule({
+        approvalKinds: [...before.approvalKinds, { kind: 'refund', label: 'Refund', neverAuto: true }],
+      }),
+      deps,
+    )
+
+    expect(added).toEqual([])
+    expect(rules.rows.some((r) => r.kind === 'refund')).toBe(true)
+  })
+
+  it('does not reset a rule the operator has already earned autonomy on', async () => {
+    const mod = makeModule()
+    const { division } = await createDivision(
+      { name: 'Deadstock', slug: 'pod-store', moduleName: 'pod' },
+      [mod],
+      deps,
+    )
+    const before = rules.rows.length
+
+    await reconcileDivisionAgents(division, mod, deps)
+
+    // seed() is onConflictDoNothing: re-running must not duplicate or overwrite.
+    expect(rules.rows).toHaveLength(before)
   })
 
   it('leaves an agent the operator has edited completely alone', async () => {

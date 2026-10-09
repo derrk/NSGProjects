@@ -147,9 +147,20 @@ export function buildFinanceReport(input: FinanceReportInput): FinanceReport {
 
   if (lossMakers.length > 0) {
     const worst = lossMakers[0]!
+    /*
+     * Divided by the order count before it is called a per-order figure.
+     *
+     * marginReport collapses a SKU's orders into one total, so reporting that total
+     * "per order" multiplied the loss by the number of sales: a SKU losing $2 a unit
+     * across three sales was reported as losing $6 a unit. This caveat is the
+     * headline the finance agent is told to lead with, so the error arrived with
+     * emphasis.
+     */
+    const perOrderCents =
+      worst.orders > 0 ? worst.contributionCents / worst.orders : worst.contributionCents
     caveats.push(
       `${lossMakers.length} SKU(s) lose money on every sale. The worst is ${worst.sku} at ` +
-        `$${(worst.contributionCents / 100).toFixed(2)} per order across ${worst.orders} order(s).`,
+        `$${(perOrderCents / 100).toFixed(2)} per order across ${worst.orders} order(s).`,
     )
   }
 

@@ -1,5 +1,7 @@
-import { agents, db, divisions } from '@acf/db'
+import { agents, db, divisions, ledger } from '@acf/db'
 import { eq, sql } from 'drizzle-orm'
+
+import { describeLedgerTrust, PROVENANCE_LABEL, splitByProvenance } from '@/lib/provenance'
 
 import { setAllDivisionsPaused } from './actions'
 import { IdeaBox } from './idea-box'
@@ -23,6 +25,14 @@ interface QueueDepth extends Record<string, unknown> {
   new_opportunities: string
 }
 
+/** The four company totals, and which column of v_company_cash each reads. */
+const MONEY_TILES = [
+  { label: 'Net', field: 'net_cents' },
+  { label: 'Taken in', field: 'cash_in_cents' },
+  { label: 'Burned', field: 'cash_out_cents' },
+  { label: 'Held', field: 'net_worth_cents' },
+] as const satisfies ReadonlyArray<{ label: string; field: keyof CompanyCash }>
+
 function usd(cents: number): string {
   const sign = cents < 0 ? '-' : ''
   return `${sign}$${(Math.abs(cents) / 100).toFixed(2)}`
@@ -44,6 +54,19 @@ export default async function CompanyPage() {
 
   const rows = (queues as unknown as { rows?: QueueDepth[] }).rows ?? (queues as unknown as QueueDepth[])
   const money = ((cash as unknown as { rows?: CompanyCash[] }).rows ?? (cash as unknown as CompanyCash[]))[0]
+
+  /*
+   * The same ledger the tiles above sum, read again with its `source` column.
+   *
+   * v_company_cash has no provenance dimension — it is a plain SUM — so the tiles
+   * cannot say what their own figures are worth. Reading the rows here is what lets
+   * the marking sit next to the number rather than in a paragraph underneath that
+   * nobody updates.
+   */
+  const ledgerRows = await database
+    .select({ kind: ledger.kind, source: ledger.source, amountCents: ledger.amountCents })
+    .from(ledger)
+  const trust = splitByProvenance(ledgerRows)
 
   const divisionRows = await database.select().from(divisions).orderBy(divisions.name)
   const activeDivisions = divisionRows.filter((d) => d.status === 'active')
@@ -67,23 +90,26 @@ export default async function CompanyPage() {
         {agentCount?.n ?? 0} crew on shift.
       </p>
 
+      {/*
+        The marking sits ON the tiles, not under them. Four bare money figures with a
+        disclaimer somewhere below is how a seeded $48.98 of invented revenue reads as
+        company cash — which is exactly what happened here before this.
+      */}
       <section className="stat-row" aria-label="Company totals">
-        <div className="stat">
-          <span className="stat-label">Net</span>
-          <span className="stat-value">{usd(Number(money?.net_cents ?? 0))}</span>
-        </div>
-        <div className="stat">
-          <span className="stat-label">Taken in</span>
-          <span className="stat-value">{usd(Number(money?.cash_in_cents ?? 0))}</span>
-        </div>
-        <div className="stat">
-          <span className="stat-label">Burned</span>
-          <span className="stat-value">{usd(Number(money?.cash_out_cents ?? 0))}</span>
-        </div>
-        <div className="stat">
-          <span className="stat-label">Held</span>
-          <span className="stat-value">{usd(Number(money?.net_worth_cents ?? 0))}</span>
-        </div>
+        {MONEY_TILES.map((tile) => (
+          <div className="stat" key={tile.label}>
+            <span className="stat-label">{tile.label}</span>
+            <span className="stat-value">{usd(Number(money?.[tile.field] ?? 0))}</span>
+            {trust.weakest ? (
+              <span
+                className={`tag ${trust.weakest === 'simulated' ? 'is-flagged' : ''}`}
+                style={{ display: 'inline-block', marginTop: 6 }}
+              >
+                {PROVENANCE_LABEL[trust.weakest]}
+              </span>
+            ) : null}
+          </div>
+        ))}
       </section>
 
       <section className="stat-row" aria-label="Queues">
@@ -174,9 +200,13 @@ export default async function CompanyPage() {
 
       <div className="notice" style={{ marginTop: 28 }}>
         <strong>Demo data</strong> — the divisions, niches and concepts shipped by the seed are
-        fictional, written by hand to exercise the pipeline. Money figures above are read from the
-        ledger, which so far contains only ESTIMATED API spend priced from a rate table. No
-        revenue here has been earned, and nothing has been verified against an invoice.
+        fictional, written by hand to exercise the pipeline.{' '}
+        {/*
+          Computed, not written. The sentence that used to be here said the ledger held
+          only estimated API spend; a seed inserted revenue rows and the sentence went on
+          saying it. A hardcoded paragraph cannot notice that it has stopped being true.
+        */}
+        {describeLedgerTrust(trust)}
       </div>
     </>
   )

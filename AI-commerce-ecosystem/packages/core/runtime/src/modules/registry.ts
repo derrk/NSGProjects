@@ -112,6 +112,29 @@ export async function reconcileDivisionAgents(
   mod: ModuleDefinition,
   deps: RegistryDeps,
 ): Promise<SeededAgent[]> {
+  /*
+   * Rules first, and unconditionally — including when no agent is missing.
+   *
+   * An earlier version of this reconciled agents only, which quietly broke the one
+   * guarantee the gate makes. A division created before its module declared
+   * `{ kind: 'price_change', neverAuto: true }` has no approval_rules row for it.
+   * The gate then reads `rule?.neverAuto` as undefined, nothing goes into
+   * blockedReasons, and the category graduates to automatic on its own counters —
+   * so the never-auto list applies to divisions created after it was written and to
+   * no others. That is not a guardrail.
+   *
+   * `seed` is onConflictDoNothing, so a bucket's earned counters are never reset.
+   */
+  await deps.rules.seed(
+    mod.approvalKinds.map((kind) => ({
+      divisionId: division.id,
+      kind: kind.kind,
+      category: '*',
+      neverAuto: kind.neverAuto ?? false,
+      thresholdCount: kind.thresholdCount ?? (kind.kind === 'design' ? 50 : 20),
+    })),
+  )
+
   if (!deps.agents.listKeysForDivision) return []
 
   const existing = new Set(await deps.agents.listKeysForDivision(division.id))

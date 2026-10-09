@@ -1,34 +1,17 @@
 import { db, divisions, ledger } from '@acf/db'
 import { desc, sql } from 'drizzle-orm'
 
+import { PROVENANCE_LABEL, provenanceOf, type Provenance } from '@/lib/provenance'
+
 export const dynamic = 'force-dynamic'
 
-/**
- * Every ledger kind, and how much you should trust it.
+/*
+ * Provenance now lives in lib/provenance.ts, imported above.
  *
- * The brief asks that estimates, simulations, manual entries and verified imports stay
- * distinguishable. Rather than a flag someone forgets to set, provenance is derived
- * from the `source` string the writer had to supply anyway.
+ * It used to be defined here, and The Holding summed the same ledger through a view
+ * with no `source` column — so this screen marked every row while the dashboard
+ * showed four unmarked money tiles. One definition, two screens, no disagreement.
  */
-type Provenance = 'estimated' | 'simulated' | 'manual' | 'verified'
-
-const PROVENANCE_LABEL: Record<Provenance, string> = {
-  estimated: 'estimate',
-  simulated: 'simulated',
-  manual: 'entered by hand',
-  verified: 'verified',
-}
-
-function provenanceOf(kind: string, source: string): Provenance {
-  if (source.startsWith('agent:')) {
-    // Priced from a model rate table at run time. Never a bill.
-    return kind === 'api_cost' ? 'estimated' : 'simulated'
-  }
-  if (source.startsWith('mock') || source.includes('simulat')) return 'simulated'
-  if (source.startsWith('operator') || source.startsWith('user:')) return 'manual'
-  if (source.startsWith('invoice:') || source.startsWith('import:')) return 'verified'
-  return 'estimated'
-}
 
 function usd(cents: number): string {
   const sign = cents < 0 ? '-' : ''

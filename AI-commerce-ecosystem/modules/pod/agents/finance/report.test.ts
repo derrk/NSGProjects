@@ -95,6 +95,27 @@ describe('buildFinanceReport', () => {
     expect(r.caveats.some((c) => /The worst is worse at \$-9\.00/.test(c))).toBe(true)
   })
 
+  it('reports the worst loss-maker PER ORDER, not its running total', () => {
+    /*
+     * marginReport collapses a SKU's orders into one total. Calling that total a
+     * per-order figure multiplied the loss by the number of sales, and this caveat
+     * is the headline the finance agent leads with. The original test gave every
+     * SKU exactly one order — the only case where total and per-order agree.
+     */
+    const r = report({
+      orders: Array.from({ length: 3 }, () => ({
+        sku: 'mug',
+        revenueCents: 1000,
+        contributionCents: -200,
+        provenance: 'verified' as const,
+      })),
+    })
+
+    expect(r.lossMakers[0]).toMatchObject({ sku: 'mug', orders: 3, contributionCents: -600 })
+    expect(r.caveats.some((c) => c.includes('$-2.00 per order across 3 order(s)'))).toBe(true)
+    expect(r.caveats.some((c) => c.includes('$-6.00 per order'))).toBe(false)
+  })
+
   it('has no loss-makers when everything contributes', () => {
     expect(report().lossMakers).toEqual([])
   })
