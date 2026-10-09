@@ -180,8 +180,29 @@ export function resolvePeriod(input: FinanceInput, now: Date): Period {
     )
   }
 
-  const periodStart = new Date(startText)
-  const periodEnd = new Date(endText)
+  /*
+   * Parsed as UTC, and a date-only end means the whole of that day.
+   *
+   * `new Date('2026-10-01T00:00')` — no zone — is parsed in the machine's LOCAL
+   * timezone, so the same input produced a different period on a laptop in Chicago
+   * and a container in UTC, with nothing in the output saying which.
+   *
+   * And a date-only `periodEnd` of '2026-10-07' resolved to midnight AT THE START of
+   * the 7th, so the filter summed six days while the output, the log line, the prompt
+   * and the approval payload all said the period ran to the 7th. An operator asking
+   * for a week got six days and was told it was seven.
+   */
+  const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/
+  const asUtc = (text: string, endOfDay: boolean): Date => {
+    if (DATE_ONLY.test(text)) {
+      return new Date(`${text}T${endOfDay ? '23:59:59.999' : '00:00:00.000'}Z`)
+    }
+    // A timestamp with no zone is read as UTC rather than as local.
+    return /[zZ]$|[+-]\d{2}:?\d{2}$/.test(text) ? new Date(text) : new Date(`${text}Z`)
+  }
+
+  const periodStart = asUtc(startText, false)
+  const periodEnd = asUtc(endText, true)
 
   if (Number.isNaN(periodStart.getTime()) || Number.isNaN(periodEnd.getTime())) {
     throw new NonRetriableError(
@@ -599,7 +620,16 @@ export function createFinanceAgent(
         )
       }
 
-      const contributions: OrderContribution[] = []
+            /** Weakest first, matching report.ts. A mixed order is worth its weakest line. */
+      const PROVENANCE_RANK: Record<Provenance, number> = {
+        simulated: 0,
+        estimated: 1,
+        manual: 2,
+        verified: 3,
+      }
+
+      /** One entry per (order, SKU), so marginReport's `orders` really counts orders. */
+      const contributionByOrderSku = new Map<string, OrderContribution>()
       const breakEvenBySku = new Map<string, BreakEvenInputs>()
       const channelsSeen = new Set<Channel>()
       let unpricedLineCount = 0
@@ -697,15 +727,35 @@ export function createFinanceAgent(
             (line['sku'] as string | null) ??
             (line['productId'] ? `product:${String(line['productId'])}` : '(no sku)')
 
-          contributions.push({
-            sku,
-            revenueCents: econ.revenueCents,
-            contributionCents: econ.contributionCents,
-            // The COST side only. Every fee above is an assumption in every case, which
-            // is why the fee source is declared as an unconfirmed assumption instead of
-            // quietly dragging every row down to `estimated`.
-            provenance: costProvenance,
-          })
+          /*
+           * Accumulated per (order, SKU), not pushed per line.
+           *
+           * marginReport counts the rows it is handed and calls the count `orders`.
+           * Handing it one row per LINE meant an order with two lines of the same SKU
+           * was reported as two orders — so the per-order loss figure the agent leads
+           * with was divided by the wrong number, and an order losing $10.95 was
+           * reported as two orders losing $5.47 each.
+           */
+          const perOrderKey = `${String(order['id'])}|${sku}`
+          const already = contributionByOrderSku.get(perOrderKey)
+          if (already) {
+            already.revenueCents += econ.revenueCents
+            already.contributionCents += econ.contributionCents
+            // The COST side only, at its weakest across the lines of this order.
+            if (PROVENANCE_RANK[costProvenance] < PROVENANCE_RANK[already.provenance]) {
+              already.provenance = costProvenance
+            }
+          } else {
+            contributionByOrderSku.set(perOrderKey, {
+              sku,
+              revenueCents: econ.revenueCents,
+              contributionCents: econ.contributionCents,
+              // The COST side only. Every fee above is an assumption in every case,
+              // which is why the fee source is declared as an unconfirmed assumption
+              // instead of quietly dragging every row down to `estimated`.
+              provenance: costProvenance,
+            })
+          }
 
           // Merged, not overwritten. Keeping the last line iterated meant a SKU sold
           // three times reported the break-even of one arbitrary sale.
@@ -746,7 +796,17 @@ export function createFinanceAgent(
           )
         }
       }
+      /*
+       * Assumptions that feed EVERY contribution, as opposed to some of them.
+       *
+       * A report could reach the VERIFIED marking — "every figure below traces to an
+       * invoice or an imported transaction" — while carrying, as its single caveat,
+       * "every contribution assumes shipping is inside the item price". Both
+       * sentences were in the same report. Only one of them could be true.
+       */
+      let universalAssumption = false
       if (lineRows.length > 0) {
+        universalAssumption = true
         unconfirmedAssumptions.push(
           'shipping charged to the buyer is not recorded per line, so every contribution ' +
             'assumes shipping is inside the item price',
@@ -760,10 +820,15 @@ export function createFinanceAgent(
         )
       }
       if (open) {
+        // A part-period figure is not a verified one either; it is a figure that has
+        // not finished happening.
+        universalAssumption = true
         unconfirmedAssumptions.push(
           'this period has not ended yet, so the figures are a part-period and will keep moving',
         )
       }
+
+      const contributions: OrderContribution[] = [...contributionByOrderSku.values()]
 
       const report = buildFinanceReport({
         periodStart,
@@ -786,7 +851,7 @@ export function createFinanceAgent(
          * `assumptions` with a `confirmedAt`) and 'verified' is reachable again, which
          * is the right way round for the incentive to point.
          */
-        assumptionProvenance: feesConfirmed ? 'verified' : 'estimated',
+        assumptionProvenance: feesConfirmed && !universalAssumption ? 'verified' : 'estimated',
       })
 
       const marking = markingFor(report.provenance)

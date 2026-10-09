@@ -943,7 +943,7 @@ describe('Counting house: a period becomes a report', () => {
     expect(output.caveats.some((c) => /shopify fees —/.test(c))).toBe(true)
   })
 
-  it('marks it verified once the operator confirms their own fee rates', async () => {
+  it('does not reach verified while shipping is not recorded per line, even with confirmed fees', async () => {
     const division = await seedDivision()
     await addLedger(division.id, [{ kind: 'revenue', amountCents: 1899, source: 'invoice:shopify' }])
     await addOrder(division.id, {
@@ -963,9 +963,23 @@ describe('Counting house: a period becomes a report', () => {
       },
     })
 
-    expect(output.provenance).toBe('verified')
-    expect(output.note!.marking).toBe(markingFor('verified'))
+    /*
+     * Confirming the fee rates removes that caveat — and the report still cannot be
+     * verified, because another assumption feeds every contribution: shipping charged
+     * to the buyer is not recorded per line, so each one assumes it was inside the
+     * item price.
+     *
+     * The old expectation was that confirmed fees alone produced VERIFIED, which
+     * printed "every figure below traces to an invoice or an imported transaction"
+     * directly above a caveat saying every contribution rests on an assumption. Both
+     * sentences in one report; only one of them could be true.
+     *
+     * `verified` becomes reachable when order_lines records what the buyer paid for
+     * shipping, and not before.
+     */
     expect(output.caveats.some((c) => /shopify fees —/.test(c))).toBe(false)
+    expect(output.provenance).toBe('estimated')
+    expect(output.caveats.some((c) => /shipping is inside the item price/.test(c))).toBe(true)
   })
 
   it('treats a zero catalogue cost as missing rather than as free', async () => {
@@ -1205,6 +1219,43 @@ describe('Counting house: the proposal', () => {
     const payload = approval!.payload as { marking: string; renderedNote: string }
     expect(payload.marking).toBe(markingFor('estimated'))
     expect(payload.renderedNote.startsWith('ESTIMATED —')).toBe(true)
+  })
+
+  it('counts one order as one order, however many lines of a SKU it holds', async () => {
+    /*
+     * marginReport counts the rows it is handed and calls the count `orders`. One row
+     * per LINE meant an order with two lines of the same SKU was reported as two
+     * orders — so the per-order loss the agent leads with was divided by the wrong
+     * number, and one order losing $10.95 was reported as two orders losing $5.47.
+     */
+    const division = await seedDivision()
+    await addLedger(division.id, [{ kind: 'revenue', amountCents: 2000, source: 'invoice:etsy' }])
+    await addOrder(division.id, {
+      channel: 'etsy',
+      sku: 'poster-a2',
+      unitPriceCents: 1000,
+      catalogueCostCents: 1400,
+      ref: 'ETSY-two-lines',
+    })
+
+    // A SECOND line of the same SKU on the SAME order.
+    const [existingLine] = await h.db.select().from(orderLines)
+    await h.db.insert(orderLines).values({
+      divisionId: division.id,
+      orderId: existingLine!.orderId,
+      channel: 'etsy',
+      channelOrderId: 'ETSY-two-lines',
+      channelLineItemId: 'ETSY-two-lines-2',
+      productId: existingLine!.productId,
+      sku: 'poster-a2',
+      quantity: 1,
+      unitPriceCents: 1000,
+    })
+
+    const { output } = await runFinance({ division, modelQueue: [plainNote] })
+    const row = output.skus.find((s) => s.sku === 'poster-a2')!
+
+    expect(row.orders).toBe(1)
   })
 
   it('solves break-even from the dearest sale, not whichever came back last', async () => {

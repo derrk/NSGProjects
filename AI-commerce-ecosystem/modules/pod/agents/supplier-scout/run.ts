@@ -568,7 +568,32 @@ export function createSupplierScoutAgent(
 
       /* ---------------- bounded search ---------------- */
 
-      const queries = searchQueries(brief, destinationCountry).slice(0, MAX_SEARCHES)
+      /*
+       * The budget shrinks on every retry.
+       *
+       * MAX_SEARCHES and MAX_PAGES bound ONE attempt, and the run loop retries up to
+       * four times on a transient model error — after the retrieval has already been
+       * paid for. A 529 on the extraction pass therefore cost a second full sweep
+       * with no memory of the first, and the worst path for a single task was 12
+       * searches and 24 page fetches. Nothing said so; the constants read like a
+       * per-task ceiling and were a per-attempt one.
+       *
+       * Narrowing rather than refusing, because a later attempt still needs something
+       * to work with. Worst case over four attempts is now 3+2+1+1 searches.
+       */
+      const attemptPenalty = Math.max(0, ctx.attempt - 1)
+      const searchBudget = Math.max(1, MAX_SEARCHES - attemptPenalty)
+      const pageBudget = Math.max(1, MAX_PAGES - 2 * attemptPenalty)
+      if (attemptPenalty > 0) {
+        await ctx.log(
+          'pod.supplier_retry_budget',
+          `attempt ${ctx.attempt}: narrowed to ${searchBudget} search(es) and ${pageBudget} page(s), ` +
+            'because the retrieval from the previous attempt was already paid for and cannot be reused',
+          { level: 'warn' },
+        )
+      }
+
+      const queries = searchQueries(brief, destinationCountry).slice(0, searchBudget)
       const hits = new Map<string, { title: string; snippet: string }>()
       let searchesUsed = 0
       let liveResults = 0
@@ -611,9 +636,20 @@ export function createSupplierScoutAgent(
             continue
           }
           liveResults++
+          /*
+           * A result with no url is not a document.
+           *
+           * The live Tavily adapter maps a urlless result to url:''. That empty string
+           * became a hit, failed to fetch ('"" is not a valid URL'), was pushed as a
+           * snippet doc anyway, and was recorded in `retrieved` — so the model saw a
+           * fence headed url="" and could cite it for every field. The candidate
+           * passed the gap rule and landed on a row reading "Sources: none recorded".
+           */
+          const url = (result.url ?? '').trim()
+          if (!/^https?:\/\//i.test(url)) continue
           if (hits.size >= MAX_DOCUMENTS) continue
-          if (!hits.has(result.url)) {
-            hits.set(result.url, { title: result.title ?? '', snippet: result.snippet ?? '' })
+          if (!hits.has(url)) {
+            hits.set(url, { title: result.title ?? '', snippet: result.snippet ?? '' })
           }
         }
       }
@@ -678,7 +714,7 @@ export function createSupplierScoutAgent(
       const docs: RetrievedDoc[] = []
 
       for (const [url, hit] of hits) {
-        if (pagesAttempted >= MAX_PAGES) {
+        if (pagesAttempted >= pageBudget) {
           // Past the budget the search snippet still counts as something we retrieved,
           // so it can be cited — it just does not cost a page fetch.
           docs.push({
@@ -811,12 +847,28 @@ ${doc.content}`)
         for (const gap of vet.rejected) gapsByLabel.set(gap.label, gap.reason)
         for (const question of result.output.openQuestions ?? []) askedQuestions.add(question)
 
-        // The second pass replaces the first only when it actually produced something.
-        // A correction that over-corrects into an empty list should not cost us the
-        // candidates the first pass already evidenced.
-        if (pass === 1 || vet.usable.length > 0) {
+        /*
+         * MERGED, not replaced.
+         *
+         * Guarding only against an EMPTY second pass was not enough. The correction
+         * prompt says "fix exactly those", so a model reading it correctly returns
+         * only the candidate it was asked about — and a non-empty replace then threw
+         * away every candidate the first pass had already evidenced. The operator saw
+         * a comparison of one supplier and never learned a second had been found,
+         * with nothing in the gaps either, because a candidate that was accepted is
+         * not a gap.
+         *
+         * Pass two wins on a key it also returned, since that is the corrected
+         * version; anything only pass one found is kept.
+         */
+        if (pass === 1) {
           usable = vet.usable
           citations = vet.citations
+        } else if (vet.usable.length > 0) {
+          const corrected = new Map(vet.usable.map((c) => [c.key, c]))
+          const kept = usable.filter((c) => !corrected.has(c.key))
+          usable = [...kept, ...vet.usable]
+          citations = { ...citations, ...vet.citations }
         }
 
         if (vet.rejected.length === 0) break
