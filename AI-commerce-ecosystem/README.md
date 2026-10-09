@@ -63,7 +63,15 @@ path. What you lose is cron scheduling and automatic handoff between agents.
 5. **Treasury** (`/treasury`) — every ledger entry with its provenance: estimate,
    simulated, entered by hand, or verified. Nothing here is verified yet, and the screen
    says so rather than letting you assume.
-6. **Archives** (`/archives`) — search everything that happened. Open a record to see the
+6. **Supply Lines** (`/supply`) — which integrations are `live`, which are `demo`, and
+   which are `manual` because no agent can do them. Out of the box nothing is live, and
+   the screen says so in the first line rather than letting you assume otherwise.
+7. **Dry Run** (`/dry-run`) — the whole commerce pipeline end to end on demo adapters:
+   research, channel review, supplier quote, draft, approval, publish, order, routing,
+   fulfilment, tracking, support draft, margin report. Twelve steps, nothing real
+   touched. Rendered by calling the same function the tests assert against, so it cannot
+   keep showing a green screen after the pipeline behind it breaks.
+8. **Archives** (`/archives`) — search everything that happened. Open a record to see the
    chain: input, runs, cost, approvals, what the agent chose to remember, and the event
    log. **Export Markdown** gives you an Obsidian-ready file.
 
@@ -83,7 +91,8 @@ apps/web                  Command center UI, API routes, webhooks
 packages/core/db          Drizzle schema for the core tables, migrations, views
 packages/core/runtime     Agent run loop, approval gate, health, module registry
 packages/core/jobs        Inngest functions, adapters, archive, task execution
-packages/core/integrations Typed clients: Anthropic, fal.ai, Supabase Storage
+packages/core/integrations Typed clients: Anthropic, fal.ai, Supabase Storage, Printify,
+                          and the Etsy/Shopify/dropship channel adapters
 modules/pod               Division one: the print-on-demand store
 modules/_template         Copy this to start a new division
 ```
@@ -121,6 +130,49 @@ every division and adding a division adds no infrastructure.
 Copy `modules/_template`, rename it, declare your stations, approval kinds and agents in
 `module.ts`, then add two lines to `apps/web/lib/modules.ts`. Create it from the UI at
 `/divisions`. The registry seeds its agents and approval rules.
+
+---
+
+## Selling on Etsy and Shopify
+
+The two channels do different jobs, and the split is a platform rule rather than a
+preference.
+
+**Etsy** takes original and buyer-personalised work. Ordinary resale of a supplier's
+catalogue item is not a grey area there — it is the thing the policy exists to stop, and
+it closes shops rather than warning them. `checkListing` refuses a dropshipped listing
+before it is drafted, and the demo adapter refuses it again at the transport layer,
+because Etsy's own API would accept it and act on the shop later.
+
+**Shopify** takes the practical goods: your own store, your own rules, resale fine.
+
+Three things hold across both:
+
+**Publishing requires an approval id as a required argument.** Not a prompt instruction —
+an argument. An agent cannot talk its way past a function signature.
+
+**A drafted listing has no URL.** Null, not a plausible `etsy.com` link. A fabricated URL
+is the most likely way anyone comes to believe a listing is live when nothing exists.
+
+**A quote is not an invoice.** `quote()` always returns `estimated`; only placing an
+order returns `verified`. Every margin figure carries which it was built from, and a
+mixed SKU reports at its weakest input. A dropship margin model built on quotes alone
+reads healthy right up until the first month's statement.
+
+### What only you can do
+
+Supply Lines (`/supply`) lists these and links straight to them. No agent can do any of
+it, and none of it is stored here:
+
+- Open the Etsy shop; complete identity verification and bank details in Etsy's own flow
+- Register your production partner on Etsy before any print-on-demand listing goes up
+- Create the Shopify store, pick a plan, create a custom app for its Admin token
+- Connect Printify to the storefront
+- Choose and approve a dropship supplier, and order samples before anything goes live
+- Settle sales tax and business registration
+
+Government IDs, bank details and card numbers never enter this system. They go through
+each platform's own flow, which is both the safe answer and the only one that works.
 
 ---
 
@@ -167,17 +219,28 @@ These are real gaps, not polish:
   "SIMULATED" in the title until `TAVILY_API_KEY` is set, and `embed_text` uses a local
   lexical vectoriser that reports `semantic: false` — it captures shared vocabulary,
   not meaning. Both are honest about it in their own output.
-- **Three of the four POD agents are seeded paused.** Store ops, Support and Trend scout
-  are declared so their stations appear, with no runner behind them yet. The registry
-  marks them "no runner yet" rather than pretending.
-- **No Printify, Shopify, Gmail or Etsy integration.** Week 2 onward.
+- **Four of six POD agents are seeded paused.** The Designer and Store ops have runners.
+  The Trend scout, Support deck, Supply scout and Counting house are declared so their
+  stations appear, and each already has its decision logic built and tested — the
+  support grounding checks, the supplier scoring, the finance report. What is missing is
+  the model wiring, not the judgement. The registry marks them "no runner yet" rather
+  than pretending.
+- **No live Etsy or Shopify adapter.** Both have demo adapters that enforce the real
+  constraints — Etsy's title, tag and personalisation limits, its refusal of ordinary
+  resale, Shopify's handle collisions and empty stock — and both refuse to publish
+  without a cited approval id. Neither reaches the platform, and a token in the
+  environment does not change that. Supply Lines reports them as `demo`, never `live`.
+- **No Gmail integration, by design rather than by backlog.** `send_email` has no send
+  path. Nothing has ever been sent from this system.
 - **The factory floor is a list, not a map.** The station map and live event feed are a
   later milestone; the data behind them already exists in `events`.
 
 ### The next thing to build
 
-The Store ops agent and the Printify client — the first thing that turns an approved
-design into something a customer could actually buy.
+The live Etsy channel adapter. Everything upstream of it is finished and tested — the
+compliance gate, the listing draft, the approval requirement, the order ingest, the
+margin maths. What is missing is the HTTP client that turns a drafted listing into a
+real one, and the owner-side setup on Supply Lines that has to happen first.
 
 ---
 
