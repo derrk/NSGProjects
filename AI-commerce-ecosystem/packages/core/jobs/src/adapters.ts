@@ -42,6 +42,7 @@ import {
   approvals,
   divisions,
   events,
+  goals,
   ledger,
   modules,
   tasks,
@@ -244,21 +245,166 @@ export function taskGate(db: Database): TaskGate {
   }
 }
 
+/**
+ * Closing out a task.
+ *
+ * Both transitions are CONDITIONAL on the task still being `running`, and that is the
+ * whole point. An agent that ends at the approval gate has had its task set to
+ * `blocked` by the gate; the run loop then returns successfully and would otherwise
+ * mark the very same task `done`, erasing the block and stranding the approval with
+ * nothing waiting on it. The output is still recorded either way.
+ */
 export function taskStore(db: Database): TaskStore {
   return {
     async complete(taskId, output) {
       await db
         .update(tasks)
-        .set({ status: 'done', output, finishedAt: new Date(), updatedAt: new Date() })
+        .set({
+          output,
+          status: sql`CASE WHEN ${tasks.status} = 'running' THEN 'done'::task_status ELSE ${tasks.status} END`,
+          finishedAt: sql`CASE WHEN ${tasks.status} = 'running' THEN now() ELSE ${tasks.finishedAt} END`,
+          updatedAt: new Date(),
+        })
         .where(eq(tasks.id, taskId))
     },
     async fail(taskId, error) {
       await db
         .update(tasks)
-        .set({ status: 'failed', error, finishedAt: new Date(), updatedAt: new Date() })
+        .set({
+          error,
+          status: sql`CASE WHEN ${tasks.status} = 'running' THEN 'failed'::task_status ELSE ${tasks.status} END`,
+          finishedAt: sql`CASE WHEN ${tasks.status} = 'running' THEN now() ELSE ${tasks.finishedAt} END`,
+          updatedAt: new Date(),
+        })
         .where(eq(tasks.id, taskId))
     },
   }
+}
+
+/** How long a `running` task may sit before another worker may take it over. */
+export const STALE_CLAIM_MINUTES = 30
+
+/**
+ * Take ownership of a task, atomically.
+ *
+ * The UPDATE ... WHERE status = 'queued' is the lock: two workers racing the same
+ * `task.created` event both issue it, exactly one gets a row back, and the other
+ * sees null and stops. Without this an Inngest redelivery would run the agent twice
+ * and pay for it twice.
+ *
+ * A task left `running` past STALE_CLAIM_MINUTES can also be claimed. A process that
+ * dies mid-run would otherwise strand its task as `running` forever, invisible to
+ * both the scheduler and the operator.
+ */
+export async function claimTask(db: Database, taskId: string) {
+  const [row] = await db
+    .update(tasks)
+    .set({
+      status: 'running',
+      startedAt: new Date(),
+      attempts: sql`${tasks.attempts} + 1`,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(tasks.id, taskId),
+        sql`(${tasks.status} = 'queued' OR (${tasks.status} = 'running' AND ${tasks.startedAt} < now() - make_interval(mins => ${STALE_CLAIM_MINUTES})))`,
+      ),
+    )
+    .returning()
+  return row ?? null
+}
+
+/** The task blocked on this approval, if there is one. */
+export async function taskBlockedOn(db: Database, approvalId: string) {
+  const [row] = await db
+    .select()
+    .from(tasks)
+    .where(eq(tasks.blockedOnApprovalId, approvalId))
+    .limit(1)
+  return row ?? null
+}
+
+/** Put a blocked task back in the queue, carrying the decision in its input. */
+export async function requeueTask(db: Database, taskId: string, input: unknown) {
+  const [row] = await db
+    .update(tasks)
+    .set({
+      status: 'queued',
+      input,
+      blockedOnApprovalId: null,
+      startedAt: null,
+      updatedAt: new Date(),
+    })
+    .where(and(eq(tasks.id, taskId), eq(tasks.status, 'blocked')))
+    .returning()
+  return row ?? null
+}
+
+/**
+ * Close a blocked task whose agent has nothing more to do.
+ *
+ * `done` for both an approval and a rejection: the TASK succeeded — it produced a
+ * proposal and the operator answered it. `failed` is reserved for a task that could
+ * not do its job, and "the operator said no" is not that.
+ */
+export async function closeBlockedTask(db: Database, taskId: string) {
+  await db
+    .update(tasks)
+    .set({
+      status: 'done',
+      blockedOnApprovalId: null,
+      finishedAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .where(and(eq(tasks.id, taskId), eq(tasks.status, 'blocked')))
+}
+
+/** Active agents in a division subscribed to a domain event, e.g. `event:design.approved`. */
+export async function agentsSubscribedTo(db: Database, divisionId: string, schedule: string) {
+  return db
+    .select({
+      id: agents.id,
+      divisionId: agents.divisionId,
+      name: agents.name,
+      moduleAgentKey: agents.moduleAgentKey,
+    })
+    .from(agents)
+    .where(
+      and(
+        eq(agents.divisionId, divisionId),
+        eq(agents.status, 'active'),
+        eq(agents.schedule, schedule),
+      ),
+    )
+}
+
+/** Record that an agent just ran, so the scheduler stops considering it due. */
+export async function stampAgentRun(db: Database, agentId: string): Promise<void> {
+  await db
+    .update(agents)
+    .set({ lastRunAt: new Date(), updatedAt: new Date() })
+    .where(eq(agents.id, agentId))
+}
+
+/** Everything the run loop needs about an agent, its division and its goals. */
+export async function loadRunContext(db: Database, agentId: string) {
+  const [agent] = await db.select().from(agents).where(eq(agents.id, agentId)).limit(1)
+  if (!agent) return null
+
+  const [division] = await db
+    .select()
+    .from(divisions)
+    .where(eq(divisions.id, agent.divisionId))
+    .limit(1)
+  if (!division) return null
+
+  const divisionGoals = await db
+    .select()
+    .from(goals)
+    .where(and(eq(goals.divisionId, agent.divisionId), eq(goals.status, 'active')))
+
+  return { agent, division, goals: divisionGoals }
 }
 
 export function ledgerPort(db: Database): LedgerPort {

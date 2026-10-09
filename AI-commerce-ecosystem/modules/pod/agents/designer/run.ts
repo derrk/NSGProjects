@@ -20,6 +20,7 @@ import { and, eq } from 'drizzle-orm'
 import { concepts, designs, niches } from '../../schema/index'
 import { planPrompt, resolvePrompt, simplifyPrompt, textCheckPrompt, type PromptContext } from './prompt'
 import {
+  conceptIdFrom,
   designerOutputSchema,
   generationPlanSchema,
   textCheckSchema,
@@ -204,7 +205,10 @@ export function createDesignerAgent(
     outputSchema: designerOutputSchema,
 
     async run(ctx: AgentContext<DesignerInput>): Promise<DesignerOutput> {
-      const { conceptId } = ctx.input
+      const conceptId = conceptIdFrom(ctx.input)
+      if (!conceptId) {
+        throw new NonRetriableError('no concept id in the task input (expected conceptId or refId)')
+      }
       const divisionId = ctx.division.id
 
       const [concept] = await db

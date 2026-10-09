@@ -72,12 +72,26 @@ export type TextCheck = z.infer<typeof textCheckSchema>
  * Agent-facing
  * ---------------------------------------------------------------- */
 
+/**
+ * Either shape works.
+ *
+ * `conceptId` is what a direct or manual invocation passes. `refId` is what the core
+ * dispatcher passes when `concept.approved` fires — core knows an approval concerned
+ * `refTable`/`refId` and deliberately knows nothing about concepts, so the agent
+ * accepts the generic form and resolves it.
+ */
 export const designerInputSchema = z.object({
-  conceptId: z.string(),
-  shopId: z.string().nullable().optional(),
+  conceptId: z.string().optional(),
+  refId: z.string().optional(),
+  refTable: z.string().optional(),
 })
 
 export type DesignerInput = z.infer<typeof designerInputSchema>
+
+/** The concept this task is about, whichever shape it arrived in. */
+export function conceptIdFrom(input: DesignerInput): string | null {
+  return input.conceptId ?? input.refId ?? null
+}
 
 export const designerOutputSchema = z.object({
   conceptId: z.string(),

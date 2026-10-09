@@ -1,6 +1,8 @@
-import { functions } from '@acf/jobs/functions'
+import { createCoreFunctions } from '@acf/jobs/functions'
 import { inngest } from '@acf/jobs'
 import { serve } from 'inngest/next'
+
+import { resolveAgentDefinition } from '@/lib/modules'
 
 /**
  * All three verbs are required:
@@ -9,8 +11,12 @@ import { serve } from 'inngest/next'
  *   PUT  — app registration / sync
  * Omitting PUT means the app never registers and nothing ever runs.
  */
-export const { GET, POST, PUT } = serve({ client: inngest, functions })
+export const { GET, POST, PUT } = serve({
+  client: inngest,
+  // The composition root supplies the agent resolver; core never imports modules/.
+  functions: createCoreFunctions(resolveAgentDefinition),
+})
 
-// Checkpointing runs several steps per request; give the route room for them. This
-// must stay above the client's checkpointing.maxRuntime.
+// Checkpointing runs several steps per request; give the route room. This must stay
+// above the client's checkpointing.maxRuntime.
 export const maxDuration = 60

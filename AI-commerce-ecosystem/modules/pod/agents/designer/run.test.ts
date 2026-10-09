@@ -178,6 +178,8 @@ async function runDesigner(opts: {
   conceptId: string
   modelQueue: unknown[]
   withTask?: boolean
+  /** Pass the concept as the dispatcher would, rather than as conceptId. */
+  useRefId?: boolean
 }) {
   const images = createMockFalPipeline()
   const storage = createMockStorage()
@@ -260,7 +262,16 @@ async function runDesigner(opts: {
       storage,
       today: () => '2026-10-09',
     }),
-    { agent, division, task, input: { conceptId: opts.conceptId } },
+    {
+      agent,
+      division,
+      task,
+      input: opts.useRefId
+        ? opts.conceptId
+          ? { refId: opts.conceptId, refTable: 'pod.concepts' }
+          : {}
+        : { conceptId: opts.conceptId },
+    },
     deps,
   )
 
@@ -476,6 +487,28 @@ describe('Designer refusals and idempotency', () => {
 
     const [run] = await h.db.select().from(agentRuns)
     expect(run).toMatchObject({ status: 'error', attempts: 1 })
+  })
+
+  it('accepts the generic refId the core dispatcher sends', async () => {
+    const { division, concept } = await seedConcept()
+
+    // When concept.approved fires, core queues a task whose input is {refTable, refId}
+    // — it knows nothing about concepts. The agent must understand that shape.
+    const { output } = await runDesigner({
+      division,
+      conceptId: concept.id,
+      modelQueue: [plan(false)],
+      useRefId: true,
+    })
+
+    expect(output.designIds).toHaveLength(3)
+  })
+
+  it('refuses a task with no concept id at all', async () => {
+    const { division } = await seedConcept()
+    await expect(
+      runDesigner({ division, conceptId: '', modelQueue: [plan(false)], useRefId: true }),
+    ).rejects.toThrow(/no concept id/)
   })
 
   it('refuses a concept belonging to another division', async () => {
