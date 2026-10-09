@@ -66,22 +66,29 @@ path. What you lose is cron scheduling and automatic handoff between agents.
 5. **The Crew** (`/agents`) — every agent, its health, its editable orders. Hit **Run
    now** on Design bay and it takes the next waiting concept, produces three variants and
    files them in Quarantine.
-6. **Comms Lab** (`/comms`) — every outbound draft, the customer message it answers, and
+6. **War Room** (`/war-room`) — the shorter list: what should worry you. Goals with a
+   verdict, stations actually failing, today's spend against each division's cap, work
+   that failed. A deliberately paused agent is not listed, because thirteen rows reading
+   "agent is paused" is how a screen teaches you to ignore it.
+7. **Comms Lab** (`/comms`) — every outbound draft, the customer message it answers, and
    the facts the draft was allowed to cite. The first figure is the count of messages
    sent, ever. It is counted, not asserted, so if a send path is ever added the claim
    below it stops being made on its own.
-7. **Treasury** (`/treasury`) — every ledger entry with its provenance: estimate,
+8. **Treasury** (`/treasury`) — every ledger entry with its provenance: estimate,
    simulated, entered by hand, or verified. Nothing here is verified yet, and the screen
    says so rather than letting you assume.
-8. **Supply Lines** (`/supply`) — which integrations are `live`, which are `demo`, and
+9. **Supply Lines** (`/supply`) — which integrations are `live`, which are `demo`, and
    which are `manual` because no agent can do them. Out of the box nothing is live, and
    the screen says so in the first line rather than letting you assume otherwise.
-9. **Dry Run** (`/dry-run`) — the whole commerce pipeline end to end on demo adapters:
+10. **Dry Run** (`/dry-run`) — the whole commerce pipeline end to end on demo adapters:
    research, channel review, supplier quote, draft, approval, publish, order, routing,
    fulfilment, tracking, support draft, margin report. Twelve steps, nothing real
    touched. Rendered by calling the same function the tests assert against, so it cannot
    keep showing a green screen after the pipeline behind it breaks.
-10. **Archives** (`/archives`) — search everything that happened. Open a record to see the
+11. **Quarters** (`/quarters`) — what you have trained and what it has earned: every
+    approval category, your decisions in it, and whether it has graduated to deciding
+    without you. The only place that answers "how much is this doing on its own now?".
+12. **Archives** (`/archives`) — search everything that happened. Open a record to see the
    chain: input, runs, cost, approvals, what the agent chose to remember, and the event
    log. **Export Markdown** gives you an Obsidian-ready file.
 
@@ -256,6 +263,12 @@ These are real gaps, not polish:
   tested but no runner yet, so The Yard shows its station red — which is the honest
   rendering of "nobody can work this post", and is deliberately red whatever the agent
   row says, because an idle agent with no runner is not waiting, it is stranded.
+- **No ledger rollup, deliberately.** The spec listed one. The ledger is append-only
+  because that is what makes it auditable, and rolling rows up means deleting the
+  detail a cost-basis trace depends on — in exchange for a speedup nothing has
+  measured a need for. The dashboards aggregate through views, and the spend cap reads
+  the same rows the screens do. If the table ever gets large enough to matter, the
+  answer is a materialised summary beside the ledger, not instead of it.
 - **The agents are seeded `paused` and at `propose` autonomy.** Nothing runs on a
   schedule until you turn it on, and nothing auto-approves until a category has earned
   it. That is the intended starting state, not a gap.
