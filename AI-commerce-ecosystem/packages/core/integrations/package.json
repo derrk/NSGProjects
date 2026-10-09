@@ -7,7 +7,8 @@
     ".": "./src/index.ts",
     "./fal": "./src/fal/index.ts",
     "./storage": "./src/storage/index.ts",
-    "./anthropic": "./src/anthropic/index.ts"
+    "./anthropic": "./src/anthropic/index.ts",
+    "./printify": "./src/printify/index.ts"
   },
   "dependencies": {
     "@acf/core": "workspace:*",

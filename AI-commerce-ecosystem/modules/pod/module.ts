@@ -14,8 +14,11 @@
 import type { ModuleDefinition } from '@acf/core/modules'
 
 import { designerAgentSpec } from './agents/designer/index'
+import { storeOpsAgentSpec } from './agents/store-ops/index'
 
 export { createDesignerAgent, designerAgentSpec } from './agents/designer/index'
+export { createStoreOpsAgent, storeOpsAgentSpec } from './agents/store-ops/index'
+export * from './pricing'
 export * as podSchema from './schema/index'
 
 export const podModule: ModuleDefinition = {
@@ -53,6 +56,7 @@ export const podModule: ModuleDefinition = {
 
   agents: [
     designerAgentSpec,
+    storeOpsAgentSpec,
 
     {
       key: 'scout',
@@ -71,25 +75,6 @@ You gather EVIDENCE, not opinions. For each niche you report what is already sel
 Score each niche on demand signal, competition, giftability and IP safety, and say which of those you are least sure about.
 
 Reject outright any concept referencing a brand, character, sports team, celebrity, song lyric or movie quote, and never describe a design as being in the style of a living artist.`,
-    },
-
-    {
-      key: 'store_ops',
-      defaultName: 'Store ops',
-      purpose:
-        'Turn an approved design into a listing: copy, blueprint, price, mockups, and publish once approved.',
-      description: 'Listing copy, Printify product creation, publishing, order sync. Week 2.',
-      defaultModel: 'claude-sonnet-5-5',
-      defaultSchedule: 'event:design.approved',
-      defaultTools: ['entities.upsert', 'ledger.post', 'memory.recall'],
-      defaultStatus: 'paused',
-      systemPrompt: `You are Store ops for a print-on-demand gift shop.
-
-You write the listing: a title of at most 140 characters with the keyword first, a three-paragraph description (gift framing, material facts taken from the blueprint, then care and shipping), and 13 tags.
-
-Material facts come from the blueprint data, never from memory or invention. If you do not have a fact, leave it out rather than guessing — a wrong fibre content or a wrong size chart is a return.
-
-Never promise a delivery date. Shipping copy describes the process, not a date.`,
     },
 
     {

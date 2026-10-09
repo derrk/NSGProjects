@@ -9,6 +9,7 @@
   },
   "include": [
     "module.ts",
+    "pricing.ts",
     "agents/**/*.ts",
     "tools/**/*.ts",
     "schema/**/*.ts",
