@@ -539,6 +539,108 @@ describe('buildOrderFacts', () => {
     expect(notes.join(' ')).toMatch(/1 of 2 lines have shipped/)
   })
 
+  describe('a line nobody routed', () => {
+    /**
+     * The hole the old tests could not see.
+     *
+     * Every shipment fact was computed over supplier_orders ROWS, and the tests all
+     * inserted a row for the second line — so "every routed line has shipped" and
+     * "every line has shipped" were the same sentence in every case tested. routeOrder
+     * declines individual lines (unapproved SKU, unreviewed personalisation, over the
+     * cost ceiling), so a line with no supplier_orders row at all is a designed
+     * outcome, and in that case the two sentences are very different.
+     */
+    async function partlyRouted() {
+      const seeded = await seed()
+      await h.db.insert(orderLines).values({
+        divisionId: seeded.division.id,
+        orderId: seeded.order.id,
+        channel: 'shopify',
+        channelOrderId: 'SH-1',
+        channelLineItemId: 'L-unrouted',
+        sku: 'never-routed',
+        quantity: 1,
+        unitPriceCents: 999,
+      })
+      await h.db
+        .update(supplierOrders)
+        .set({
+          shippedAt: new Date('2026-10-01T00:00:00Z'),
+          status: 'shipped',
+          trackingNumber: 'TRACK-A',
+        })
+        .where(eq(supplierOrders.orderLineId, seeded.line.id))
+      return seeded
+    }
+
+    it('does not call the order shipped', async () => {
+      const { order } = await partlyRouted()
+      const { facts, notes } = await buildOrderFacts(h.db as never, order.id)
+
+      expect(facts!.shippedAt).toBeNull()
+      expect(notes.join(' ')).toMatch(/have not been routed to a supplier/)
+    })
+
+    it('makes the grounding checks refuse a shipped claim, which is the point', async () => {
+      /*
+       * grounding.ts only runs status.not_shipped when shippedAt is null, so a wrong
+       * shippedAt does not merely mislead the model — it switches the rail off. A
+       * verifier produced exactly this draft against exactly this order and got zero
+       * problems back.
+       */
+      const { order } = await partlyRouted()
+      const { facts } = await buildOrderFacts(h.db as never, order.id)
+
+      const problems = checkReplyGrounding(
+        'Good news — order 1043 went out on 1 October and is on its way.',
+        facts!,
+      )
+      expect(problems.some((p) => p.check === 'status.not_shipped')).toBe(true)
+    })
+
+    it('does not hand over the one parcel’s tracking number as the order’s', async () => {
+      const { order } = await partlyRouted()
+      const { facts, notes } = await buildOrderFacts(h.db as never, order.id)
+
+      expect(facts!.trackingNumber).toBeNull()
+      expect(notes.join(' ')).toMatch(/does not cover the order/)
+    })
+
+    it('quotes no delivery window, because the unrouted line has no supplier', async () => {
+      const { order } = await partlyRouted()
+      const { facts } = await buildOrderFacts(h.db as never, order.id)
+      expect(facts!.leadTimeDaysMax).toBeNull()
+    })
+  })
+
+  it('refuses to quote a window when a supplier records a min but no max', async () => {
+    /*
+     * The two ends were filtered independently, so a supplier with a min and no max
+     * contributed to the lower bound and vanished from the upper one — and the answer
+     * came out TIGHTER than the evidence. That is the optimistic-end problem arriving
+     * through the back door.
+     */
+    const { order, division, line } = await seed()
+    const [supplier] = await h.db
+      .insert(suppliers)
+      .values({
+        divisionId: division.id,
+        name: 'Half-known supplier',
+        kind: 'dropship',
+        shipDaysMin: 3,
+        shipDaysMax: null,
+      })
+      .returning()
+    await h.db
+      .update(supplierOrders)
+      .set({ supplierId: supplier!.id })
+      .where(eq(supplierOrders.orderLineId, line.id))
+
+    const { facts, notes } = await buildOrderFacts(h.db as never, order.id)
+    expect(facts!.leadTimeDaysMax).toBeNull()
+    expect(notes.join(' ')).toMatch(/no delivery window may be quoted/)
+  })
+
   it('takes the widest lead time across suppliers, not the first one', async () => {
     const { order, division, line } = await seed()
     const [second] = await h.db

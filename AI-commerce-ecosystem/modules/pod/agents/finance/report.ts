@@ -162,9 +162,18 @@ export function buildFinanceReport(input: FinanceReportInput): FinanceReport {
      */
     const perOrderCents =
       worst.orders > 0 ? worst.contributionCents / worst.orders : worst.contributionCents
+    /*
+     * "On aggregate", not "on every sale".
+     *
+     * lossMakers is computed from a SKU's TOTAL contribution, which can net negative
+     * while individual sales of it were profitable — a cost rise part-way through the
+     * period does exactly that. The stronger claim is the one an operator would act on
+     * hardest, and it is the one the data does not support.
+     */
     caveats.push(
-      `${lossMakers.length} SKU(s) lose money on every sale. The worst is ${worst.sku} at ` +
-        `$${(perOrderCents / 100).toFixed(2)} per order across ${worst.orders} order(s).`,
+      `${lossMakers.length} SKU(s) lost money on aggregate this period. The worst is ` +
+        `${worst.sku}, averaging $${(perOrderCents / 100).toFixed(2)} across ` +
+        `${worst.orders} sale(s) — an average, so individual sales may differ.`,
     )
   }
 

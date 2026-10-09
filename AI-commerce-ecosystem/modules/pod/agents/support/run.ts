@@ -219,6 +219,7 @@ export async function buildOrderFacts(db: Db, orderId: string | null): Promise<F
 
   const lineIds = lines.map((l) => l.lineId)
   const routed: Array<{
+    orderLineId: string
     trackingNumber: string | null
     shippedAt: Date | null
     shipDaysMin: number | null
@@ -226,6 +227,10 @@ export async function buildOrderFacts(db: Db, orderId: string | null): Promise<F
   }> = lineIds.length
     ? await q
         .select({
+          // Selected so coverage can be measured. Without it there is no way to tell
+          // "every routed line shipped" from "every line shipped", and those are the
+          // same sentence to a customer only when nothing was left unrouted.
+          orderLineId: supplierOrders.orderLineId,
           trackingNumber: supplierOrders.trackingNumber,
           shippedAt: supplierOrders.shippedAt,
           shipDaysMin: suppliers.shipDaysMin,
@@ -235,6 +240,18 @@ export async function buildOrderFacts(db: Db, orderId: string | null): Promise<F
         .leftJoin(suppliers, eq(supplierOrders.supplierId, suppliers.id))
         .where(inArray(supplierOrders.orderLineId, lineIds))
     : []
+
+  /*
+   * Lines nobody has sent anywhere.
+   *
+   * routeOrder declines individual lines — unapproved SKU, unreviewed personalisation,
+   * over the per-order cost ceiling — so a partly routed order is a designed outcome,
+   * not a hypothetical. Every fact below is about the whole order, so every one of them
+   * has to know these exist.
+   */
+  const routedLineIds = new Set(routed.map((r) => r.orderLineId))
+  const unroutedCount = lines.filter((l) => !routedLineIds.has(l.lineId)).length
+  const fullyRouted = lines.length > 0 && unroutedCount === 0
 
   /*
    * Tracking, when an order ships in more than one parcel.
@@ -247,12 +264,36 @@ export async function buildOrderFacts(db: Db, orderId: string | null): Promise<F
   const trackingNumbers = [
     ...new Set(routed.map((r) => r.trackingNumber).filter((t): t is string => !!t)),
   ]
-  let trackingNumber: string | null = trackingNumbers[0] ?? order.trackingNumber ?? null
-  if (trackingNumbers.length > 1) {
-    trackingNumber = null
+  const routedWithoutTracking = routed.filter((r) => !r.trackingNumber).length
+
+  let trackingNumber: string | null = null
+  if (routed.length === 0) {
+    // Nothing went through a supplier, so the channel's own number is all there is.
+    trackingNumber = order.trackingNumber ?? null
+  } else if (trackingNumbers.length === 0) {
+    // Nothing has tracking yet. Ordinary for an order still in production, and not a
+    // caveat — the absence speaks for itself and `Tracking: not recorded` says it.
+  } else if (trackingNumbers.length > 1) {
     notes.push(
       `this order ships in ${trackingNumbers.length} parcels with separate tracking, so no single number is quotable`,
     )
+  } else if (!fullyRouted) {
+    /*
+     * One number, but not for the whole order.
+     *
+     * Handing it over anyway is the same failure as the multi-parcel case wearing a
+     * different shape: the customer follows it, sees one parcel, and writes again
+     * about the line that was never sent anywhere.
+     */
+    notes.push(
+      `${unroutedCount} line(s) on this order have not been routed to a supplier, so the tracking number that exists does not cover the order`,
+    )
+  } else if (routedWithoutTracking > 0) {
+    notes.push(
+      `${routedWithoutTracking} routed line(s) have no tracking number yet, so the one that exists does not cover the order`,
+    )
+  } else {
+    trackingNumber = trackingNumbers[0] ?? null
   }
 
   /*
@@ -264,11 +305,26 @@ export async function buildOrderFacts(db: Db, orderId: string | null): Promise<F
    */
   const shipDates = routed.map((r) => r.shippedAt).filter((d): d is Date => d instanceof Date)
   let shippedAt: Date | null = null
-  if (routed.length > 0 && shipDates.length === routed.length) {
+  if (fullyRouted && shipDates.length === routed.length) {
     shippedAt = shipDates.reduce((a, b) => (a >= b ? a : b))
   } else if (routed.length === 0 && order.shippedAt instanceof Date) {
     // Nothing is routed through a supplier, so the channel-level date is all there is.
     shippedAt = order.shippedAt
+  } else if (!fullyRouted) {
+    /*
+     * The case that used to slip through entirely.
+     *
+     * The old test compared ship dates against ROUTED rows, so an order whose second
+     * line was never routed at all satisfied it: every routed line had shipped, and
+     * `shippedAt` went non-null with no note. grounding.ts then skipped its
+     * status.not_shipped check — because that check only runs when shippedAt is null —
+     * and "your order went out on 1 October and is on its way" returned zero problems
+     * while half the order had not been sent to anyone.
+     */
+    notes.push(
+      `${unroutedCount} of ${lines.length} line(s) have not been routed to a supplier, ` +
+        'so this order has NOT shipped and must not be described as having shipped',
+    )
   } else if (shipDates.length > 0) {
     notes.push(`${shipDates.length} of ${routed.length} lines have shipped; the order has not`)
   }
@@ -282,8 +338,25 @@ export async function buildOrderFacts(db: Db, orderId: string | null): Promise<F
    */
   const mins = routed.map((r) => r.shipDaysMin).filter((n): n is number => typeof n === 'number')
   const maxes = routed.map((r) => r.shipDaysMax).filter((n): n is number => typeof n === 'number')
+
+  /*
+   * A missing upper bound makes the range unquotable, not narrower.
+   *
+   * These were filtered independently, so a supplier with a recorded min and no max
+   * contributed to the lower bound and silently vanished from the upper one — and the
+   * answer came out TIGHTER than the evidence, which is the optimistic-end problem
+   * arriving through the back door. The same applies to a line nobody routed: its
+   * supplier is unknown, so its wait is unknown.
+   */
+  const upperBoundKnown = routed.length > 0 && maxes.length === routed.length && fullyRouted
   const leadTimeDaysMin = mins.length > 0 ? Math.min(...mins) : null
-  const leadTimeDaysMax = maxes.length > 0 ? Math.max(...maxes) : null
+  const leadTimeDaysMax = upperBoundKnown ? Math.max(...maxes) : null
+
+  if (leadTimeDaysMin !== null && leadTimeDaysMax === null) {
+    notes.push(
+      'the longest this order could take is not recorded, so no delivery window may be quoted at all',
+    )
+  }
 
   /*
    * `placedAt` is nullable and `createdAt` is when WE ingested the order, not when the
@@ -814,13 +887,37 @@ export function createSupportAgent(deps: SupportDeps): AgentDefinition<SupportIn
         },
       })
 
+      /*
+       * An auto-approved reply is reported as auto-approved.
+       *
+       * `reply` is marked neverAuto at the module level and the never-auto list is
+       * checked before graduation, so this should not be reachable — but "should not
+       * be reachable" is not the same as "is handled", and the previous mapping
+       * folded `auto_approved` into `approval_requested`, telling the operator a reply
+       * was waiting for them when nothing was. Loud at warn level, because with no
+       * send path an auto-approved reply is read by nobody and sent by nobody.
+       */
+      if (outcome.status === 'auto_approved') {
+        await ctx.log(
+          'pod.reply_auto_approved',
+          `reply ${reply.id} was auto-approved; with no send path it will be read by nobody ` +
+            'and sent by nobody. The reply kind should be neverAuto.',
+          { level: 'error', refTable: 'pod.replies', refId: reply.id },
+        )
+      }
+
       return {
         messageId,
         replyId: reply.id,
         approvalId: outcome.approval.id,
         intent: resolved,
         recordedIntent,
-        status: outcome.status === 'duplicate' ? 'already_requested' : 'approval_requested',
+        status:
+          outcome.status === 'duplicate'
+            ? 'already_requested'
+            : outcome.status === 'auto_approved'
+              ? 'auto_approved'
+              : 'approval_requested',
         warnings: plainWarnings,
         escalationReason: null,
         redraftAttempts,

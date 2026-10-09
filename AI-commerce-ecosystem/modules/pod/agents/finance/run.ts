@@ -251,9 +251,12 @@ const FIGURE = new RegExp(
  *   - `roughly` and `approximately` fuzz the PRECISION of a number without saying
  *     anything about where it came from. "The poster lost roughly $5.60" is still a
  *     claim that the poster lost money.
+ *   - `probably` and `likely` went the same way, and for a sharper reason: the note's
+ *     own schema has a field called `whatItProbablyMeans`. A guard satisfied by a word
+ *     the prompt puts in the model's mouth is not a guard, it is a formality.
  */
 const HEDGE =
-  /\b(estimat\w*|assum\w*|unconfirm\w*|unverified|not (?:been )?(?:confirmed|checked|verified)|nobody has|we have not|haven't|simulat\w*|demo\b|fictional|catalogue|catalog|appears?|looks? like|seems?|probabl\w*|likel\w*|direction rather than|rather than a balance)\b/i
+  /\b(estimat\w*|assum\w*|unconfirm\w*|unverified|not (?:been )?(?:confirmed|checked|verified)|nobody has|we have not|haven't|simulat\w*|demo\b|fictional|catalogue|catalog|appears?|looks? like|seems?|direction rather than|rather than a balance)\b/i
 
 /**
  * Words that admit the period is demo data.
@@ -282,12 +285,43 @@ export function unhedgedClaims(text: string): string[] {
     })
 }
 
-/** Every field of the note, as one body of prose. */
+/** Every field of the note, as one body of prose. For whole-note checks only. */
 function noteText(note: ModelNote): string {
-  return [
-    ...note.findings.flatMap((f) => [f.whatISee, f.whatItProbablyMeans, f.whatIWouldCheckNext]),
-    note.leastSureAbout,
-  ].join(' ')
+  return noteFields(note)
+    .map(([, v]) => v)
+    .join(' ')
+}
+
+/**
+ * The note's fields, labelled and kept apart.
+ *
+ * Joining them was a hole, in two ways at once. `unhedgedClaims` splits on terminal
+ * punctuation, so a field that does not end in a full stop merged into the next one
+ * and a hedge in THAT field covered the bare figure in this one. And even with
+ * punctuation, a hedge anywhere in the note licensed a flat money claim anywhere
+ * else. A hedge has to be in the same breath as the figure it qualifies.
+ */
+function noteFields(note: ModelNote): Array<[string, string]> {
+  const fields: Array<[string, string]> = []
+  note.findings.forEach((f, i) => {
+    fields.push([`finding ${i + 1} whatISee`, f.whatISee])
+    fields.push([`finding ${i + 1} whatItProbablyMeans`, f.whatItProbablyMeans])
+    fields.push([`finding ${i + 1} whatIWouldCheckNext`, f.whatIWouldCheckNext])
+  })
+  fields.push(['leastSureAbout', note.leastSureAbout])
+  return fields
+}
+
+/**
+ * The fields that assert something, as opposed to proposing something.
+ *
+ * `whatIWouldCheckNext` is a plan. "Whether a $2 price rise would close the gap"
+ * quotes a figure that is not a claim about the period at all, and holding it to the
+ * same rule as an observation pushes the agent away from writing the one sentence in
+ * the note that says what to do.
+ */
+function assertingFields(note: ModelNote): Array<[string, string]> {
+  return noteFields(note).filter(([label]) => !label.endsWith('whatIWouldCheckNext'))
 }
 
 /**
@@ -331,11 +365,16 @@ export function validateNote(note: ModelNote, report: FinanceReport): string[] {
   // say so. A sentence quoting a dollar amount with nothing qualifying it reads as a
   // bank statement whatever the header above it said.
   if (report.provenance !== 'verified') {
-    for (const sentence of unhedgedClaims(noteText(note))) {
-      problems.push(
-        `"${sentence}" states a ${report.provenance} figure as though it were confirmed; ` +
-          'say what it rests on in the same sentence',
-      )
+    // Per field, and only the fields that assert. A hedge in one field does not
+    // qualify a flat claim in another, and a field without a closing full stop used
+    // to borrow the next one's hedge by merging into it.
+    for (const [label, value] of assertingFields(note)) {
+      for (const sentence of unhedgedClaims(value)) {
+        problems.push(
+          `in ${label}, "${sentence}" states a ${report.provenance} figure as though it ` +
+            'were confirmed; say what it rests on in the same sentence',
+        )
+      }
     }
   }
 
@@ -343,7 +382,82 @@ export function validateNote(note: ModelNote, report: FinanceReport): string[] {
     problems.push('the whole period is simulated and the note never says so')
   }
 
+  /*
+   * Every money figure in the note has to be one the report contains.
+   *
+   * Runs for EVERY report including a verified one, which the hedging check above
+   * deliberately skips — a verified report is the one where a hallucinated figure is
+   * most dangerous, because nothing about it invites doubt. The agent is told it does
+   * not compute the figures; this is the check that it did not.
+   */
+  const known = knownAmounts(report)
+  note.findings.forEach((f, i) => {
+    /*
+     * `whatISee` only.
+     *
+     * That field reports an observation, so every figure in it must be one the report
+     * contains. `whatItProbablyMeans` and `whatIWouldCheckNext` are interpretation and
+     * plan — "a $2 price move would close the gap" is a legitimate sentence that
+     * quotes no report figure, and rejecting it would push the agent away from saying
+     * the useful thing.
+     */
+    for (const quoted of moneyFigures(f.whatISee)) {
+      if (known.has(quoted)) continue
+      problems.push(
+        `finding ${i + 1} says it SEES ${formatCents(quoted)}, which appears nowhere in the ` +
+          'report. You do not compute the figures; quote the ones you were given.',
+      )
+    }
+  })
+
   return problems
+}
+
+/**
+ * Money amounts the note is allowed to quote, in whole cents.
+ *
+ * Rounded to the cent because the note writes "$5.60" for 560.000000 — the ledger is
+ * numeric(18,6) and the prose is not.
+ */
+function knownAmounts(report: FinanceReport): Set<number> {
+  const out = new Set<number>()
+  const add = (cents: number) => {
+    out.add(Math.round(Math.abs(cents)))
+  }
+
+  add(report.revenueCents)
+  add(report.costsCents)
+  add(report.netCents)
+  for (const row of report.byCategory) add(row.amountCents)
+  for (const sku of report.skus) {
+    add(sku.revenueCents)
+    add(sku.contributionCents)
+    // Percentages and order counts are small integers the FIGURE pattern ignores, but
+    // a per-order contribution is money the note legitimately quotes.
+    if (sku.orders > 0) add(sku.contributionCents / sku.orders)
+  }
+  return out
+}
+
+/** Dollar and cent amounts written in prose, as whole cents. */
+function moneyFigures(text: string): number[] {
+  const out: number[] = []
+  const dollars = /\$\s?(-?[\d,]+(?:\.\d+)?)/g
+  let m: RegExpExecArray | null
+  while ((m = dollars.exec(text)) !== null) {
+    const value = Number(m[1]!.replace(/,/g, ''))
+    if (Number.isFinite(value)) out.push(Math.round(Math.abs(value * 100)))
+  }
+  const cents = /(-?[\d,]+(?:\.\d+)?)\s?(?:¢|cents?\b)/gi
+  while ((m = cents.exec(text)) !== null) {
+    const value = Number(m[1]!.replace(/,/g, ''))
+    if (Number.isFinite(value)) out.push(Math.round(Math.abs(value)))
+  }
+  return out
+}
+
+function formatCents(cents: number): string {
+  return `$${(cents / 100).toFixed(2)}`
 }
 
 /* ------------------------------------------------------------------ *
@@ -351,12 +465,25 @@ export function validateNote(note: ModelNote, report: FinanceReport): string[] {
  * ------------------------------------------------------------------ */
 
 interface BreakEvenInputs {
-  /** Per unit, so the break-even figure is a price someone could actually set. */
+  /**
+   * The DEAREST unit cost seen for this SKU in the period.
+   *
+   * It used to be whichever line came back last, because every line overwrote the
+   * entry. A SKU sold three times at different costs produced a break-even and an
+   * observed price from one arbitrary sale — potentially a profitable one — printed
+   * on the inbox card beside a button that changes a price. The worst line is the one
+   * a new price has to cover.
+   */
   itemCostCents: number
   shippingChargedCents: number
   shippingCostCents: number
   assumptions: FeeAssumptions
+  /** The LOWEST unit price seen, for the same reason. */
   observedUnitPriceCents: number
+  /** How many lines fed this, and whether they disagreed. */
+  lineCount: number
+  costsVaried: boolean
+  pricesVaried: boolean
 }
 
 function assumptionsFor(deps: FinanceDeps, channel: Channel): FeeAssumptions {
@@ -580,12 +707,24 @@ export function createFinanceAgent(
             provenance: costProvenance,
           })
 
+          // Merged, not overwritten. Keeping the last line iterated meant a SKU sold
+          // three times reported the break-even of one arbitrary sale.
+          const seen = breakEvenBySku.get(sku)
           breakEvenBySku.set(sku, {
-            itemCostCents: unitCostCents,
+            itemCostCents: seen ? Math.max(seen.itemCostCents, unitCostCents) : unitCostCents,
             shippingChargedCents: 0,
             shippingCostCents: 0,
             assumptions: base,
-            observedUnitPriceCents: unitPriceCents,
+            observedUnitPriceCents: seen
+              ? Math.min(seen.observedUnitPriceCents, unitPriceCents)
+              : unitPriceCents,
+            lineCount: (seen?.lineCount ?? 0) + 1,
+            costsVaried:
+              (seen?.costsVaried ?? false) ||
+              (seen !== undefined && seen.itemCostCents !== unitCostCents),
+            pricesVaried:
+              (seen?.pricesVaried ?? false) ||
+              (seen !== undefined && seen.observedUnitPriceCents !== unitPriceCents),
           })
         })
       }
@@ -807,13 +946,30 @@ export function createFinanceAgent(
           breakEvenPriceCents: breakEven,
           provenance: row.provenance,
           rationale:
-            `${row.sku} contributed ${row.contributionCents}c across ${row.orders} order(s), ` +
+            `${row.sku} contributed ${row.contributionCents}c across ${row.orders} sale(s), ` +
             `${rests}. ` +
             (breakEven === null
               ? `No price breaks even${underRates || ' under these fee assumptions'}, which is the finding.`
               : `It would break even at ${breakEven}c per unit${underRates}, against an observed ${
                   inputs?.observedUnitPriceCents ?? 0
-                }c.`),
+                }c.`) +
+            /*
+             * Said out loud when the sales behind this disagree.
+             *
+             * The break-even is solved from the DEAREST unit cost and compared against
+             * the CHEAPEST observed price, which is the pair a new price has to
+             * survive — but it is one pair out of several, and an operator about to
+             * change a price should know the SKU did not sell at one cost.
+             */
+            (inputs?.costsVaried || inputs?.pricesVaried
+              ? ` These sales did not all have the same ${
+                  inputs.costsVaried && inputs.pricesVaried
+                    ? 'cost or price'
+                    : inputs.costsVaried
+                      ? 'cost'
+                      : 'price'
+                }; the figures above are the worst of ${inputs.lineCount}.`
+              : ''),
         }
       })
 
@@ -847,7 +1003,7 @@ export function createFinanceAgent(
           refTable: PERIOD_REF_TABLE,
           refId: periodRef(periodStart, periodEnd),
           summary:
-            `${report.lossMakers.length} SKU(s) lose money on every sale, worst ${worst.sku} ` +
+            `${report.lossMakers.length} SKU(s) lost money on aggregate, worst ${worst.sku} ` +
             `at ${worst.contributionCents}c — ${report.provenance} figures`,
           payload: {
             marking,

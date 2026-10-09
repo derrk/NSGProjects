@@ -92,7 +92,7 @@ describe('buildFinanceReport', () => {
     })
 
     expect(r.lossMakers.map((s) => s.sku)).toEqual(['worse', 'bad'])
-    expect(r.caveats.some((c) => /The worst is worse at \$-9\.00/.test(c))).toBe(true)
+    expect(r.caveats.some((c) => /The worst is worse, averaging \$-9\.00/.test(c))).toBe(true)
   })
 
   it('does not describe an empty period as containing catalogue estimates', () => {
@@ -146,8 +146,8 @@ describe('buildFinanceReport', () => {
     })
 
     expect(r.lossMakers[0]).toMatchObject({ sku: 'mug', orders: 3, contributionCents: -600 })
-    expect(r.caveats.some((c) => c.includes('$-2.00 per order across 3 order(s)'))).toBe(true)
-    expect(r.caveats.some((c) => c.includes('$-6.00 per order'))).toBe(false)
+    expect(r.caveats.some((c) => c.includes('averaging $-2.00 across 3 sale(s)'))).toBe(true)
+    expect(r.caveats.some((c) => c.includes('$-6.00'))).toBe(false)
   })
 
   it('has no loss-makers when everything contributes', () => {

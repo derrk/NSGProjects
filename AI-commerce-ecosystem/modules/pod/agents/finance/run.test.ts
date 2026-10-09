@@ -83,6 +83,28 @@ const hedgedNote = {
     'The first finding, because the fee rates behind it are the published schedule rather than our own account.',
 }
 
+/**
+ * A note for the end-to-end runs, which seed their own ledgers.
+ *
+ * `whatISee` quotes no money figure at all, so the cross-check against the report's
+ * own amounts is vacuous here and each test can seed whatever figures it is really
+ * about. A note is not required to quote a number; it is required not to invent one.
+ */
+const plainNote = {
+  findings: [
+    {
+      whatISee:
+        'One SKU is contributing less than the others, on catalogue costs nobody has confirmed.',
+      whatItProbablyMeans:
+        'The listing was priced from an older supplier quote and the catalogue figure moved under it.',
+      whatIWouldCheckNext:
+        'Pull the last supplier invoice for that SKU and compare it against the catalogue cost on the product row.',
+    },
+  ],
+  leastSureAbout:
+    'The first finding, because the fee rates behind it are the published schedule rather than our own account.',
+}
+
 const simulatedNote = {
   findings: [
     {
@@ -474,12 +496,20 @@ describe('provenanceOf', () => {
  * The note guards
  * ------------------------------------------------------------------ */
 
+/**
+ * A report whose figures are the ones the note fixtures quote.
+ *
+ * It used to carry revenue 1000 and contribution 100 while every note talked about a
+ * poster losing $5.60 an order — so the figure cross-check had nothing to check
+ * against and the fixtures were testing the hedging wording alone. A note quoting
+ * amounts its report does not contain is the exact thing validateNote now rejects.
+ */
 function reportWith(provenance: 'verified' | 'estimated' | 'simulated'): FinanceReport {
   return buildFinanceReport({
     periodStart: EXPECTED_START,
     periodEnd: EXPECTED_END,
-    entries: [{ amountCents: 1000, category: 'revenue', provenance, occurredAt: INSIDE }],
-    orders: [{ sku: 's', revenueCents: 1000, contributionCents: 100, provenance }],
+    entries: [{ amountCents: 2999, category: 'revenue', provenance, occurredAt: INSIDE }],
+    orders: [{ sku: 'poster', revenueCents: 2999, contributionCents: -560, provenance }],
   })
 }
 
@@ -552,6 +582,107 @@ describe('unhedgedClaims', () => {
 })
 
 describe('validateNote', () => {
+  it('does not let a hedge in one field cover a bare figure in another', () => {
+    /*
+     * The fields were joined into one blob before being split on terminal punctuation,
+     * so a hedge anywhere in the note licensed a flat money claim anywhere else.
+     */
+    const split = {
+      ...hedgedNote,
+      findings: [
+        {
+          whatISee: 'The poster lost $5.60 an order.',
+          whatItProbablyMeans: 'These are catalogue costs nobody has confirmed.',
+          whatIWouldCheckNext: 'Pull the invoice.',
+        },
+      ],
+    }
+    expect(validateNote(split, reportWith('estimated'))[0]).toMatch(/whatISee/)
+  })
+
+  it('does not let a field with no full stop borrow the next field’s hedge', () => {
+    /*
+     * The sharper version of the same hole. unhedgedClaims splits on terminal
+     * punctuation, so a field ending without one merged into the following field and
+     * the guard never saw the claim as its own sentence.
+     */
+    const merged = {
+      ...hedgedNote,
+      findings: [
+        {
+          // No full stop.
+          whatISee: 'The poster lost $5.60 an order',
+          whatItProbablyMeans: 'on catalogue costs nobody has confirmed.',
+          whatIWouldCheckNext: 'Pull the invoice.',
+        },
+      ],
+    }
+    expect(validateNote(merged, reportWith('estimated')).length).toBeGreaterThan(0)
+  })
+
+  it('no longer accepts "probably" as a hedge, since the schema asks for it by name', () => {
+    // The note's own field is called whatItProbablyMeans. A guard satisfied by a word
+    // the prompt puts in the model's mouth is a formality, not a guard.
+    expect(unhedgedClaims('The poster probably lost $5.60 an order.')).toEqual([
+      'The poster probably lost $5.60 an order.',
+    ])
+    expect(unhedgedClaims('The poster likely lost $5.60 an order.')).toHaveLength(1)
+  })
+
+  it('rejects a figure that appears nowhere in the report', () => {
+    /*
+     * The agent is told it does not compute the figures. Nothing checked that it
+     * did not — and for a `verified` report the prose was not examined at all, which
+     * is where an invented number is most dangerous because nothing invites doubt.
+     */
+    const invented = {
+      ...hedgedNote,
+      findings: [
+        {
+          ...hedgedNote.findings[0]!,
+          whatISee: 'The poster is losing $412.00 an order, on costs nobody has confirmed.',
+        },
+      ],
+    }
+    expect(validateNote(invented, reportWith('estimated'))[0]).toMatch(/appears nowhere/)
+  })
+
+  it('checks a verified report’s figures too, where the hedging check does not run', () => {
+    const invented = {
+      ...hedgedNote,
+      findings: [{ ...hedgedNote.findings[0]!, whatISee: 'Contribution was $412.00.' }],
+    }
+    expect(validateNote(invented, reportWith('verified'))[0]).toMatch(/appears nowhere/)
+  })
+
+  it('allows a figure the report actually contains', () => {
+    const quoted = {
+      ...hedgedNote,
+      findings: [
+        {
+          ...hedgedNote.findings[0]!,
+          whatISee: 'Revenue was $29.99 this period, on catalogue costs nobody has confirmed.',
+        },
+      ],
+    }
+    expect(validateNote(quoted, reportWith('estimated'))).toEqual([])
+  })
+
+  it('allows a hypothetical figure in what it would check next', () => {
+    // Interpretation and plan may reason beyond the report. "A $2 move would close the
+    // gap" is the useful sentence, and rejecting it pushes the agent away from it.
+    const plan = {
+      ...hedgedNote,
+      findings: [
+        {
+          ...hedgedNote.findings[0]!,
+          whatIWouldCheckNext: 'Whether a $2.00 price rise would close the gap.',
+        },
+      ],
+    }
+    expect(validateNote(plan, reportWith('estimated'))).toEqual([])
+  })
+
   it('accepts a hedged note over estimated figures', () => {
     expect(validateNote(hedgedNote, reportWith('estimated'))).toEqual([])
   })
@@ -684,7 +815,7 @@ describe('Counting house: a period becomes a report', () => {
   it('totals the ledger for the default period and marks the report at its weakest input', async () => {
     const division = await seedTwoSkus()
 
-    const { output } = await runFinance({ division, modelQueue: [hedgedNote] })
+    const { output } = await runFinance({ division, modelQueue: [plainNote] })
 
     expect(output.periodStart).toBe(EXPECTED_START.toISOString())
     expect(output.periodEnd).toBe(EXPECTED_END.toISOString())
@@ -701,7 +832,7 @@ describe('Counting house: a period becomes a report', () => {
   it('costs a line from the supplier charge when there is one and the catalogue when there is not', async () => {
     const division = await seedTwoSkus()
 
-    const { output } = await runFinance({ division, modelQueue: [hedgedNote] })
+    const { output } = await runFinance({ division, modelQueue: [plainNote] })
 
     const poster = output.skus.find((s) => s.sku === 'pet-portrait-poster-a2')!
     const remover = output.skus.find((s) => s.sku === 'pet-hair-remover-v1')!
@@ -733,7 +864,7 @@ describe('Counting house: a period becomes a report', () => {
       .returning()
     expect(routed!.costCents).toBeNull()
 
-    const { output } = await runFinance({ division, modelQueue: [hedgedNote] })
+    const { output } = await runFinance({ division, modelQueue: [plainNote] })
     expect(output.skus[0]!.provenance).toBe('estimated')
     // 500c catalogue, not the 650c that was never charged.
     expect(output.skus[0]!.contributionCents).toBeCloseTo(2000 - 500 - 88 - 40, 2)
@@ -780,7 +911,7 @@ describe('Counting house: a period becomes a report', () => {
       })
     }
 
-    const { output } = await runFinance({ division, modelQueue: [hedgedNote] })
+    const { output } = await runFinance({ division, modelQueue: [plainNote] })
 
     // 1372 on the first line plus 1402 on the second. Double-charging would give 2744.
     expect(output.skus[0]!.contributionCents).toBeCloseTo(2774, 2)
@@ -803,7 +934,7 @@ describe('Counting house: a period becomes a report', () => {
       ref: 'SHOP-1',
     })
 
-    const { output } = await runFinance({ division, modelQueue: [hedgedNote] })
+    const { output } = await runFinance({ division, modelQueue: [plainNote] })
 
     expect(output.provenance).toBe('estimated')
     expect(output.note!.marking).toBe(markingFor('estimated'))
@@ -826,7 +957,7 @@ describe('Counting house: a period becomes a report', () => {
 
     const { output } = await runFinance({
       division,
-      modelQueue: [hedgedNote],
+      modelQueue: [plainNote],
       assumptions: {
         shopify: { ...defaultShopifyAssumptions(), confirmedAt: '2026-09-30T00:00:00.000Z' },
       },
@@ -850,7 +981,7 @@ describe('Counting house: a period becomes a report', () => {
       ref: 'ETSY-Z',
     })
 
-    const { output } = await runFinance({ division, modelQueue: [hedgedNote] })
+    const { output } = await runFinance({ division, modelQueue: [plainNote] })
 
     expect(output.unpricedLineCount).toBe(1)
     expect(output.skus).toEqual([])
@@ -908,7 +1039,7 @@ describe('Counting house: a period becomes a report', () => {
       unitPriceCents: 2000,
     })
 
-    const { output } = await runFinance({ division, modelQueue: [hedgedNote] })
+    const { output } = await runFinance({ division, modelQueue: [plainNote] })
 
     expect(output.unpricedLineCount).toBe(1)
     // 2000 - 500 - 58 payment - 30 flat - 40 refund. Dropping the flat fee gives 1402.
@@ -925,7 +1056,7 @@ describe('Counting house: a period becomes a report', () => {
       ref: 'ETSY-X',
     })
 
-    const { output } = await runFinance({ division, modelQueue: [hedgedNote] })
+    const { output } = await runFinance({ division, modelQueue: [plainNote] })
 
     // Costing it at zero would manufacture $34 of profit out of missing data.
     expect(output.unpricedLineCount).toBe(1)
@@ -947,7 +1078,7 @@ describe('Counting house: a period becomes a report', () => {
       ref: 'ETSY-NT',
     })
 
-    const { output } = await runFinance({ division, modelQueue: [hedgedNote] })
+    const { output } = await runFinance({ division, modelQueue: [plainNote] })
     expect(output.skus.map((s) => s.sku)).toEqual(['no-timestamp'])
   })
 
@@ -966,7 +1097,7 @@ describe('Counting house: a period becomes a report', () => {
       ref: 'ETSY-OLD',
     })
 
-    const { output } = await runFinance({ division, modelQueue: [hedgedNote] })
+    const { output } = await runFinance({ division, modelQueue: [plainNote] })
     expect(output.revenueCents).toBe(1000)
     expect(output.skus).toEqual([])
   })
@@ -984,13 +1115,13 @@ describe('Counting house: a period becomes a report', () => {
 
   it('carries one finding forward, with its provenance attached to it', async () => {
     const division = await seedTwoSkus()
-    await runFinance({ division, modelQueue: [hedgedNote] })
+    await runFinance({ division, modelQueue: [plainNote] })
 
     expect(remembered).toHaveLength(1)
     // A remembered "$5.60 shortfall" with no marking is how an estimate becomes a fact
     // three weeks later.
     expect(remembered[0]!.content).toMatch(/^\[estimated\] 2026-10-01\.\.2026-10-07/)
-    expect(remembered[0]!.content).toContain('losing roughly $5.60')
+    expect(remembered[0]!.content).toContain('One SKU is contributing less than the others')
   })
 })
 
@@ -998,7 +1129,7 @@ describe('Counting house: the proposal', () => {
   it('files a price change for a loss-making SKU and leaves the price alone', async () => {
     const division = await seedTwoSkus()
 
-    const { output } = await runFinance({ division, modelQueue: [hedgedNote] })
+    const { output } = await runFinance({ division, modelQueue: [plainNote] })
 
     expect(output.status).toBe('approval_requested')
     expect(output.approvalId).not.toBeNull()
@@ -1021,7 +1152,7 @@ describe('Counting house: the proposal', () => {
   it('hands over break-even arithmetic instead of picking a new price itself', async () => {
     const division = await seedTwoSkus()
 
-    const { output } = await runFinance({ division, modelQueue: [hedgedNote] })
+    const { output } = await runFinance({ division, modelQueue: [plainNote] })
 
     const proposal = output.proposals.find((p) => p.sku === 'pet-portrait-poster-a2')!
     expect(proposal.observedUnitPriceCents).toBe(1000)
@@ -1040,7 +1171,7 @@ describe('Counting house: the proposal', () => {
     // rule the agent enforces on the model's prose has to hold for its own.
     const division = await seedTwoSkus()
 
-    const { output } = await runFinance({ division, modelQueue: [hedgedNote] })
+    const { output } = await runFinance({ division, modelQueue: [plainNote] })
 
     const proposal = output.proposals.find((p) => p.sku === 'pet-portrait-poster-a2')!
     expect(proposal.rationale).toMatch(/1633c per unit under unconfirmed fee rates/)
@@ -1052,7 +1183,7 @@ describe('Counting house: the proposal', () => {
 
     const { output } = await runFinance({
       division,
-      modelQueue: [hedgedNote],
+      modelQueue: [plainNote],
       assumptions: {
         etsy: {
           ...defaultEtsyAssumptions(),
@@ -1068,12 +1199,51 @@ describe('Counting house: the proposal', () => {
 
   it('puts the marking in front of the findings in the approval payload', async () => {
     const division = await seedTwoSkus()
-    await runFinance({ division, modelQueue: [hedgedNote] })
+    await runFinance({ division, modelQueue: [plainNote] })
 
     const [approval] = await h.db.select().from(approvals)
     const payload = approval!.payload as { marking: string; renderedNote: string }
     expect(payload.marking).toBe(markingFor('estimated'))
     expect(payload.renderedNote.startsWith('ESTIMATED —')).toBe(true)
+  })
+
+  it('solves break-even from the dearest sale, not whichever came back last', async () => {
+    /*
+     * Every line overwrote the SKU's entry, so a SKU sold twice reported the
+     * break-even and observed price of one arbitrary sale — and because the map is
+     * keyed by SKU alone, that could be the PROFITABLE one, printed on the inbox card
+     * beside a button that changes a price.
+     */
+    const division = await seedDivision()
+    await addLedger(division.id, [
+      { kind: 'revenue', amountCents: 2000, source: 'invoice:shopify' },
+    ])
+    // Cheap sale first, dear sale second: the dear one must drive the proposal.
+    await addOrder(division.id, {
+      channel: 'shopify',
+      sku: 'drifty',
+      unitPriceCents: 1000,
+      catalogueCostCents: 300,
+      supplierCostCents: 300,
+      ref: 'SHOP-cheap',
+    })
+    await addOrder(division.id, {
+      channel: 'shopify',
+      sku: 'drifty',
+      unitPriceCents: 1000,
+      catalogueCostCents: 300,
+      supplierCostCents: 2600,
+      ref: 'SHOP-dear',
+    })
+
+    const { output } = await runFinance({ division, modelQueue: [plainNote] })
+    const proposal = output.proposals.find((p) => p.sku === 'drifty')
+
+    expect(proposal).toBeDefined()
+    // Break-even has to cover the 2600c line, not the 300c one.
+    expect(proposal!.breakEvenPriceCents).toBeGreaterThan(2600)
+    expect(proposal!.rationale).toMatch(/did not all have the same cost/)
+    expect(proposal!.rationale).toMatch(/worst of 2/)
   })
 
   it('proposes nothing when every SKU contributes', async () => {
@@ -1088,7 +1258,7 @@ describe('Counting house: the proposal', () => {
       ref: 'SHOP-1',
     })
 
-    const { output } = await runFinance({ division, modelQueue: [hedgedNote] })
+    const { output } = await runFinance({ division, modelQueue: [plainNote] })
 
     expect(output.status).toBe('no_action_proposed')
     expect(output.approvalId).toBeNull()
@@ -1098,11 +1268,11 @@ describe('Counting house: the proposal', () => {
 
   it('does not file a second proposal when the schedule tick is redelivered', async () => {
     const division = await seedTwoSkus()
-    await runFinance({ division, modelQueue: [hedgedNote] })
+    await runFinance({ division, modelQueue: [plainNote] })
 
     // Two identical proposals for one week means the operator approves both and the
     // same price moves twice.
-    const second = await runFinance({ division, modelQueue: [hedgedNote] })
+    const second = await runFinance({ division, modelQueue: [plainNote] })
 
     expect(second.output.status).toBe('already_requested')
     expect(await h.db.select().from(approvals)).toHaveLength(1)
@@ -1113,13 +1283,13 @@ describe('Counting house: the proposal', () => {
 
   it('files a separate proposal for a different period', async () => {
     const division = await seedTwoSkus()
-    await runFinance({ division, modelQueue: [hedgedNote] })
+    await runFinance({ division, modelQueue: [plainNote] })
 
     // Last month is a different question, and the ref is the period for exactly this
     // reason.
     await runFinance({
       division,
-      modelQueue: [hedgedNote],
+      modelQueue: [plainNote],
       input: { periodStart: '2026-10-01T00:00:00.000Z', periodEnd: '2026-10-05T00:00:00.000Z' },
     })
 

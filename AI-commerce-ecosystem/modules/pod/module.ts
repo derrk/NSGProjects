@@ -105,7 +105,29 @@ export const podModule: ModuleDefinition = {
       thresholdCount: 50,
     },
     { kind: 'product', label: 'Listing', cardComponent: 'pod/ProductCard' },
-    { kind: 'reply', label: 'Customer reply', cardComponent: 'pod/ReplyCard' },
+    {
+      kind: 'reply',
+      label: 'Customer reply',
+      cardComponent: 'pod/ReplyCard',
+      /*
+       * Never auto, while there is no send path.
+       *
+       * Graduating this category is worse than not graduating it. Approving a reply
+       * today means a human read it and will send it themselves — `send_email` files a
+       * draft and stops. Auto-approving means nobody reads it AND nobody sends it, so
+       * the customer's message is silently never answered: a strictly worse outcome
+       * than leaving the card in the inbox.
+       *
+       * It also removes the premise the support runner's prompt-injection handling
+       * rested on. That runner logs a detected injection rather than escalating,
+       * reasoning that escalating would hand anyone who can email the shop a switch
+       * for turning the agent off — sound, but it assumed every reply is read by a
+       * human. Here that becomes true rather than assumed.
+       *
+       * Take this off when a send path exists, not before.
+       */
+      neverAuto: true,
+    },
     {
       kind: 'price_change',
       label: 'Price change',

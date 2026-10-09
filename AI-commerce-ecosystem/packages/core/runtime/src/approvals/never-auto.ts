@@ -89,6 +89,25 @@ export function neverAutoReason(req: ApprovalRequest): string | null {
 
   // Anything that sends words to a person outside the company.
   if (kind === 'reply' || kind === 'outreach_message' || kind === 'proposal') {
+    /*
+     * A message that tried to give the agent instructions is always a human's to read.
+     *
+     * The support runner detects prompt injection and logs it rather than escalating,
+     * on the reasoning that escalating would hand anyone who can email the shop a
+     * switch for turning the agent off. That reasoning is sound, and it rested on a
+     * premise nothing enforced: that every reply is read by a human anyway. It is not
+     * — `reply` can graduate, and a graduated bucket auto-approves.
+     *
+     * So the premise is enforced here instead, where it outranks earned autonomy. The
+     * sender can cost themselves a human reader and nothing else.
+     */
+    const injection =
+      fieldOf(payload, 'containsAgentInstructions') ??
+      fieldOf(payload, 'promptInjectionDetected')
+    if (injection === true || injection === 'true') {
+      return 'the inbound message contained text addressed to the agent'
+    }
+
     const intent = fieldOf(payload, 'intent')
     if (intent === 'refund') return 'refunds are always an operator decision'
     if (intent === 'complaint') return 'complaints are always an operator decision'

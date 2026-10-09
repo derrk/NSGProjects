@@ -100,7 +100,16 @@ export const supportOutputSchema = z.object({
   intent: z.enum(SUPPORT_INTENTS),
   /** What `messages.intent` was actually set to. The two vocabularies differ. */
   recordedIntent: z.string(),
-  status: z.enum(['approval_requested', 'already_requested', 'already_drafted', 'escalated']),
+  status: z.enum([
+    'approval_requested',
+    'already_requested',
+    'already_drafted',
+    'escalated',
+    /* Should be unreachable while `reply` is neverAuto; modelled so it cannot be
+     * silently folded into approval_requested, which told the operator a reply was
+     * waiting for them when nothing was. */
+    'auto_approved',
+  ]),
   escalationReason: z
     .enum(['not_draftable', 'no_order_facts', 'no_grounded_draft', 'already_escalated'])
     .nullable(),
