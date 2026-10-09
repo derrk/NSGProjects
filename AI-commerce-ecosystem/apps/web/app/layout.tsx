@@ -18,6 +18,7 @@ export const metadata: Metadata = {
  *   OUTFITS     -> /divisions divisions list and detail (week 2)
  *   THE CREW    -> /agents    agent registry (week 3)
  *   SUPPLY LINES-> /supply    what is actually connected, and what is pretending
+ *   DRY RUN     -> /dry-run   the whole pipeline on demo adapters, touching nothing
  */
 const STATIONS = [
   { href: '/', label: 'The Holding' },
@@ -26,6 +27,7 @@ const STATIONS = [
   { href: '/agents', label: 'The Crew' },
   { href: '/treasury', label: 'Treasury' },
   { href: '/supply', label: 'Supply Lines' },
+  { href: '/dry-run', label: 'Dry Run' },
   { href: '/archives', label: 'Archives' },
 ] as const
 

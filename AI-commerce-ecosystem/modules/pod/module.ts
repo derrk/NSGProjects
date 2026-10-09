@@ -24,6 +24,7 @@ export * from './economics'
 export * from './fulfillment'
 export * from './publish'
 export * from './integrations'
+export * from './walkthrough'
 export * as podSchema from './schema/index'
 
 export const podModule: ModuleDefinition = {
