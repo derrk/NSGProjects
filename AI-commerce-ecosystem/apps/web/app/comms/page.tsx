@@ -1,5 +1,5 @@
 import { db, divisions } from '@acf/db'
-import { podSchema } from '@acf/pod'
+import { podSchema, storedFactsOnly } from '@acf/pod'
 import { desc, eq, inArray } from 'drizzle-orm'
 
 export const dynamic = 'force-dynamic'
@@ -132,7 +132,24 @@ export default async function CommsPage() {
         drafted.map((reply) => {
           const message = messageById.get(reply.messageId)
           const order = message?.orderId ? orderById.get(message.orderId) : null
-          const cited = (reply.citedData ?? {}) as Record<string, unknown>
+
+          /*
+           * Only the record goes under "facts it was allowed to use".
+           *
+           * cited_data also carries the model's OWN account of what it cited, which
+           * is never checked against anything. Rendering that under a heading saying
+           * "facts" made the operator's check circular: they compared the draft
+           * against a list the same model wrote, and a sentence like "made in
+           * Portland from recycled cotton" — which no grounding check covers —
+           * appeared as its own evidence.
+           */
+          const stored = (reply.citedData ?? {}) as Record<string, unknown>
+          const cited = storedFactsOnly(stored)
+          const asStrings = (value: unknown): string[] =>
+            Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : []
+          const modelClaimed = asStrings(stored['modelClaimedFacts'])
+          const recordNotes = asStrings(stored['recordNotes'])
+          const groundingWarnings = asStrings(stored['groundingWarnings'])
 
           return (
             <article className="crate" key={reply.id}>
@@ -221,6 +238,60 @@ export default async function CommsPage() {
                     No cited facts recorded. A draft with nothing behind it cannot be checked.
                   </p>
                 )}
+
+                {recordNotes.length > 0 ? (
+                  <>
+                    {/*
+                      What the record could not tell us. A substituted placed-at date
+                      says so here, and the draft is not allowed to state it.
+                    */}
+                    <p className="hash" style={{ marginTop: 14, marginBottom: 4 }}>
+                      Gaps in the record
+                    </p>
+                    <ul className="tags" style={{ display: 'block', margin: 0 }}>
+                      {recordNotes.map((note, i) => (
+                        <li key={`note-${i}`} style={{ fontSize: 12, color: 'var(--amber)' }}>
+                          {note}
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                ) : null}
+
+                {groundingWarnings.length > 0 ? (
+                  <>
+                    <p className="hash" style={{ marginTop: 14, marginBottom: 4 }}>
+                      Grounding warnings, not blocking
+                    </p>
+                    <ul className="tags" style={{ display: 'block', margin: 0 }}>
+                      {groundingWarnings.map((w, i) => (
+                        <li key={`warn-${i}`} style={{ fontSize: 12, color: 'var(--amber)' }}>
+                          {w}
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                ) : null}
+
+                {modelClaimed.length > 0 ? (
+                  <>
+                    {/*
+                      Deliberately NOT under "facts". This is the model's own account
+                      of what it cited, checked against nothing — useful for spotting
+                      a claim the grounding checks do not cover, worthless as evidence.
+                    */}
+                    <p className="hash" style={{ marginTop: 14, marginBottom: 4 }}>
+                      What the model SAYS it used — its own claim, verified by nothing
+                    </p>
+                    <ul className="tags" style={{ display: 'block', margin: 0 }}>
+                      {modelClaimed.map((claim, i) => (
+                        <li key={`claim-${i}`} style={{ fontSize: 12, color: 'var(--muted)' }}>
+                          {claim}
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                ) : null}
               </div>
             </article>
           )

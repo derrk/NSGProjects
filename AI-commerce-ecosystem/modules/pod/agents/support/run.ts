@@ -437,7 +437,7 @@ function serialiseFacts(facts: OrderFacts): Record<string, unknown> {
  * filing did. A payload key called `citedData` that means the record on one path and
  * the record plus four other things on another is how a reader stops trusting either.
  */
-const CITED_DATA_SIDECARS = [
+export const CITED_DATA_SIDECARS = [
   'supportIntent',
   'recordNotes',
   'groundingWarnings',
@@ -445,7 +445,7 @@ const CITED_DATA_SIDECARS = [
 ] as const
 
 /** The stored facts alone, as they were written. */
-function storedFactsOnly(citedData: unknown): Record<string, unknown> {
+export function storedFactsOnly(citedData: unknown): Record<string, unknown> {
   if (typeof citedData !== 'object' || citedData === null) return {}
   return Object.fromEntries(
     Object.entries(citedData as Record<string, unknown>).filter(
@@ -507,13 +507,26 @@ export function createSupportAgent(deps: SupportDeps): AgentDefinition<SupportIn
         const stored = (existingReply.citedData ?? {}) as {
           supportIntent?: string
           groundingWarnings?: unknown
+          recordNotes?: unknown
+          modelClaimedFacts?: unknown
         }
         // The intent rides in cited_data precisely so a re-file lands in the same
         // autonomy bucket without paying for a second classification.
         const intent = normaliseIntent(stored.supportIntent ?? '') ?? 'other'
-        const warnings = Array.isArray(stored.groundingWarnings)
-          ? stored.groundingWarnings.filter((w): w is string => typeof w === 'string')
-          : []
+        const strings = (value: unknown): string[] =>
+          Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : []
+        const warnings = strings(stored.groundingWarnings)
+        /*
+         * Carried through the re-file, not dropped.
+         *
+         * recordNotes is where a substituted placed-at date says it is a substitution
+         * — "the ingestion time is standing in for it, so the date this order was
+         * placed is not known and may not be stated". The first filing carried it and
+         * the re-file did not, so a redelivered message handed the operator the same
+         * draft with that caveat silently removed and the date reading as a fact.
+         */
+        const recordNotes = strings(stored.recordNotes)
+        const modelClaimedFacts = strings(stored.modelClaimedFacts)
 
         const outcome = await ctx.requestApproval({
           kind: 'reply',
@@ -530,6 +543,8 @@ export function createSupportAgent(deps: SupportDeps): AgentDefinition<SupportIn
             customerMessage: message.body,
             replyBody: existingReply.body,
             warnings,
+            recordNotes,
+            modelClaimedFacts,
             citedData: storedFactsOnly(existingReply.citedData),
           },
         })

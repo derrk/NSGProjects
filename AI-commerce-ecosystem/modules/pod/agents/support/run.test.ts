@@ -1269,6 +1269,29 @@ describe('Support deck: what it refuses to answer', () => {
  * ------------------------------------------------------------------ */
 
 describe('Support deck: idempotency and refusals', () => {
+  it('carries the record’s gaps through a redelivery instead of dropping them', async () => {
+    /*
+     * An order with no placed-at date gets the ingestion time standing in for it, and
+     * a note saying so — "the date this order was placed is not known and may not be
+     * stated". The first filing carried that note; the re-file did not. So a
+     * redelivered message handed the operator the same draft with the caveat silently
+     * removed, and the substituted date read as a fact.
+     */
+    const { division, message } = await seed({ placedAt: null })
+    await runSupport({ division, messageId: message.id, modelQueue: [whereIsIt, groundedDraft] })
+
+    const [first] = await h.db.select().from(approvals).where(eq(approvals.kind, 'reply'))
+    const firstNotes = (first!.payload as { recordNotes?: string[] }).recordNotes ?? []
+    expect(firstNotes.join(' ')).toMatch(/no placed-at date/)
+
+    // The redelivery. Empty queue: it must not pay to draft again.
+    await runSupport({ division, messageId: message.id, modelQueue: [] })
+
+    const [refiled] = await h.db.select().from(approvals).where(eq(approvals.kind, 'reply'))
+    const refiledNotes = (refiled!.payload as { recordNotes?: string[] }).recordNotes ?? []
+    expect(refiledNotes).toEqual(firstNotes)
+  })
+
   it('does not draft a second reply when the message is redelivered', async () => {
     const { division, message } = await seed()
     await runSupport({ division, messageId: message.id, modelQueue: [whereIsIt, groundedDraft] })

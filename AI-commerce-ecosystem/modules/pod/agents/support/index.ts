@@ -8,7 +8,15 @@ export * from './grounding'
  * sharing a name and breaking the build for whoever lands second. The finance runner
  * already did exactly that with `Channel`.
  */
-export { createSupportAgent, buildOrderFacts, escalationCategory, normaliseIntent, toRecordedIntent } from './run'
+export {
+  createSupportAgent,
+  buildOrderFacts,
+  escalationCategory,
+  normaliseIntent,
+  storedFactsOnly,
+  toRecordedIntent,
+  CITED_DATA_SIDECARS,
+} from './run'
 export type { SupportDeps, FactsResult } from './run'
 export {
   classificationSchema,
