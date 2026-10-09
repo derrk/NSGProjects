@@ -200,9 +200,12 @@ export async function createDivision(
       // Every new agent starts at `propose` unless the module argues otherwise.
       // Autonomy is earned per category, never granted wholesale.
       autonomy: spec.defaultAutonomy ?? 'propose',
-      // A declared-but-unimplemented agent is seeded paused, so it shows on the floor
-      // without the scheduler queueing work nothing can run.
-      status: spec.defaultStatus ?? (spec.definition ? 'active' : 'paused'),
+      // Active unless the module says otherwise. A module marks an agent it has
+      // declared but not implemented as `paused`, so its station shows on the floor
+      // without the scheduler queueing work nothing can run. This cannot be inferred
+      // from `definition`: a spec deliberately carries no runner, because runners need
+      // live credentials and a module must be readable at boot without them.
+      status: spec.defaultStatus ?? 'active',
     })),
   )
 

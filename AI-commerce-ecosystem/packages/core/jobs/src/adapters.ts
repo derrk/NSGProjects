@@ -225,10 +225,46 @@ export function eventSink(db: Database): EventSink {
   }
 }
 
-export function eventBus(inngest: Inngest.Any): EventBus {
+/**
+ * Publishes domain events to Inngest.
+ *
+ * A delivery failure does NOT fail the agent run. By the time this is called the
+ * approval row is already committed, and throwing here would roll an agent back into
+ * a retry that re-proposes work the operator can already see. The local dev server
+ * being down is the common case.
+ *
+ * It is not swallowed either: the failure is written to the event log at error level,
+ * so a stalled pipeline shows up on the floor instead of being a mystery. Pass a sink
+ * to get that; without one the failure is logged to the console only.
+ */
+export function eventBus(inngest: Inngest.Any, sink?: EventSink): EventBus {
   return {
     async send(name, data) {
-      await inngest.send({ name, data })
+      try {
+        await inngest.send({ name, data })
+      } catch (err) {
+        const reason = err instanceof Error ? err.message : String(err)
+        const message =
+          `could not publish "${name}" (${reason}). The record is saved, but nothing ` +
+          `downstream will react to it until the event bus is reachable.`
+        console.error(`[events] ${message}`)
+        if (sink) {
+          await sink
+            .emit({
+              divisionId: (data['divisionId'] as string | undefined) ?? null,
+              kind: 'event.publish_failed',
+              level: 'error',
+              message,
+              refTable: 'approvals',
+              ...(typeof data['approvalId'] === 'string'
+                ? { refId: data['approvalId'] }
+                : {}),
+            })
+            .catch(() => {
+              /* the log itself failing is not worth a second failure */
+            })
+        }
+      }
     },
   }
 }

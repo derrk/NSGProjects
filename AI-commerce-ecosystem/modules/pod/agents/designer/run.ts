@@ -17,6 +17,8 @@ import type { ImagePipeline } from '@acf/integrations/fal'
 import { designPath, type DesignStorage } from '@acf/integrations/storage'
 import { and, eq } from 'drizzle-orm'
 
+import { and as andSql } from 'drizzle-orm'
+
 import { concepts, designs, niches } from '../../schema/index'
 import { planPrompt, resolvePrompt, simplifyPrompt, textCheckPrompt, type PromptContext } from './prompt'
 import {
@@ -205,11 +207,43 @@ export function createDesignerAgent(
     outputSchema: designerOutputSchema,
 
     async run(ctx: AgentContext<DesignerInput>): Promise<DesignerOutput> {
-      const conceptId = conceptIdFrom(ctx.input)
-      if (!conceptId) {
-        throw new NonRetriableError('no concept id in the task input (expected conceptId or refId)')
-      }
       const divisionId = ctx.division.id
+
+      /*
+       * With no concept named, take the next one waiting.
+       *
+       * The event-driven path always names a concept. This is for the operator's
+       * "Run now" button, where making a human paste a UUID to see the thing work is
+       * a bad trade for one `order by` clause.
+       */
+      let conceptId: string | null = conceptIdFrom(ctx.input)
+      if (!conceptId) {
+        const waiting: Array<{ id: string }> = await db
+          .select({ id: concepts.id })
+          .from(concepts)
+          .where(andSql(eq(concepts.divisionId, divisionId), eq(concepts.status, 'approved')))
+          .orderBy(concepts.createdAt)
+
+        const taken = new Set(
+          (
+            (await db.select({ conceptId: designs.conceptId }).from(designs)) as Array<{
+              conceptId: string
+            }>
+          ).map((d) => d.conceptId),
+        )
+        const next = waiting.find((c) => !taken.has(c.id))
+
+        if (!next) {
+          throw new NonRetriableError(
+            'no concept waiting to be designed in this division; approve one first',
+          )
+        }
+        conceptId = next.id
+        await ctx.log('pod.picked_next', `no concept named; took the next one waiting`, {
+          refTable: 'pod.concepts',
+          refId: conceptId,
+        })
+      }
 
       const [concept] = await db
         .select()

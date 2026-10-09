@@ -494,6 +494,132 @@ table.roster td.num {
 }
 
 /* ---------------------------------------------------------------- *
+ * Forms
+ * ---------------------------------------------------------------- */
+
+.build-form {
+  display: grid;
+  gap: 15px;
+  max-width: 480px;
+}
+
+.field label {
+  display: block;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.field input[type='text'],
+.field input[type='number'],
+.field input:not([type]),
+.field select,
+.run-now input {
+  width: 100%;
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 8px 10px;
+  background: var(--bg-sunken);
+  border: 1px solid var(--edge-bright);
+  border-radius: var(--radius);
+  color: var(--fg);
+}
+
+.field input:focus-visible,
+.field select:focus-visible,
+.run-now input:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 1px;
+}
+
+.field-hint {
+  margin: 6px 0 0;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.field-check label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-transform: none;
+  letter-spacing: 0.02em;
+  font-size: 12px;
+  color: var(--fg);
+}
+
+.field-check input {
+  accent-color: var(--toxic);
+}
+
+.form-error,
+.form-ok {
+  margin: 0;
+  font-size: 12px;
+  padding: 9px 11px;
+  border-radius: var(--radius);
+  border: 1px solid var(--edge);
+}
+
+.form-error {
+  border-left: 3px solid var(--rust);
+  color: var(--rust);
+}
+
+.form-ok {
+  border-left: 3px solid var(--toxic);
+  color: var(--toxic);
+}
+
+.run-now {
+  display: flex;
+  gap: 8px;
+  flex: 1 1 320px;
+  min-width: 240px;
+}
+
+/* ---------------------------------------------------------------- *
+ * Status lights
+ * ---------------------------------------------------------------- */
+
+.light {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  margin-right: 8px;
+  vertical-align: baseline;
+}
+
+.light-green {
+  background: var(--toxic);
+}
+
+.light-amber {
+  background: var(--amber);
+}
+
+.light-red {
+  background: var(--rust);
+}
+
+details summary::-webkit-details-marker {
+  display: none;
+}
+
+details summary {
+  display: inline-block;
+  margin-bottom: 4px;
+}
+
+code {
+  font-size: 11px;
+  color: var(--toxic);
+}
+
+/* ---------------------------------------------------------------- *
  * Motion
  * ---------------------------------------------------------------- */
 

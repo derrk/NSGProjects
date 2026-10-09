@@ -25,7 +25,7 @@ export function gateDeps(): GateDeps {
     approvals: approvalStore(database),
     rules: ruleStore(database),
     events: eventSink(database),
-    bus: eventBus(inngest),
+    bus: eventBus(inngest, eventSink(database)),
     tasks: taskGate(database),
     spendGuard: spendGuard(database),
     clock: systemClock,

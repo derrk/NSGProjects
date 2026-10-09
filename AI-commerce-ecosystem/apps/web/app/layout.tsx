@@ -21,6 +21,8 @@ export const metadata: Metadata = {
 const STATIONS = [
   { href: '/', label: 'The Holding' },
   { href: '/inbox', label: 'Quarantine' },
+  { href: '/divisions', label: 'Outfits' },
+  { href: '/agents', label: 'The Crew' },
 ] as const
 
 export default function RootLayout({ children }: { children: ReactNode }) {

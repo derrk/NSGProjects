@@ -321,6 +321,35 @@ describe('createDivision', () => {
     })
   })
 
+  it('seeds an agent active unless the module paused it', async () => {
+    const withPaused = makeModule({
+      agents: [
+        ...makeModule().agents,
+        {
+          key: 'later',
+          defaultName: 'Not built yet',
+          purpose: 'p',
+          defaultModel: 'claude-sonnet-5-5',
+          defaultSchedule: null,
+          defaultTools: [],
+          defaultStatus: 'paused',
+          systemPrompt: 'x',
+        },
+      ],
+    })
+
+    const { agents: seeded } = await createDivision(
+      { name: 'POD', slug: 'pod-status', moduleName: 'pod' },
+      [withPaused],
+      deps,
+    )
+
+    // Status cannot be inferred from whether the spec carries a runner: specs never
+    // do, because runners need credentials a module must not hold.
+    expect(seeded.find((a) => a.moduleAgentKey === 'designer')!.status).toBe('active')
+    expect(seeded.find((a) => a.moduleAgentKey === 'later')!.status).toBe('paused')
+  })
+
   it('starts every agent at propose autonomy', async () => {
     const { agents: seeded } = await createDivision(
       { name: 'POD Store', slug: 'pod-store', moduleName: 'pod' },

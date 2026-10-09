@@ -10,11 +10,19 @@
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --build --verbose"
+    "typecheck": "tsc --build --verbose",
+    "dev:db": "tsx scripts/dev-db.ts",
+    "dev": "pnpm --filter @acf/web dev",
+    "seed": "pnpm --filter @acf/web seed",
+    "dev:db:reset": "docker rm -f acf-pg && tsx scripts/dev-db.ts"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.5.8",
+    "@electric-sql/pglite-pgvector": "0.0.9",
+    "@electric-sql/pglite-socket": "0.2.11",
     "@types/node": "^26.6.4",
     "typescript": "^7.0.2",
-    "vitest": "^5.0.3"
+    "vitest": "^5.0.3",
+    "tsx": "^4.23.15"
   }
 }

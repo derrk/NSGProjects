@@ -32,3 +32,6 @@ Thumbs.db
 
 # Next.js generates this and now advises gitignoring it
 next-env.d.ts
+
+# local dev database (PGlite data directory)
+.pglite/

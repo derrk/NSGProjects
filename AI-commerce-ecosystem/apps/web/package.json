@@ -8,19 +8,22 @@
     "build": "next build",
     "start": "next start",
     "typegen": "next typegen",
-    "seed": "tsx scripts/seed.ts"
+    "seed": "tsx --env-file=.env.local scripts/seed.ts",
+    "agent": "tsx --env-file=.env.local scripts/run-agent.ts"
   },
   "dependencies": {
     "@acf/core": "workspace:*",
     "@acf/db": "workspace:*",
+    "@acf/integrations": "workspace:*",
     "@acf/jobs": "workspace:*",
+    "@acf/pod": "workspace:*",
     "drizzle-orm": "0.45.4",
     "inngest": "^4.22.0",
     "next": "16.4.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",
-    "@acf/pod": "workspace:*",
-    "@acf/integrations": "workspace:*"
+    "server-only": "^0.0.1",
+    "@acf/template": "workspace:*"
   },
   "devDependencies": {
     "@types/react": "^19.3.0",
