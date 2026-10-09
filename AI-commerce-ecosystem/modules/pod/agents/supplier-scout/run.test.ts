@@ -32,7 +32,7 @@ import {
   searchQueries,
   vetCandidates,
 } from './run'
-import { MAX_LABEL_CHARS, SOURCED_FIELDS } from './schema'
+import { MAX_LABEL_CHARS, MAX_TRACK_RECORD_MONTHS, SOURCED_FIELDS } from './schema'
 import { scoreSuppliers } from './score'
 
 let h: TestDatabase
@@ -467,6 +467,28 @@ describe('vetCandidates: the quote has to be in the document', () => {
     expect(vet([spaced]).usable).toHaveLength(1)
   })
 
+  it('marks a citation that came from a search blurb rather than the page', () => {
+    /*
+     * A failed fetch falls back to the search snippet, and the snippet was then
+     * recorded as a retrieved document indistinguishable from a page we had read. The
+     * quote check means a blurb can only support a figure it states — but the
+     * operator should still see that a figure came from sixty words of search result.
+     */
+    const { citations } = vetCandidates([candidate()] as never, {
+      retrieved: RETRIEVED,
+      documents: DOCUMENTS,
+      snippetOnly: new Set([PAGE_A]),
+      sampled: new Set(),
+    })
+
+    expect(Object.values(citations)[0]!.every((c) => c.depth === 'snippet')).toBe(true)
+  })
+
+  it('marks a citation from a page we actually fetched as a page', () => {
+    const { citations } = vet([candidate()])
+    expect(Object.values(citations)[0]!.every((c) => c.depth === 'page')).toBe(true)
+  })
+
   it('keeps the verified quote on the citation, rather than discarding it', () => {
     const { citations } = vet([candidate()])
     const first = Object.values(citations)[0]!
@@ -560,14 +582,34 @@ describe('vetCandidates', () => {
     expect(rejected[0]!.reason).toMatch(/returns window must be whole days/)
   })
 
-  it('refuses a trading history that is not whole months in range', () => {
-    const { usable, rejected } = vetCandidates(
-      [candidate({ trackRecordMonths: 18.5 })] as never,
-      { retrieved: RETRIEVED, sampled: new Set() },
-    )
+  /*
+   * Both halves of the name, because only the first was ever asserted.
+   *
+   * 18.5 is rejected by the whole-number check, so the `<= MAX_TRACK_RECORD_MONTHS`
+   * clause — the only thing enforcing the ceiling, since the schema does not — was
+   * never exercised. Raising the limit to a thousand would have left the test green.
+   */
+  it.each([
+    ['not whole months', 18.5],
+    ['above the ceiling', MAX_TRACK_RECORD_MONTHS + 1],
+    ['negative', -1],
+  ])('refuses a trading history that is %s', (_label, trackRecordMonths) => {
+    const { usable, rejected } = vetCandidates([candidate({ trackRecordMonths })] as never, {
+      retrieved: RETRIEVED,
+      sampled: new Set(),
+    })
 
     expect(usable).toEqual([])
     expect(rejected[0]!.reason).toMatch(/trading history must be whole months/)
+  })
+
+  it('accepts a trading history exactly at the ceiling', () => {
+    // The boundary the clause above turns on, in the allowed direction.
+    const { usable } = vetCandidates(
+      [candidate({ trackRecordMonths: MAX_TRACK_RECORD_MONTHS })] as never,
+      { retrieved: RETRIEVED, sampled: new Set() },
+    )
+    expect(usable).toHaveLength(1)
   })
 
   it('discards a candidate whose name is longer than a name', () => {

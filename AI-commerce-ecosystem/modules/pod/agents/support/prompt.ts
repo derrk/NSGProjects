@@ -200,7 +200,10 @@ export function classifyRequest(input: {
 }): string {
   return [
     input.facts === null
-      ? 'No order is linked to this message, so there is no order record. Classify on the message alone.'
+      ? // Not necessarily "no order": buildOrderFacts also returns null when an order IS
+        // linked but carries no quotable order number, and telling the model there is no
+        // order is a claim about the record rather than about what we could build from it.
+        'No usable order record could be built for this message — either none is linked, or the linked order is missing something this system needs. Classify on the message alone.'
       : orderFactsBlock(input.facts, input.caveats),
     '',
     untrustedCustomerBlock({ subject: input.subject, body: input.body }),

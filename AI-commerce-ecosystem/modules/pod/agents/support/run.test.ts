@@ -1292,6 +1292,39 @@ describe('Support deck: idempotency and refusals', () => {
     expect(refiledNotes).toEqual(firstNotes)
   })
 
+  it('does not re-offer a draft the operator rejected', async () => {
+    /*
+     * The "already drafted" guard asked only whether a replies row existed. The
+     * approval store's findByRef excludes rejected rows on purpose — the partial
+     * unique index frees the ref so a REVISED proposal can be filed — so a redelivery
+     * after a rejection filed a brand new approval carrying the identical body the
+     * operator had just turned down, with nothing recording that they had said no.
+     */
+    const { division, message } = await seed()
+    await runSupport({ division, messageId: message.id, modelQueue: [whereIsIt, groundedDraft] })
+
+    const [reply] = await h.db.select().from(replies)
+    // The operator rejects it: the approval is decided AND the reply row is marked.
+    // Rejecting only one of the two is not a state the product produces.
+    await h.db.update(replies).set({ status: 'rejected' }).where(eq(replies.id, reply!.id))
+    await h.db
+      .update(approvals)
+      .set({ decision: 'rejected', decidedBy: 'operator' })
+      .where(eq(approvals.kind, 'reply'))
+
+    // Empty queue: it must not pay to draft again either.
+    const { output } = await runSupport({ division, messageId: message.id, modelQueue: [] })
+
+    expect(output.status).toBe('escalated')
+
+    const filed = await h.db.select().from(approvals)
+    const latest = filed.at(-1)!
+    const payload = latest.payload as Record<string, unknown>
+    // The rejected wording is shown as rejected, not re-offered as a proposal.
+    expect(payload['replyBody']).toBeUndefined()
+    expect(payload['rejectedDraft']).toBe(reply!.body)
+  })
+
   it('does not draft a second reply when the message is redelivered', async () => {
     const { division, message } = await seed()
     await runSupport({ division, messageId: message.id, modelQueue: [whereIsIt, groundedDraft] })

@@ -174,6 +174,16 @@ export interface FieldCitation {
   retrievedAt: string
   /** The sentence the figure was read from, verified to be in that document. */
   quote: string
+  /**
+   * Whether we read the page or only the search blurb.
+   *
+   * A fetch that failed falls back to the snippet, and the snippet was then recorded
+   * as a retrieved document indistinguishable from a page we actually read. The quote
+   * check means a blurb can only support a figure it states — but the operator should
+   * still be able to see that a figure came from sixty words of search result rather
+   * than from the supplier's terms page.
+   */
+  depth: 'page' | 'snippet'
 }
 
 export interface VetOptions {
@@ -195,6 +205,8 @@ export interface VetOptions {
    * kept.
    */
   documents?: ReadonlyMap<string, string>
+  /** Which urls we only reached as a search blurb. */
+  snippetOnly?: ReadonlySet<string>
   /** Lowercased supplier names a human has confirmed a sample from. */
   sampled: ReadonlySet<string>
 }
@@ -373,7 +385,13 @@ export function vetCandidates(
       }
 
       if (!cited.has(field)) {
-        cited.set(field, { field, url: source.url, retrievedAt: source.retrievedAt, quote })
+        cited.set(field, {
+          field,
+          url: source.url,
+          retrievedAt: source.retrievedAt,
+          quote,
+          depth: opts.snippetOnly?.has(source.url) ? 'snippet' : 'page',
+        })
       }
     }
 
@@ -766,6 +784,8 @@ export function createSupplierScoutAgent(
       // are checked against all three: the url, the day, and the text.
       const retrieved = new Map<string, Set<string>>()
       const documents = new Map<string, string>()
+      const snippetOnly = new Set<string>()
+      const fetchedPages = new Set<string>()
       for (const doc of docs) {
         const day = retrievalDay(doc.retrievedAt)
         if (day === null) continue
@@ -776,6 +796,14 @@ export function createSupplierScoutAgent(
         // so a quote from either is checkable.
         documents.set(doc.url, `${documents.get(doc.url) ?? ''}
 ${doc.content}`)
+        if (doc.depth === 'page') fetchedPages.add(doc.url)
+      }
+
+      // Everything we have, minus everything we actually fetched. Computed after the
+      // loop rather than inside it: a url can appear as a snippet and then as a page,
+      // and a flag set mid-loop depends on which order they arrived in.
+      for (const url of retrieved.keys()) {
+        if (!fetchedPages.has(url)) snippetOnly.add(url)
       }
 
       if (retrieved.size === 0) {
@@ -833,7 +861,18 @@ ${doc.content}`)
 
         for (const attempt of result.output.promptInjectionAttempts ?? []) {
           const quote = String(attempt.quote ?? '').slice(0, 300)
-          const seenBefore = `${attempt.url}|${quote}`
+          /*
+           * Keyed by URL alone.
+           *
+           * The key was url plus the model's free-text quote, which cannot do the job
+           * the comment above claims: the correction pass re-reads the same page and
+           * paraphrases the same planted text slightly differently, so one hostile
+           * page became "2 pages tried to instruct it" on the approval card — a
+           * number nobody can act on because it is not true. A page is hostile or it
+           * is not; which sentence the model chose to quote from it is not a second
+           * page.
+           */
+          const seenBefore = String(attempt.url)
           if (injections.has(seenBefore)) continue
           injections.add(seenBefore)
           await ctx.log(
@@ -843,7 +882,7 @@ ${doc.content}`)
           )
         }
 
-        const vet = vetCandidates(result.output.candidates ?? [], { retrieved, documents, sampled })
+        const vet = vetCandidates(result.output.candidates ?? [], { retrieved, documents, snippetOnly, sampled })
         for (const gap of vet.rejected) gapsByLabel.set(gap.label, gap.reason)
         for (const question of result.output.openQuestions ?? []) askedQuestions.add(question)
 

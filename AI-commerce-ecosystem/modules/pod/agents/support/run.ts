@@ -503,6 +503,69 @@ export function createSupportAgent(deps: SupportDeps): AgentDefinition<SupportIn
         .where(eq(replies.messageId, messageId))
         .limit(1)
 
+      /*
+       * A draft the operator REJECTED is not a draft to re-file.
+       *
+       * This branch asked only whether a replies row existed. The approval store's
+       * findByRef deliberately excludes rejected rows — the partial unique index
+       * frees the ref so a REVISED proposal can be filed — so a redelivery after a
+       * rejection filed a brand new approval carrying the identical body the operator
+       * had just turned down, and replies.status stayed pending_approval forever.
+       * The operator rejects it again, and again, with nothing recording that they
+       * had already said no.
+       *
+       * Escalated rather than redrafted: the operator rejected this wording and the
+       * agent has no information about why, so writing a second one is guessing.
+       */
+      if (existingReply && existingReply.status === 'rejected') {
+        await db
+          .update(messages)
+          .set({ status: 'escalated', updatedAt: now() })
+          .where(eq(messages.id, messageId))
+
+        const outcome = await ctx.requestApproval({
+          kind: 'reply',
+          category: 'rejected_draft',
+          refTable: 'pod.messages',
+          refId: messageId,
+          summary: oneLine(
+            `You rejected a draft for this message: ${message.subject ?? 'no subject'}`,
+            SUMMARY_CHARS,
+          ),
+          payload: {
+            messageId,
+            replyId: existingReply.id,
+            orderId: message.orderId,
+            intent: message.intent ?? 'other',
+            customerMessage: message.body,
+            // Deliberately NOT replyBody: re-offering the wording that was rejected is
+            // the behaviour being removed, not the one being kept.
+            rejectedDraft: existingReply.body,
+            escalationReason:
+              'the operator rejected the draft for this message, and nothing records why — ' +
+              'a second attempt would be guessing',
+          },
+        })
+
+        await ctx.log(
+          'pod.reply_rejected_redelivery',
+          `message ${messageId} was redelivered after its draft was rejected; escalated rather than re-filed`,
+          { level: 'warn', refTable: 'pod.messages', refId: messageId },
+        )
+
+        return {
+          messageId,
+          replyId: existingReply.id,
+          approvalId: outcome.approval.id,
+          intent: 'other',
+          recordedIntent: message.intent ?? 'other',
+          status: 'escalated',
+          escalationReason: 'already_escalated',
+          warnings: [],
+          redraftAttempts: 0,
+        }
+      }
+
       if (existingReply) {
         const stored = (existingReply.citedData ?? {}) as {
           supportIntent?: string
