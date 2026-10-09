@@ -22,6 +22,7 @@ import {
 import {
   agentStore,
   approvalRuleSeedStore,
+  backfillMemoryEmbeddings,
   divisionStore,
   eventSink,
   moduleStore,
@@ -202,6 +203,13 @@ async function main() {
 
   console.log('registering modules...')
   await registerModules(MODULES, deps)
+
+  // Memories written before embeddings were available have no vector, and recall
+  // skips those. Harmless when there are none.
+  const backfilled = await backfillMemoryEmbeddings(db)
+  if (backfilled.embedded > 0) {
+    console.log(`backfilled ${backfilled.embedded} memory embedding(s)`)
+  }
 
   const existing = await deps.divisions.findBySlug(DIVISION_SLUG)
   if (existing) {

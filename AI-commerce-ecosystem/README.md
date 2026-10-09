@@ -157,10 +157,12 @@ These are real gaps, not polish:
 
 - **No authentication.** The inbox says so on the screen. Run it locally; do not deploy
   it to a public URL until operator sign-in lands.
-- **Memory recall is recency and pinning, not similarity.** `embed_text` exists now,
-  but the run loop does not yet embed memories on write, so `agent_memory.embedding`
-  is still null and recall cannot rank by distance. Wiring those two together is the
-  next small job.
+- **Memory similarity is lexical, not semantic.** Memories are embedded on write and
+  recall ranks by pgvector cosine distance, so it is real similarity search — but the
+  default provider matches shared vocabulary, not meaning. Two differently-worded
+  descriptions of the same thing will not look alike. Swapping in a real embedding
+  provider is one adapter, plus `backfillMemoryEmbeddings` to re-vector what exists
+  (vectors from different models are not comparable).
 - **Two core tools are offline stand-ins.** `web_search` returns results that say
   "SIMULATED" in the title until `TAVILY_API_KEY` is set, and `embed_text` uses a local
   lexical vectoriser that reports `semantic: false` — it captures shared vocabulary,
@@ -174,9 +176,8 @@ These are real gaps, not polish:
 
 ### The next thing to build
 
-Embed memories on write, so recall ranks by similarity instead of recency — the tool
-and the column both exist, they are just not connected. After that, the Store ops agent
-and the Printify client.
+The Store ops agent and the Printify client — the first thing that turns an approved
+design into something a customer could actually buy.
 
 ---
 
