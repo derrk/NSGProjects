@@ -22,6 +22,7 @@ export const metadata: Metadata = {
  *   OUTFITS     -> /divisions divisions list and detail (week 2)
  *   THE CREW    -> /agents    agent registry (week 3)
  *   WAR ROOM    -> /war-room  what should worry you: goals, red stations, caps
+ *   QUARTERS    -> /quarters  what the operator has trained, and what it has earned
  *   COMMS LAB   -> /comms     every outbound draft, and the count that has been sent
  *   SUPPLY LINES-> /supply    what is actually connected, and what is pretending
  *   DRY RUN     -> /dry-run   the whole pipeline on demo adapters, touching nothing
@@ -37,6 +38,7 @@ const STATIONS = [
   { href: '/treasury', label: 'Treasury' },
   { href: '/supply', label: 'Supply Lines' },
   { href: '/dry-run', label: 'Dry Run' },
+  { href: '/quarters', label: 'Quarters' },
   { href: '/archives', label: 'Archives' },
 ] as const
 
