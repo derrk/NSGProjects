@@ -38,6 +38,19 @@ export interface FinanceReportInput {
   orders: OrderContribution[]
   /** Unit economics the operator has not yet confirmed against a statement. */
   unconfirmedAssumptions?: string[]
+  /**
+   * What the fee rates every contribution was computed THROUGH are worth.
+   *
+   * A contribution is not only its cost side. A commission, a payment rate and a
+   * refund rate sit inside the same number, and a report whose marking says "traces to
+   * an invoice" over rates nobody has checked is making the exact claim this file
+   * exists to stop. It lowers the report's provenance without touching any row's own,
+   * so the verified/estimated split across SKUs survives intact.
+   *
+   * Ignored when there are no contributions: a ledger-only period never passes through
+   * a fee assumption, so nothing is owed to one.
+   */
+  assumptionProvenance?: Provenance
 }
 
 export interface FinanceReport {
@@ -106,6 +119,9 @@ export function buildFinanceReport(input: FinanceReportInput): FinanceReport {
   const provenance = weakest([
     ...inPeriod.map((e) => e.provenance),
     ...input.orders.map((o) => o.provenance),
+    ...(input.orders.length > 0 && input.assumptionProvenance
+      ? [input.assumptionProvenance]
+      : []),
   ])
 
   const caveats: string[] = []

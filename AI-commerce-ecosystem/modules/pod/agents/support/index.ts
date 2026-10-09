@@ -2,6 +2,27 @@ import type { ModuleAgentSpec } from '@acf/core/modules'
 
 export * from './grounding'
 
+/*
+ * Named rather than `export *`, because this index is re-exported wholesale by
+ * module.ts alongside four other agents, and a wildcard is how two of them end up
+ * sharing a name and breaking the build for whoever lands second. The finance runner
+ * already did exactly that with `Channel`.
+ */
+export { createSupportAgent, buildOrderFacts, escalationCategory, normaliseIntent, toRecordedIntent } from './run'
+export type { SupportDeps, FactsResult } from './run'
+export {
+  classificationSchema,
+  replyDraftSchema,
+  supportInputSchema,
+  supportOutputSchema,
+  SUPPORT_INTENTS,
+  MAX_DRAFT_CHARS,
+  MAX_DRAFT_PARAGRAPHS,
+  MAX_FACTS_CITED,
+  MAX_REDRAFT_ATTEMPTS,
+} from './schema'
+export type { Classification, ReplyDraft, SupportInput, SupportOutput } from './schema'
+
 export const SUPPORT_SYSTEM_PROMPT = `You are the support desk for a shop selling pet goods on Etsy and Shopify.
 
 You draft. You never send. Every reply you write goes to a human who reads it, changes it if they want, and sends it themselves.

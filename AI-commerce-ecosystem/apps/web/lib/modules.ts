@@ -5,7 +5,15 @@ import { createFalPipeline, createMockFalPipeline } from '@acf/integrations/fal'
 import { createMockStorage, createSupabaseStorage } from '@acf/integrations/storage'
 import { db } from '@acf/db'
 import { createPrintifyClient, createMockPrintifyClient } from '@acf/integrations/printify'
-import { createDesignerAgent, createPodCounters, createStoreOpsAgent, podModule } from '@acf/pod'
+import {
+  createDesignerAgent,
+  createFinanceAgent,
+  createPodCounters,
+  createStoreOpsAgent,
+  createSupplierScoutAgent,
+  createSupportAgent,
+  podModule,
+} from '@acf/pod'
 import { createIntakeAgent, templateModule } from '@acf/template'
 
 /**
@@ -73,9 +81,36 @@ export function resolveAgentDefinition(
     }) as unknown as AgentDefinition<never, never>
   }
 
-  // scout, support, supplier_scout and finance are declared in module.ts so their
-  // stations appear on the floor, and each already has its decision logic built and
-  // tested. They are seeded paused until their runners are wired here.
+  /*
+   * The three below reason through the model but make no decision with it. Each one's
+   * judgement — what may be said to a customer, what a supplier is worth, what a
+   * number can be trusted to mean — lives in a tested file beside its runner, because
+   * a prompt is a request and these are the places where a convincing wrong answer
+   * costs real money.
+   */
+  if (agentKey === 'support') {
+    return createSupportAgent({
+      db: db() as never,
+      model: useMocks ? createOfflineModelClient() : createModelClient(),
+    }) as unknown as AgentDefinition<never, never>
+  }
+
+  if (agentKey === 'supplier_scout') {
+    return createSupplierScoutAgent({
+      db: db() as never,
+      model: useMocks ? createOfflineModelClient() : createModelClient(),
+    }) as unknown as AgentDefinition<never, never>
+  }
+
+  if (agentKey === 'finance') {
+    return createFinanceAgent({
+      db: db() as never,
+      model: useMocks ? createOfflineModelClient() : createModelClient(),
+    }) as unknown as AgentDefinition<never, never>
+  }
+
+  // The Trend scout is the one still declared without a runner. Its station shows on
+  // the floor in red, which is the honest rendering of "nobody can work this post".
   return null
 }
 

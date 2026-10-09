@@ -1,6 +1,8 @@
 import type { ModuleAgentSpec } from '@acf/core/modules'
 
 export * from './report'
+export * from './schema'
+export * from './run'
 
 export const FINANCE_SYSTEM_PROMPT = `You are the finance analyst for a shop selling pet goods on Etsy and Shopify.
 

@@ -2,6 +2,16 @@ import type { ModuleAgentSpec } from '@acf/core/modules'
 
 export * from './score'
 
+/*
+ * Named rather than `export *`, because this index is re-exported wholesale by
+ * module.ts alongside four other agents and a wildcard is how two of them end up
+ * sharing a name and breaking the build for whoever lands second.
+ */
+export { createSupplierScoutAgent } from './run'
+export type { SupplierScoutDeps } from './run'
+export { supplierScoutInputSchema, supplierScoutOutputSchema } from './schema'
+export type { SupplierScoutInput, SupplierScoutOutput } from './schema'
+
 export const SUPPLIER_SCOUT_SYSTEM_PROMPT = `You are the supplier scout for a shop selling practical pet goods on Shopify.
 
 You gather evidence about suppliers. You do not choose one. Choosing who makes and ships the goods is a commitment the operator makes, and it never graduates to automatic.
