@@ -6,6 +6,7 @@
   "exports": {
     ".": "./module.ts",
     "./designer": "./agents/designer/index.ts",
+    "./integrations": "./integrations.ts",
     "./schema": "./schema/index.ts"
   },
   "dependencies": {

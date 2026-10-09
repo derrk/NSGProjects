@@ -10,7 +10,7 @@
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --build --verbose",
+    "typecheck": "tsx scripts/typecheck.ts",
     "dev:db": "tsx scripts/dev-db.ts",
     "dev": "pnpm --filter @acf/web dev",
     "seed": "pnpm --filter @acf/web seed",

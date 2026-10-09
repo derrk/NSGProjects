@@ -23,6 +23,7 @@ export * from './channel-rules'
 export * from './economics'
 export * from './fulfillment'
 export * from './publish'
+export * from './integrations'
 export * as podSchema from './schema/index'
 
 export const podModule: ModuleDefinition = {
