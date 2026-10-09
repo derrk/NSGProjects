@@ -1,8 +1,8 @@
 import {
-  bigint,
   index,
   integer,
   jsonb,
+  numeric,
   pgTable,
   real,
   text,
@@ -92,15 +92,21 @@ export const ledger = pgTable(
       .references(() => divisions.id, { onDelete: 'cascade' }),
     kind: ledgerKind('kind').notNull(),
     /**
-     * Real money, in exact integer cents, SIGNED by its effect on the company.
+     * Money in cents, SIGNED by its effect on the company.
      *
      * Revenue is positive; cogs, expense and api_cost are posted NEGATIVE. A refund is
      * a negative `revenue` row, not a positive `expense` one. Every dashboard view
      * depends on this, so margin and net cash are plain SUMs and no view has to know
      * which kinds to flip. Correcting a mistake means posting another row, never
      * editing one: this table is append-only, which is what makes it auditable.
+     *
+     * numeric, not bigint, and not float. Sales are whole cents but a single model
+     * call costs a fraction of one — rounding each to the nearest cent would silently
+     * discard most of the API spend this system is meant to track. numeric is exact
+     * decimal, so fractional cents add up correctly instead of drifting the way
+     * floating point would.
      */
-    amountCents: bigint('amount_cents', { mode: 'number' }).notNull(),
+    amountCents: numeric('amount_cents', { precision: 18, scale: 6, mode: 'number' }).notNull(),
     currency: text('currency').notNull().default('USD'),
     occurredAt: timestamp('occurred_at', { withTimezone: true }).notNull().defaultNow(),
     source: text('source').notNull(),

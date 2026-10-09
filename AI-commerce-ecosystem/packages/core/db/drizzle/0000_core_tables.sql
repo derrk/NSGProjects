@@ -234,7 +234,7 @@ CREATE TABLE "ledger" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"division_id" uuid NOT NULL,
 	"kind" "ledger_kind" NOT NULL,
-	"amount_cents" bigint NOT NULL,
+	"amount_cents" numeric(18, 6) NOT NULL,
 	"currency" text DEFAULT 'USD' NOT NULL,
 	"occurred_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"source" text NOT NULL,

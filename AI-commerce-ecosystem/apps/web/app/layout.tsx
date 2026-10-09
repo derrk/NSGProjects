@@ -4,21 +4,22 @@ import type { ReactNode } from 'react'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'DEADSTOCK — compound control',
-  description: 'Approval queue and station board for an agent-run storefront.',
+  title: 'DEADSTOCK — holding company control',
+  description: 'One screen for every division an agent runs.',
 }
 
 /**
- * The station names are a reskin of the agents in SPEC.md. The mapping is kept here,
- * in one place, so the theme can be swapped without touching any query:
+ * The screen names are a reskin of the command center in SPEC.md. The mapping lives
+ * here, in one place, so the theme can be swapped without touching a single query:
  *
- *   QUARANTINE  -> /inbox       the approval queue
- *   THE YARD    -> /            the factory floor (week 3)
- *   SUPPLY RUNS -> /orders      orders (week 2)
- *   BUNKER      -> /settings    settings (week 3)
+ *   THE HOLDING -> /          Company dashboard
+ *   QUARANTINE  -> /inbox     the one approval queue, across divisions
+ *   THE YARD    -> /floor     the factory floor (week 3)
+ *   OUTFITS     -> /divisions divisions list and detail (week 2)
+ *   THE CREW    -> /agents    agent registry (week 3)
  */
 const STATIONS = [
-  { href: '/', label: 'The Yard' },
+  { href: '/', label: 'The Holding' },
   { href: '/inbox', label: 'Quarantine' },
 ] as const
 
@@ -32,7 +33,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               <h1 className="brand">
                 Dead<span className="brand-mark">stock</span>
               </h1>
-              <span className="tagline">Compound control &middot; nothing ships unchecked</span>
+              <span className="tagline">Holding co. &middot; nothing ships unchecked</span>
             </div>
             <nav aria-label="Stations">
               <ul className="stations">

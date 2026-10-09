@@ -1,6 +1,12 @@
 import { healthHeartbeat } from './heartbeat'
+import { schedulerTick } from './scheduler'
 
-/** Every Inngest function the serve route exposes. */
-export const functions = [healthHeartbeat]
+/**
+ * Every core Inngest function.
+ *
+ * Note what is NOT here: a module never defines a cron. The scheduler reads schedules
+ * from the `agents` table, so adding a division adds no jobs.
+ */
+export const functions = [schedulerTick, healthHeartbeat]
 
-export { healthHeartbeat }
+export { healthHeartbeat, schedulerTick }

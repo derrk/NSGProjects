@@ -1,24 +1,23 @@
 /**
- * The Designer agent (SPEC.md §Agents → Designer).
+ * The Designer agent (SPEC.md §Module 1).
  *
- * One approved concept in, three stored PNGs and one `design` approval out.
+ * One approved concept in; three stored PNGs and one `design` approval out.
  *
- * Deliberate deviation from SPEC.md: the print-resolution upscale and background
+ * Deliberate deviation from the spec text: the print-resolution upscale and background
  * removal do NOT happen here. The operator picks one variant of three, so upscaling
- * all three first throws away two thirds of that spend — and the upscale is the single
- * most expensive step in the pipeline. The chosen variant gets promoted to print
- * resolution when `design.approved` fires, in week 2, which is where Store ops needs
- * it anyway. The fal client already exposes `upscale` and `removeBackground` for it.
+ * all three first discards two thirds of the most expensive step in the pipeline. The
+ * chosen variant is promoted when `design.approved` fires, in week 2, which is where
+ * Store ops needs it anyway.
  */
 
 import type { AgentContext, AgentDefinition } from '@acf/core/runtime'
 import { NonRetriableError } from '@acf/core/runtime'
-import { concepts, designs, niches, shops, type Database } from '@acf/db'
 import { MODELS, type ModelClient } from '@acf/integrations/anthropic'
 import type { ImagePipeline } from '@acf/integrations/fal'
 import { designPath, type DesignStorage } from '@acf/integrations/storage'
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 
+import { concepts, designs, niches } from '../../schema/index'
 import { planPrompt, resolvePrompt, simplifyPrompt, textCheckPrompt, type PromptContext } from './prompt'
 import {
   designerOutputSchema,
@@ -41,13 +40,18 @@ export const PREVIEW_SIZE = 1024
  */
 export const MAX_TEXT_ATTEMPTS = 3
 
+/** Minimal structural view of the drizzle client, so this file does not import @acf/db. */
+type Db = {
+  select: (...args: never[]) => never
+  insert: (...args: never[]) => never
+  update: (...args: never[]) => never
+} & Record<string, unknown>
+
 export interface DesignerDeps {
-  db: Database
+  db: Db
   model: ModelClient
   images: ImagePipeline
   storage: DesignStorage
-  /** Operator-edited system prompts. The settings screen that writes them is week 3. */
-  promptOverrides?: { plan?: string | null; textCheck?: string | null; simplify?: string | null }
   /** Injected so tests do not depend on the wall clock. */
   today?: () => string
 }
@@ -80,16 +84,25 @@ function toBase64(bytes: Uint8Array): string {
   return Buffer.from(bytes).toString('base64')
 }
 
+/** Memories the runtime recalled, rendered for the prompt. */
+function memoryBlock(ctx: AgentContext<DesignerInput>): string {
+  if (ctx.memories.length === 0) return ''
+  const lines = ctx.memories.map((m) => `- [${m.kind}] ${m.content}`)
+  return `\nWhat you have learned before:\n${lines.join('\n')}\n`
+}
+
 export function createDesignerAgent(
   deps: DesignerDeps,
 ): AgentDefinition<DesignerInput, DesignerOutput> {
   const today = deps.today ?? (() => new Date().toISOString().slice(0, 10))
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- narrow structural type above
+  const db = deps.db as any
 
   /**
    * Generate one variant and prove its lettering is right.
    *
-   * Returns null when the phrase never rendered correctly — the signal to abandon this
-   * variant rather than ship a misspelled design.
+   * Returns null when the phrase never rendered correctly — the signal to abandon
+   * this variant rather than ship a misspelled design.
    */
   async function renderVariant(
     ctx: AgentContext<DesignerInput>,
@@ -108,10 +121,11 @@ export function createDesignerAgent(
         height: PREVIEW_SIZE,
         ...(planned.negativePrompt ? { negativePrompt: planned.negativePrompt } : {}),
       })
+      ctx.recordToolCall({ name: 'fal.generate', args: { model: image.model }, ok: true })
 
-      // Download immediately: fal serves results from a CDN whose retention is
-      // undocumented and whose expired files are unrecoverable. These bytes are the
-      // only durable artifact of the generation.
+      // Download immediately: fal serves from a CDN whose retention is undocumented
+      // and whose expired files are unrecoverable. These bytes are the only durable
+      // artifact of the generation.
       const file = await deps.images.download(image.url)
 
       const base: Omit<RenderedVariant, 'textCheckPassed'> = {
@@ -124,13 +138,11 @@ export function createDesignerAgent(
         height: image.height,
       }
 
-      if (!planned.hasText || !expectedText) {
-        return { ...base, textCheckPassed: 'n/a' }
-      }
+      if (!planned.hasText || !expectedText) return { ...base, textCheckPassed: 'n/a' }
 
       const check = await deps.model.structured({
         model: MODELS.routine,
-        system: resolvePrompt(textCheckPrompt(promptCtx), deps.promptOverrides?.textCheck),
+        system: textCheckPrompt(promptCtx),
         parts: [
           {
             kind: 'image',
@@ -146,7 +158,7 @@ export function createDesignerAgent(
       if (check.output.matches) return { ...base, textCheckPassed: 'passed' }
 
       await ctx.log(
-        'designer.text_check_failed',
+        'pod.text_check_failed',
         `variant ${variantNo} attempt ${attempt}: expected "${expectedText}", read "${check.output.observedText}"`,
         { level: 'warn' },
       )
@@ -156,7 +168,7 @@ export function createDesignerAgent(
       if (attempt === MAX_TEXT_ATTEMPTS - 1) {
         const simpler = await deps.model.structured({
           model: MODELS.routine,
-          system: resolvePrompt(simplifyPrompt(promptCtx), deps.promptOverrides?.simplify),
+          system: simplifyPrompt(promptCtx),
           parts: [
             {
               kind: 'text',
@@ -175,6 +187,11 @@ export function createDesignerAgent(
         if (revised) {
           prompt = revised.prompt
           expectedText = revised.textToRender
+          ctx.remember({
+            kind: 'lesson',
+            content: `"${planned.textToRender}" would not render; "${revised.textToRender}" was tried instead.`,
+            importance: 0.7,
+          })
         }
       }
     }
@@ -183,20 +200,23 @@ export function createDesignerAgent(
   }
 
   return {
-    name: 'designer',
+    key: 'designer',
     outputSchema: designerOutputSchema,
 
     async run(ctx: AgentContext<DesignerInput>): Promise<DesignerOutput> {
       const { conceptId } = ctx.input
+      const divisionId = ctx.division.id
 
-      const [concept] = await deps.db
+      const [concept] = await db
         .select()
         .from(concepts)
-        .where(eq(concepts.id, conceptId))
+        .where(and(eq(concepts.id, conceptId), eq(concepts.divisionId, divisionId)))
         .limit(1)
+
       if (!concept) {
-        // Retrying cannot conjure the row into existence.
-        throw new NonRetriableError(`concept ${conceptId} does not exist`)
+        // Retrying cannot conjure the row into existence. Scoped to the division, so
+        // one division can never design another's concept.
+        throw new NonRetriableError(`concept ${conceptId} does not exist in this division`)
       }
       if (concept.ipRisk === 'high') {
         throw new NonRetriableError(`concept ${conceptId} is ip_risk=high and must not be designed`)
@@ -205,66 +225,60 @@ export function createDesignerAgent(
       /*
        * Idempotency guard.
        *
-       * The orchestrator retries a failed run, and Inngest can redeliver an event, so
-       * this agent must be safe to run twice for the same concept. Without this check
-       * the second run regenerates three images — paying for them again — and then
-       * dies on the unique (concept_id, variant_no) index after the money is spent.
+       * The run loop retries, and Inngest can redeliver an event, so this agent must
+       * be safe to run twice. Without this the second run regenerates three images —
+       * paying for them again — and then dies on the unique (concept_id, variant_no)
+       * index after the money is spent.
        */
-      const existingDesigns = await deps.db
-        .select()
-        .from(designs)
-        .where(eq(designs.conceptId, conceptId))
+      const existingDesigns = await db.select().from(designs).where(eq(designs.conceptId, conceptId))
 
       if (existingDesigns.length > 0) {
         const outcome = await ctx.requestApproval({
           kind: 'design',
           category: concept.style,
+          refTable: 'pod.concepts',
           refId: conceptId,
           summary: `${existingDesigns.length} design variant(s) for "${concept.title}"`,
-          shopId: concept.shopId,
           payload: {
             conceptId,
             conceptTitle: concept.title,
             promptBrief: concept.promptBrief,
             style: concept.style,
-            variants: existingDesigns.map((d) => ({
-              designId: d.id,
-              variantNo: d.variantNo,
-              imageUrl: d.imageUrl,
-              thumbnailUrl: d.thumbnailUrl ?? d.imageUrl,
-              seed: d.seed,
-              sourceModel: d.sourceModel,
-              genPrompt: d.genPrompt,
-              textCheckPassed: d.textCheckPassed ?? 'n/a',
+            variants: existingDesigns.map((d: Record<string, unknown>) => ({
+              designId: d['id'],
+              variantNo: d['variantNo'],
+              imageUrl: d['imageUrl'],
+              thumbnailUrl: d['thumbnailUrl'] ?? d['imageUrl'],
+              seed: d['seed'],
+              sourceModel: d['sourceModel'],
+              genPrompt: d['genPrompt'],
+              textCheckPassed: d['textCheckPassed'] ?? 'n/a',
             })),
           },
         })
 
         await ctx.log(
-          'designer.already_designed',
+          'pod.already_designed',
           `concept already has ${existingDesigns.length} design(s); not regenerating`,
-          { refTable: 'concepts', refId: conceptId },
+          { refTable: 'pod.concepts', refId: conceptId },
         )
 
         return {
           conceptId,
-          designIds: existingDesigns.map((d) => d.id),
+          designIds: existingDesigns.map((d: { id: string }) => d.id),
           approvalId: outcome.approval.id,
           status: outcome.status === 'duplicate' ? 'already_requested' : 'approval_requested',
           abandonedVariants: [],
         }
       }
 
-      const [shop] = concept.shopId
-        ? await deps.db.select().from(shops).where(eq(shops.id, concept.shopId)).limit(1)
-        : []
       const [niche] = concept.nicheId
-        ? await deps.db.select().from(niches).where(eq(niches.id, concept.nicheId)).limit(1)
+        ? await db.select().from(niches).where(eq(niches.id, concept.nicheId)).limit(1)
         : []
 
       const promptCtx: PromptContext = {
-        shopName: shop?.name ?? 'the shop',
-        audience: concept.audience ?? niche?.audience ?? shop?.audience ?? 'gift buyers',
+        shopName: ctx.division.name,
+        audience: concept.audience ?? niche?.audience ?? 'gift buyers',
         today: today(),
       }
 
@@ -272,7 +286,9 @@ export function createDesignerAgent(
 
       const plan = await deps.model.structured({
         model: MODELS.routine,
-        system: resolvePrompt(planPrompt(promptCtx), deps.promptOverrides?.plan),
+        // The operator's edited prompt from the agents table wins; the module default
+        // is the fallback.
+        system: resolvePrompt(planPrompt(promptCtx), ctx.agent.systemPrompt) + memoryBlock(ctx),
         parts: [
           {
             kind: 'text',
@@ -292,12 +308,12 @@ export function createDesignerAgent(
       ctx.recordUsage(plan.usage)
 
       if (plan.output.variants.length !== 3) {
-        // Worth a retry; the wrapper tells the next attempt what went wrong.
+        // Worth a retry; the run loop tells the next attempt what went wrong.
         throw new Error(`expected 3 variants, the model returned ${plan.output.variants.length}`)
       }
 
-      await ctx.log('designer.planned', `planned 3 variants for "${concept.title}"`, {
-        refTable: 'concepts',
+      await ctx.log('pod.planned', `planned 3 variants for "${concept.title}"`, {
+        refTable: 'pod.concepts',
         refId: conceptId,
       })
 
@@ -313,9 +329,9 @@ export function createDesignerAgent(
         if (!rendered) {
           abandoned.push(variantNo)
           await ctx.log(
-            'designer.abandoned',
+            'pod.variant_abandoned',
             `variant ${variantNo} abandoned: lettering never rendered correctly`,
-            { level: 'warn', refTable: 'concepts', refId: conceptId },
+            { level: 'warn', refTable: 'pod.concepts', refId: conceptId },
           )
           continue
         }
@@ -326,14 +342,16 @@ export function createDesignerAgent(
           rendered.contentType,
         )
 
-        const [row] = await deps.db
+        const [row] = await db
           .insert(designs)
           .values({
+            divisionId,
             conceptId,
+            taskId: ctx.task?.id ?? null,
             variantNo,
             imageUrl: object.url,
-            // The same asset for now; a separate print-resolution file is produced
-            // once the operator picks this variant.
+            // The same asset for now; a print-resolution file is produced once the
+            // operator picks this variant.
             thumbnailUrl: object.url,
             sourceModel: rendered.model,
             genPrompt: rendered.prompt,
@@ -343,7 +361,7 @@ export function createDesignerAgent(
             dpi: 72,
             textCheckPassed: rendered.textCheckPassed,
             status: 'pending_approval',
-            createdBy: 'agent:designer',
+            actor: `agent:${ctx.agent.id}`,
           })
           .returning()
 
@@ -364,16 +382,22 @@ export function createDesignerAgent(
       /* ------------- hand it to the operator ------------- */
 
       if (stored.length === 0) {
-        await deps.db
+        await db
           .update(concepts)
           .set({ status: 'needs_human', updatedAt: new Date() })
           .where(eq(concepts.id, conceptId))
 
-        await ctx.log(
-          'designer.needs_human',
-          `no variant rendered correctly for "${concept.title}"`,
-          { level: 'error', refTable: 'concepts', refId: conceptId },
-        )
+        ctx.remember({
+          kind: 'lesson',
+          content: `Concept "${concept.title}" could not be rendered legibly in ${MAX_TEXT_ATTEMPTS} attempts per variant.`,
+          importance: 0.9,
+        })
+
+        await ctx.log('pod.needs_human', `no variant rendered correctly for "${concept.title}"`, {
+          level: 'error',
+          refTable: 'pod.concepts',
+          refId: conceptId,
+        })
 
         return {
           conceptId,
@@ -388,9 +412,9 @@ export function createDesignerAgent(
         kind: 'design',
         // Designs graduate per style, which is what actually varies in quality.
         category: concept.style,
+        refTable: 'pod.concepts',
         refId: conceptId,
         summary: `${stored.length} design variant(s) for "${concept.title}"`,
-        shopId: concept.shopId,
         payload: {
           conceptId,
           conceptTitle: concept.title,
@@ -400,10 +424,16 @@ export function createDesignerAgent(
         },
       })
 
-      await deps.db
+      await db
         .update(concepts)
         .set({ status: 'designed', updatedAt: new Date() })
         .where(eq(concepts.id, conceptId))
+
+      ctx.remember({
+        kind: 'result',
+        content: `Produced ${stored.length} variants for "${concept.title}" (${concept.style}).`,
+        importance: 0.3,
+      })
 
       return {
         conceptId,

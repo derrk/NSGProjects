@@ -296,6 +296,21 @@ h1.screen-title {
   padding: 10px;
 }
 
+pre.payload {
+  margin: 0 0 14px;
+  padding: 11px 13px;
+  background: var(--bg-sunken);
+  border: 1px solid var(--edge);
+  border-radius: var(--radius);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--muted);
+  max-height: 260px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 /* ---------------------------------------------------------------- *
  * Actions
  * ---------------------------------------------------------------- */
@@ -351,6 +366,93 @@ button.act:focus-visible,
 .stations a:focus-visible {
   outline: 2px solid var(--amber);
   outline-offset: 2px;
+}
+
+/* ---------------------------------------------------------------- *
+ * Stat rows and tables
+ * ---------------------------------------------------------------- */
+
+.stat-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.stat {
+  border: 1px solid var(--edge);
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+  padding: 11px 13px;
+}
+
+.stat-label {
+  display: block;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 5px;
+}
+
+.stat-value {
+  display: block;
+  font-size: 21px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+.stat-value.is-waiting {
+  color: var(--amber);
+}
+
+h2.section-title {
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 30px 0 10px;
+}
+
+table.roster {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid var(--edge);
+  border-radius: var(--radius);
+  font-size: 12px;
+}
+
+table.roster th {
+  text-align: left;
+  font-size: 10px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 400;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--edge);
+  background: var(--bg-sunken);
+}
+
+table.roster td {
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--edge);
+}
+
+table.roster tr:last-child td {
+  border-bottom: none;
+}
+
+table.roster td.num {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+@media (max-width: 560px) {
+  table.roster {
+    display: block;
+    overflow-x: auto;
+  }
 }
 
 /* ---------------------------------------------------------------- *

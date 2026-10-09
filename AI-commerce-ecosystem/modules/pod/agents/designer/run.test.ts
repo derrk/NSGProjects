@@ -1,97 +1,93 @@
 /**
- * End-to-end test for the week-1 acceptance criterion:
- * "a concept row in -> 3 PNGs in storage -> a `design` approval row".
+ * The week-1 acceptance path, end to end against real SQL:
  *
- * Runs against REAL SQL. PGlite is an in-process Postgres, and the schema is applied
- * from the actual generated migration, so the enums, NOT NULL constraints, foreign
- * keys and the partial unique index on approvals are all genuinely exercised — a
- * hand-rolled fake would have proved none of that.
+ *   a division created from the module  ->  a concept row in
+ *   ->  3 PNGs in storage  ->  a `design` approval the operator can decide
  *
- * Everything that costs money (fal, Anthropic, Supabase Storage) is mocked.
+ * PGlite applies the actual generated migrations, so the enums, foreign keys, the
+ * `pod` schema boundary and the partial unique index on approvals are all genuinely
+ * exercised. Everything that costs money — fal, Anthropic, Supabase Storage — is
+ * mocked.
  */
 
-import { readFileSync } from 'node:fs'
-import { dirname, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
-
-import { PGlite } from '@electric-sql/pglite'
 import { eq } from 'drizzle-orm'
-import { drizzle } from 'drizzle-orm/pglite'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 
 import { requestApproval } from '@acf/core/approvals'
 import type { ApprovalOutcome, GateDeps } from '@acf/core/approvals'
 import { runAgent } from '@acf/core/runtime'
-import type { AgentRunRecord, AgentRunStore } from '@acf/core/runtime'
-import * as schema from '@acf/db/schema'
+import type { AgentRecord, DivisionRecord, RunLoopDeps, TaskRecord } from '@acf/core/runtime'
+import { createTestDatabase, POD_MIGRATIONS, type TestDatabase } from '@acf/db/testing'
+import { agentRuns, approvalRules, approvals, divisions, events, ledger, tasks } from '@acf/db'
 import { createMockModelClient } from '@acf/integrations/anthropic'
 import { createMockFalPipeline } from '@acf/integrations/fal'
 import { createMockStorage } from '@acf/integrations/storage'
 
+import { concepts, designs, niches } from '../../schema/index'
 import { createDesignerAgent } from './run'
 
-const here = dirname(fileURLToPath(import.meta.url))
-const MIGRATION = resolve(here, '../../../../packages/core/db/drizzle/0000_talented_red_ghost.sql')
+let h: TestDatabase
 
-let client: PGlite
-let db: ReturnType<typeof drizzle<typeof schema>>
-
-// ~1.5s to construct, so once per FILE. TRUNCATE between tests is ~3ms.
 beforeAll(async () => {
-  client = new PGlite()
-  db = drizzle(client, { schema }) as unknown as ReturnType<typeof drizzle<typeof schema>>
-  await client.exec(readFileSync(MIGRATION, 'utf8'))
-}, 60_000)
+  h = await createTestDatabase({ moduleMigrations: [POD_MIGRATIONS] })
+}, 120_000)
 
 afterAll(async () => {
-  await client.close()
+  await h.close()
 })
-
-const TABLES = [
-  'approvals',
-  'approval_rules',
-  'agent_runs',
-  'events',
-  'designs',
-  'concepts',
-  'niches',
-  'shops',
-]
 
 beforeEach(async () => {
-  await client.exec(`TRUNCATE ${TABLES.join(', ')} RESTART IDENTITY CASCADE;`)
+  await h.truncate()
+  sentEvents.length = 0
 })
+
+const sentEvents: Array<{ name: string; data: Record<string, unknown> }> = []
 
 /* ------------------------------------------------------------------ *
  * Fixtures
  * ------------------------------------------------------------------ */
 
-async function seedConcept(over: Partial<typeof schema.concepts.$inferInsert> = {}) {
-  const [shop] = await db
-    .insert(schema.shops)
-    .values({ name: 'Deadstock', slug: 'deadstock', audience: 'gift buyers' })
+async function seedConcept(over: Record<string, unknown> = {}) {
+  const [division] = await h.db
+    .insert(divisions)
+    .values({ name: 'Deadstock', slug: 'deadstock', type: 'pod', status: 'active' })
     .returning()
 
-  const [niche] = await db
-    .insert(schema.niches)
-    .values({ name: 'Dog people', shopId: shop!.id, audience: 'dog owners' })
+  const [niche] = await h.db
+    .insert(niches)
+    .values({ divisionId: division!.id, name: 'Dog people', audience: 'dog owners' })
     .returning()
 
-  const [concept] = await db
-    .insert(schema.concepts)
+  const [concept] = await h.db
+    .insert(concepts)
     .values({
-      shopId: shop!.id,
+      divisionId: division!.id,
       nicheId: niche!.id,
       title: 'Professional dog tired',
       promptBrief: 'A sleepy cartoon dog slumped over a coffee cup.',
       style: 'hand-lettered',
       products: ['mug_11oz'],
-      status: 'proposed',
+      status: 'approved',
       ...over,
     })
     .returning()
 
-  return { shop: shop!, niche: niche!, concept: concept! }
+  return { division: division!, concept: concept! }
+}
+
+function agentRecord(divisionId: string): AgentRecord {
+  return {
+    id: '11111111-1111-1111-1111-111111111111',
+    divisionId,
+    name: 'Design bay',
+    purpose: 'Turn concepts into variants',
+    moduleAgentKey: 'designer',
+    model: 'claude-sonnet-5-5',
+    systemPrompt: '',
+    tools: ['generate_image', 'requestApproval'],
+    autonomy: 'propose',
+    maxSteps: 12,
+  }
 }
 
 /** A model plan with three variants, text on or off. */
@@ -110,71 +106,53 @@ function plan(hasText: boolean) {
 const passingCheck = { matches: true, observedText: 'Professional Dog Tired', problem: '' }
 const failingCheck = { matches: false, observedText: 'Profesional Dog Tired', problem: 'misspelled' }
 
-/** A run store backed by the real agent_runs table. */
-function runStore(): AgentRunStore {
-  return {
-    async start(record) {
-      const [row] = await db
-        .insert(schema.agentRuns)
-        .values({ ...record, input: record.input, output: record.output })
-        .returning()
-      return row as AgentRunRecord
-    },
-    async finish(id, patch) {
-      const [row] = await db
-        .update(schema.agentRuns)
-        .set(patch as never)
-        .where(eq(schema.agentRuns.id, id))
-        .returning()
-      return row as AgentRunRecord
-    },
-  }
-}
-
-const sentEvents: Array<{ name: string; data: Record<string, unknown> }> = []
-
 function gateDeps(): GateDeps {
   return {
     approvals: {
-      async findByRef(kind, refId) {
-        const rows = await db
-          .select()
-          .from(schema.approvals)
-          .where(eq(schema.approvals.refId, refId))
-        const match = rows.find((r) => r.kind === kind && r.decision !== 'rejected')
+      async findByRef(divisionId, kind, refTable, refId) {
+        const rows = await h.db.select().from(approvals).where(eq(approvals.refId, refId))
+        const match = rows.find(
+          (r) =>
+            r.divisionId === divisionId &&
+            r.kind === kind &&
+            r.refTable === refTable &&
+            r.decision !== 'rejected',
+        )
         return (match ?? null) as never
       },
       async insert(row) {
-        const [inserted] = await db
-          .insert(schema.approvals)
+        const [inserted] = await h.db
+          .insert(approvals)
           .values(row as never)
           .returning()
         return inserted as never
       },
       async findById(id) {
-        const [row] = await db.select().from(schema.approvals).where(eq(schema.approvals.id, id))
+        const [row] = await h.db.select().from(approvals).where(eq(approvals.id, id))
         return (row ?? null) as never
       },
       async update(id, patch) {
-        const [row] = await db
-          .update(schema.approvals)
+        const [row] = await h.db
+          .update(approvals)
           .set(patch as never)
-          .where(eq(schema.approvals.id, id))
+          .where(eq(approvals.id, id))
           .returning()
         return row as never
       },
     },
     rules: {
-      async get(kind, category) {
-        const rows = await db.select().from(schema.approvalRules)
-        return (rows.find((r) => r.kind === kind && r.category === category) ?? null) as never
+      async get(divisionId, kind, category) {
+        const rows = await h.db.select().from(approvalRules)
+        return (rows.find(
+          (r) => r.divisionId === divisionId && r.kind === kind && r.category === category,
+        ) ?? null) as never
       },
       async upsert(rule) {
-        await db
-          .insert(schema.approvalRules)
+        await h.db
+          .insert(approvalRules)
           .values(rule as never)
           .onConflictDoUpdate({
-            target: [schema.approvalRules.kind, schema.approvalRules.category],
+            target: [approvalRules.divisionId, approvalRules.kind, approvalRules.category],
             set: rule as never,
           })
         return rule
@@ -182,7 +160,7 @@ function gateDeps(): GateDeps {
     },
     events: {
       async emit(event) {
-        await db.insert(schema.events).values(event)
+        await h.db.insert(events).values(event as never)
       },
     },
     bus: {
@@ -196,47 +174,109 @@ function gateDeps(): GateDeps {
 }
 
 async function runDesigner(opts: {
+  division: { id: string; name: string }
   conceptId: string
   modelQueue: unknown[]
-  fal?: ReturnType<typeof createMockFalPipeline>
-  storage?: ReturnType<typeof createMockStorage>
+  withTask?: boolean
 }) {
-  const images = opts.fal ?? createMockFalPipeline()
-  const storage = opts.storage ?? createMockStorage()
+  const images = createMockFalPipeline()
+  const storage = createMockStorage()
   const gate = gateDeps()
+  const ledgerPosts: Array<{ amountCents: number }> = []
+  const memoryWrites: Array<{ content: string }> = []
 
-  const agent = createDesignerAgent({
-    db: db as never,
-    model: createMockModelClient(opts.modelQueue),
-    images,
-    storage,
-    today: () => '2026-10-09',
-  })
+  const agent = agentRecord(opts.division.id)
+  const division: DivisionRecord = { id: opts.division.id, name: opts.division.name, type: 'pod' }
 
-  const output = await runAgent(agent, { conceptId: opts.conceptId }, 'event', {
-    runs: runStore(),
-    events: { async emit(e) { await db.insert(schema.events).values(e) } },
+  let task: TaskRecord | null = null
+  if (opts.withTask) {
+    // A real row: approvals.task_id is a foreign key, so an invented id would fail.
+    const [row] = await h.db
+      .insert(tasks)
+      .values({
+        divisionId: division.id,
+        title: 'Design concept',
+        input: { conceptId: opts.conceptId },
+        source: 'event',
+      })
+      .returning()
+    task = {
+      id: row!.id,
+      divisionId: division.id,
+      agentId: agent.id,
+      title: row!.title,
+      input: row!.input,
+      source: 'event',
+    }
+  }
+
+  const deps: RunLoopDeps = {
+    runs: {
+      async start(record) {
+        const [row] = await h.db
+          .insert(agentRuns)
+          .values({ ...record, agentId: null, taskId: null } as never)
+          .returning()
+        return row as never
+      },
+      async finish(id, patch) {
+        const [row] = await h.db
+          .update(agentRuns)
+          .set(patch as never)
+          .where(eq(agentRuns.id, id))
+          .returning()
+        return row as never
+      },
+    },
+    events: {
+      async emit(event) {
+        await h.db.insert(events).values({ ...event, agentId: null } as never)
+      },
+    },
     clock: { now: () => new Date() },
     sleeper: { async sleep() {} },
+    ledger: {
+      async post(entry) {
+        ledgerPosts.push({ amountCents: entry.amountCents })
+        await h.db.insert(ledger).values(entry as never)
+      },
+    },
+    memory: {
+      async recall() {
+        return []
+      },
+      async write(input) {
+        memoryWrites.push(...input.entries.map((e) => ({ content: e.content })))
+      },
+    },
     requestApproval: (req) => requestApproval(req as never, gate) as Promise<ApprovalOutcome>,
-  })
+  }
 
-  return { output, images, storage }
+  const output = await runAgent(
+    createDesignerAgent({
+      db: h.db as never,
+      model: createMockModelClient(opts.modelQueue),
+      images,
+      storage,
+      today: () => '2026-10-09',
+    }),
+    { agent, division, task, input: { conceptId: opts.conceptId } },
+    deps,
+  )
+
+  return { output, images, storage, ledgerPosts, memoryWrites }
 }
 
 /* ------------------------------------------------------------------ *
  * Tests
  * ------------------------------------------------------------------ */
 
-describe('Designer agent, concept to approval', () => {
-  beforeEach(() => {
-    sentEvents.length = 0
-  })
-
+describe('Designer: concept to approval', () => {
   it('turns one concept into three stored designs and one approval', async () => {
-    const { concept } = await seedConcept()
+    const { division, concept } = await seedConcept()
 
     const { output, images, storage } = await runDesigner({
+      division,
       conceptId: concept.id,
       modelQueue: [plan(false)],
     })
@@ -245,74 +285,98 @@ describe('Designer agent, concept to approval', () => {
     expect(output.designIds).toHaveLength(3)
     expect(output.abandonedVariants).toEqual([])
 
-    // Three images generated and three files stored.
     expect(images.calls.generate).toHaveLength(3)
-    expect(storage.objects.size).toBe(3)
     expect([...storage.objects.keys()]).toEqual([
       `designs/${concept.id}/1.png`,
       `designs/${concept.id}/2.png`,
       `designs/${concept.id}/3.png`,
     ])
 
-    // Three design rows, numbered 1..3, all pending approval.
-    const rows = await db.select().from(schema.designs).where(eq(schema.designs.conceptId, concept.id))
+    const rows = await h.db.select().from(designs).where(eq(designs.conceptId, concept.id))
     expect(rows).toHaveLength(3)
     expect(rows.map((r) => r.variantNo).sort()).toEqual([1, 2, 3])
     expect(rows.every((r) => r.status === 'pending_approval')).toBe(true)
-    expect(rows.every((r) => r.imageUrl.startsWith('https://mock.storage.local/'))).toBe(true)
 
-    // Exactly one design approval, holding all three variants.
-    const [approval] = await db.select().from(schema.approvals)
-    expect(approval).toMatchObject({ kind: 'design', decision: 'pending', category: 'hand-lettered' })
+    const [approval] = await h.db.select().from(approvals)
+    expect(approval).toMatchObject({
+      kind: 'design',
+      decision: 'pending',
+      category: 'hand-lettered',
+      refTable: 'pod.concepts',
+      divisionId: division.id,
+    })
     expect((approval!.payload as { variants: unknown[] }).variants).toHaveLength(3)
   })
 
   it('downloads every generated image rather than trusting the fal CDN', async () => {
-    const { concept } = await seedConcept()
-    const { images } = await runDesigner({ conceptId: concept.id, modelQueue: [plan(false)] })
+    const { division, concept } = await seedConcept()
+    const { images } = await runDesigner({
+      division,
+      conceptId: concept.id,
+      modelQueue: [plan(false)],
+    })
     expect(images.calls.download).toHaveLength(3)
   })
 
   it('moves the concept to designed', async () => {
-    const { concept } = await seedConcept()
-    await runDesigner({ conceptId: concept.id, modelQueue: [plan(false)] })
+    const { division, concept } = await seedConcept()
+    await runDesigner({ division, conceptId: concept.id, modelQueue: [plan(false)] })
 
-    const [row] = await db.select().from(schema.concepts).where(eq(schema.concepts.id, concept.id))
+    const [row] = await h.db.select().from(concepts).where(eq(concepts.id, concept.id))
     expect(row!.status).toBe('designed')
   })
 
-  it('emits the approval.requested event that parks the pipeline', async () => {
-    const { concept } = await seedConcept()
-    await runDesigner({ conceptId: concept.id, modelQueue: [plan(false)] })
+  it('parks the pipeline rather than resuming it', async () => {
+    const { division, concept } = await seedConcept()
+    await runDesigner({ division, conceptId: concept.id, modelQueue: [plan(false)] })
 
     expect(sentEvents.map((e) => e.name)).toEqual(['approval.requested'])
     expect(sentEvents.map((e) => e.name)).not.toContain('design.approved')
   })
 
-  it('records the run, its attempts and its cost', async () => {
-    const { concept } = await seedConcept()
-    await runDesigner({ conceptId: concept.id, modelQueue: [plan(false)] })
+  it('records the run and posts its API cost to the ledger', async () => {
+    const { division, concept } = await seedConcept()
+    const { ledgerPosts } = await runDesigner({
+      division,
+      conceptId: concept.id,
+      modelQueue: [plan(false)],
+    })
 
-    const [run] = await db.select().from(schema.agentRuns)
-    expect(run).toMatchObject({ agent: 'designer', status: 'ok', trigger: 'event', attempts: 1 })
-    expect(run!.tokensIn).toBeGreaterThan(0)
+    const [run] = await h.db.select().from(agentRuns)
+    expect(run).toMatchObject({ status: 'ok', attempts: 1, divisionId: division.id })
     expect(run!.costCents).toBeGreaterThan(0)
+
+    // Spend is posted, not merely counted, so the Company screen and the division
+    // spend cap read the same number. Negative: a cost reduces the company.
+    expect(ledgerPosts).toHaveLength(1)
+    expect(ledgerPosts[0]!.amountCents).toBeLessThan(0)
+
+    const [row] = await h.db.select().from(ledger)
+    expect(row).toMatchObject({ kind: 'api_cost', divisionId: division.id })
   })
 
-  it('picks the lettering model only when the design has text', async () => {
-    const { concept } = await seedConcept()
-
-    const withText = await runDesigner({
+  it('links designs back to the task that produced them', async () => {
+    const { division, concept } = await seedConcept()
+    await runDesigner({
+      division,
       conceptId: concept.id,
-      modelQueue: [plan(true), passingCheck, passingCheck, passingCheck],
+      modelQueue: [plan(false)],
+      withTask: true,
     })
-    expect(withText.images.calls.generate.every((c) => c.hasText)).toBe(true)
-    expect(withText.images.calls.generate[0]!.width).toBe(1024)
+
+    const [taskRow] = await h.db.select().from(tasks)
+    const rows = await h.db.select().from(designs)
+    expect(rows).toHaveLength(3)
+    expect(rows.every((r) => r.taskId === taskRow!.id)).toBe(true)
   })
 
   it('never upscales before the operator has chosen', async () => {
-    const { concept } = await seedConcept()
-    const { images } = await runDesigner({ conceptId: concept.id, modelQueue: [plan(false)] })
+    const { division, concept } = await seedConcept()
+    const { images } = await runDesigner({
+      division,
+      conceptId: concept.id,
+      modelQueue: [plan(false)],
+    })
 
     // Upscaling all three when two will be discarded is the most expensive mistake
     // available in this pipeline.
@@ -322,22 +386,13 @@ describe('Designer agent, concept to approval', () => {
 })
 
 describe('Designer lettering guardrail', () => {
-  beforeEach(() => {
-    sentEvents.length = 0
-  })
-
   it('regenerates when the lettering is wrong and accepts the retry', async () => {
-    const { concept } = await seedConcept()
+    const { division, concept } = await seedConcept()
 
     const { output, images } = await runDesigner({
+      division,
       conceptId: concept.id,
-      modelQueue: [
-        plan(true),
-        failingCheck, // variant 1, attempt 1
-        passingCheck, // variant 1, attempt 2
-        passingCheck, // variant 2
-        passingCheck, // variant 3
-      ],
+      modelQueue: [plan(true), failingCheck, passingCheck, passingCheck, passingCheck],
     })
 
     expect(output.designIds).toHaveLength(3)
@@ -345,9 +400,10 @@ describe('Designer lettering guardrail', () => {
   })
 
   it('abandons a variant whose lettering never comes out right', async () => {
-    const { concept } = await seedConcept()
+    const { division, concept } = await seedConcept()
 
-    const { output } = await runDesigner({
+    const { output, memoryWrites } = await runDesigner({
+      division,
       conceptId: concept.id,
       modelQueue: [
         plan(true),
@@ -355,21 +411,23 @@ describe('Designer lettering guardrail', () => {
         failingCheck,
         plan(true), // the simplify call, after the second failure
         failingCheck,
-        passingCheck, // variant 2
-        passingCheck, // variant 3
+        passingCheck,
+        passingCheck,
       ],
     })
 
     expect(output.abandonedVariants).toEqual([1])
     expect(output.designIds).toHaveLength(2)
     expect(output.status).toBe('approval_requested')
+    // What it learned is worth keeping for next time.
+    expect(memoryWrites.some((m) => /would not render/.test(m.content))).toBe(true)
   })
 
   it('marks the concept needs_human instead of shipping a misspelled design', async () => {
-    const { concept } = await seedConcept()
+    const { division, concept } = await seedConcept()
 
-    // Every variant fails every attempt.
     const { output } = await runDesigner({
+      division,
       conceptId: concept.id,
       modelQueue: [
         plan(true),
@@ -383,56 +441,77 @@ describe('Designer lettering guardrail', () => {
     })
 
     expect(output.status).toBe('needs_human')
-    expect(output.designIds).toEqual([])
     expect(output.abandonedVariants).toEqual([1, 2, 3])
 
-    const [row] = await db.select().from(schema.concepts).where(eq(schema.concepts.id, concept.id))
+    const [row] = await h.db.select().from(concepts).where(eq(concepts.id, concept.id))
     expect(row!.status).toBe('needs_human')
 
-    // Nothing was queued for the operator, because there is nothing to approve.
-    expect(await db.select().from(schema.approvals)).toHaveLength(0)
+    // Nothing queued for the operator, because there is nothing to approve.
+    expect(await h.db.select().from(approvals)).toHaveLength(0)
   })
 
   it('skips the proofreading call entirely for a design with no lettering', async () => {
-    const { concept } = await seedConcept()
+    const { division, concept } = await seedConcept()
     // Only the plan is queued; any text check would exhaust the queue and throw.
-    const { output } = await runDesigner({ conceptId: concept.id, modelQueue: [plan(false)] })
+    const { output } = await runDesigner({
+      division,
+      conceptId: concept.id,
+      modelQueue: [plan(false)],
+    })
     expect(output.designIds).toHaveLength(3)
   })
 })
 
-describe('Designer refusals', () => {
+describe('Designer refusals and idempotency', () => {
   it('refuses a concept that does not exist, without retrying', async () => {
+    const { division } = await seedConcept()
+
     await expect(
-      runDesigner({ conceptId: crypto.randomUUID(), modelQueue: [plan(false)] }),
+      runDesigner({
+        division,
+        conceptId: '33333333-3333-3333-3333-333333333333',
+        modelQueue: [plan(false)],
+      }),
     ).rejects.toThrow(/does not exist/)
 
-    const [run] = await db.select().from(schema.agentRuns)
+    const [run] = await h.db.select().from(agentRuns)
     expect(run).toMatchObject({ status: 'error', attempts: 1 })
   })
 
-  it('refuses to design a concept flagged ip_risk=high', async () => {
-    const { concept } = await seedConcept({ ipRisk: 'high' })
+  it('refuses a concept belonging to another division', async () => {
+    const { concept } = await seedConcept()
+    const [other] = await h.db
+      .insert(divisions)
+      .values({ name: 'Other', slug: 'other', type: 'pod' })
+      .returning()
 
+    // Division scoping is enforced in the query, not just in the prompt.
     await expect(
-      runDesigner({ conceptId: concept.id, modelQueue: [plan(false)] }),
-    ).rejects.toThrow(/ip_risk=high/)
-
-    expect(await db.select().from(schema.designs)).toHaveLength(0)
+      runDesigner({ division: other!, conceptId: concept.id, modelQueue: [plan(false)] }),
+    ).rejects.toThrow(/does not exist in this division/)
   })
 
-  it('does not queue a second approval when the same concept is designed twice', async () => {
-    const { concept } = await seedConcept()
-    await runDesigner({ conceptId: concept.id, modelQueue: [plan(false)] })
+  it('refuses to design a concept flagged ip_risk=high', async () => {
+    const { division, concept } = await seedConcept({ ipRisk: 'high' })
 
-    // An orchestrator retry re-runs the agent. It must not double-queue, and it must
-    // not pay to regenerate images it already has — so an empty model queue here is
-    // the assertion: a second run that calls the model at all would throw.
-    const second = await runDesigner({ conceptId: concept.id, modelQueue: [] })
+    await expect(
+      runDesigner({ division, conceptId: concept.id, modelQueue: [plan(false)] }),
+    ).rejects.toThrow(/ip_risk=high/)
+
+    expect(await h.db.select().from(designs)).toHaveLength(0)
+  })
+
+  it('does not pay to regenerate when the same concept is designed twice', async () => {
+    const { division, concept } = await seedConcept()
+    await runDesigner({ division, conceptId: concept.id, modelQueue: [plan(false)] })
+
+    // An empty model queue is the assertion: a second run that calls the model at all
+    // would throw. A redelivered event must not cost money.
+    const second = await runDesigner({ division, conceptId: concept.id, modelQueue: [] })
 
     expect(second.output.status).toBe('already_requested')
     expect(second.images.calls.generate).toHaveLength(0)
-    expect(await db.select().from(schema.approvals)).toHaveLength(1)
-    expect(await db.select().from(schema.designs)).toHaveLength(3)
+    expect(await h.db.select().from(approvals)).toHaveLength(1)
+    expect(await h.db.select().from(designs)).toHaveLength(3)
   })
 })

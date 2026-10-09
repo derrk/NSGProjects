@@ -6,13 +6,13 @@ import { revalidatePath } from 'next/cache'
 import { gateDeps } from '@/lib/gate'
 
 /**
- * Record the operator's decision on one design crate.
+ * Record the operator's choice of one design variant.
  *
- * Picking a variant is recorded as an `edited` decision carrying the chosen design id,
- * not as a plain approval: the agent proposed three options and the operator chose, so
- * the pipeline should resume with the operator's payload. It also keeps the graduated-
- * autonomy counters honest — an edit is not a clean approval, and designs that still
- * need a human to choose between them have not earned autonomy.
+ * Picking is recorded as an `edited` decision carrying the chosen design id, not a
+ * plain approval. The agent proposed three options and the operator chose one, so the
+ * pipeline resumes with the operator's payload — and the graduated-autonomy counters
+ * stay honest: a design set that still needs a human to choose between it has not
+ * earned autonomy.
  */
 export async function chooseVariant(formData: FormData): Promise<void> {
   const approvalId = String(formData.get('approvalId') ?? '')
@@ -34,12 +34,29 @@ export async function chooseVariant(formData: FormData): Promise<void> {
   revalidatePath('/inbox')
 }
 
-/** Reject all three variants. The concept goes back for a fresh set. */
+/** Reject all variants. The concept goes back for a fresh set. */
 export async function burnCrate(formData: FormData): Promise<void> {
   const approvalId = String(formData.get('approvalId') ?? '')
   if (!approvalId) throw new Error('approvalId is required')
 
   await decideApproval({ approvalId, decision: 'rejected', decidedBy: 'operator' }, gateDeps())
+  revalidatePath('/inbox')
+}
 
+/**
+ * Approve or reject any approval kind.
+ *
+ * Backs the generic JSON card, so a module that has not written a bespoke card yet is
+ * still fully usable from the inbox.
+ */
+export async function decideGeneric(formData: FormData): Promise<void> {
+  const approvalId = String(formData.get('approvalId') ?? '')
+  const raw = String(formData.get('decision') ?? '')
+  if (!approvalId) throw new Error('approvalId is required')
+  if (raw !== 'approved' && raw !== 'rejected') {
+    throw new Error(`unsupported decision "${raw}"`)
+  }
+
+  await decideApproval({ approvalId, decision: raw, decidedBy: 'operator' }, gateDeps())
   revalidatePath('/inbox')
 }

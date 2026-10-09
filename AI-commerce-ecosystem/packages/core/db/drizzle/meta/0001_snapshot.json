@@ -1,6 +1,6 @@
 {
-  "id": "08100629-1440-4a44-a14b-e35da640f4e3",
-  "prevId": "d3de4f97-f618-412b-8590-feb4d6525d52",
+  "id": "65d7bca4-2410-4084-93e4-43288ea17adf",
+  "prevId": "55fb30e4-1ffb-4da2-bbee-937c14dcc5e3",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -2127,7 +2127,7 @@
         },
         "amount_cents": {
           "name": "amount_cents",
-          "type": "bigint",
+          "type": "numeric(18, 6)",
           "primaryKey": false,
           "notNull": true
         },

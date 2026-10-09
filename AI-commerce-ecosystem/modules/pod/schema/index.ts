@@ -10,6 +10,9 @@
  * cares about.
  */
 
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
 import { sql } from 'drizzle-orm'
 import {
   boolean,
@@ -26,6 +29,9 @@ import {
 } from 'drizzle-orm/pg-core'
 
 export const pod = pgSchema('pod')
+
+/** This module's migration folder, applied after core's. */
+export const POD_MIGRATIONS = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'drizzle')
 
 /* ------------------------------------------------------------------ *
  * Enums (namespaced so they cannot collide with another module's)

@@ -5,7 +5,8 @@
   "type": "module",
   "exports": {
     ".": "./module.ts",
-    "./designer": "./agents/designer/index.ts"
+    "./designer": "./agents/designer/index.ts",
+    "./schema": "./schema/index.ts"
   },
   "dependencies": {
     "@acf/core": "workspace:*",

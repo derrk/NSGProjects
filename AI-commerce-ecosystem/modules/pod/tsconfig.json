@@ -11,6 +11,7 @@
     "module.ts",
     "agents/**/*.ts",
     "tools/**/*.ts",
-    "schema/**/*.ts"
+    "schema/**/*.ts",
+    "drizzle.config.ts"
   ]
 }

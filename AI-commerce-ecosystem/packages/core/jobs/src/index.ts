@@ -1,4 +1,5 @@
 export * from './client'
 export * from './events'
 export * from './adapters'
+export * from './due'
 export { functions } from './functions/index'

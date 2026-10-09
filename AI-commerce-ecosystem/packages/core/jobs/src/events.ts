@@ -1,24 +1,38 @@
 /**
- * The internal event contract (SPEC.md §Inngest events).
+ * The internal event contract (SPEC.md §Orchestrator).
  *
  * These schemas are the ONLY place event payload shapes are defined.
  *
- * Keep them transform-free. Inngest 4 requires an event schema's input and output
+ * Keep them transform-free: Inngest 4 requires an event schema's input and output
  * types to match, so `.default()` and `z.coerce.*` are compile errors here with a
- * fairly opaque message ("Transforms not supported"). Use `.optional()` and apply
- * defaults in the handler instead.
+ * fairly opaque message. Use `.optional()` and apply defaults in the handler.
  */
 
 import { eventType } from 'inngest'
 import * as z from 'zod'
 
+export const taskCreated = eventType('task.created', {
+  schema: z.object({
+    taskId: z.string(),
+    divisionId: z.string(),
+    agentId: z.string().nullable(),
+    source: z.string(),
+  }),
+})
+
+export const taskRetry = eventType('task.retry', {
+  schema: z.object({ taskId: z.string(), divisionId: z.string() }),
+})
+
 /** What the approval gate puts on the wire for every decision it makes. */
 const approvalPayload = z.object({
   approvalId: z.string(),
+  divisionId: z.string(),
   kind: z.string(),
   category: z.string(),
+  refTable: z.string(),
   refId: z.string(),
-  shopId: z.string().nullable(),
+  taskId: z.string().nullable(),
   payload: z.unknown(),
   actor: z.string(),
   ts: z.string(),
@@ -26,31 +40,17 @@ const approvalPayload = z.object({
 
 export const approvalRequested = eventType('approval.requested', { schema: approvalPayload })
 
-export const conceptApproved = eventType('concept.approved', { schema: approvalPayload })
-export const conceptRejected = eventType('concept.rejected', { schema: approvalPayload })
-
-export const designApproved = eventType('design.approved', { schema: approvalPayload })
-export const designRejected = eventType('design.rejected', { schema: approvalPayload })
-
-export const productApproved = eventType('product.approved', { schema: approvalPayload })
-export const productRejected = eventType('product.rejected', { schema: approvalPayload })
-
-export const replyApproved = eventType('reply.approved', { schema: approvalPayload })
-export const replyRejected = eventType('reply.rejected', { schema: approvalPayload })
-
-export const priceChangeApproved = eventType('price_change.approved', { schema: approvalPayload })
-export const priceChangeRejected = eventType('price_change.rejected', { schema: approvalPayload })
-
-export const shopProposalApproved = eventType('shop_proposal.approved', { schema: approvalPayload })
-export const shopProposalRejected = eventType('shop_proposal.rejected', { schema: approvalPayload })
+export const approvalDecided = eventType('approval.decided', {
+  schema: approvalPayload.extend({ decision: z.string() }),
+})
 
 /** Manual "Run now" from a station drawer. */
 export const agentManual = eventType('agent.manual', {
   schema: z.object({
-    agent: z.string(),
-    shopId: z.string().nullable(),
+    agentId: z.string(),
+    divisionId: z.string(),
     actor: z.string(),
-    ts: z.string(),
+    input: z.unknown(),
   }),
 })
 
@@ -58,20 +58,11 @@ export const systemPaused = eventType('system.paused', {
   schema: z.object({ paused: z.boolean(), actor: z.string(), ts: z.string() }),
 })
 
-export const events = {
+export const coreEvents = {
+  taskCreated,
+  taskRetry,
   approvalRequested,
-  conceptApproved,
-  conceptRejected,
-  designApproved,
-  designRejected,
-  productApproved,
-  productRejected,
-  replyApproved,
-  replyRejected,
-  priceChangeApproved,
-  priceChangeRejected,
-  shopProposalApproved,
-  shopProposalRejected,
+  approvalDecided,
   agentManual,
   systemPaused,
 }

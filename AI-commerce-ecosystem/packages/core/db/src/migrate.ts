@@ -14,15 +14,31 @@ import postgres from 'postgres'
 
 import { migrationDatabaseUrl } from './env'
 
-const migrationsFolder = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'drizzle')
+export const CORE_MIGRATIONS = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'drizzle')
 
-export async function runMigrations(url = migrationDatabaseUrl()): Promise<void> {
+export interface MigrateOptions {
+  url?: string
+  /**
+   * Each enabled module's migration folder, applied after core.
+   *
+   * Passed in rather than discovered: core must not reach into modules/, and a module
+   * owns its own Postgres schema.
+   */
+  moduleMigrations?: string[]
+}
+
+export async function runMigrations(options: MigrateOptions = {}): Promise<void> {
+  const url = options.url ?? migrationDatabaseUrl()
   // max: 1 — the migrator must run every statement on one session.
   const client = postgres(url, { max: 1 })
   try {
+    const db = drizzle(client)
     // The second argument is REQUIRED on drizzle-orm 0.45.x. The one-argument form
     // shown on the current docs site is v1 release-candidate syntax.
-    await migrate(drizzle(client), { migrationsFolder })
+    await migrate(db, { migrationsFolder: CORE_MIGRATIONS })
+    for (const folder of options.moduleMigrations ?? []) {
+      await migrate(db, { migrationsFolder: folder, migrationsTable: `__drizzle_migrations_${folder.split(/[\/]/).slice(-2, -1)[0]}` })
+    }
   } finally {
     await client.end()
   }
@@ -31,7 +47,7 @@ export async function runMigrations(url = migrationDatabaseUrl()): Promise<void>
 const isEntrypoint = process.argv[1] && import.meta.url === `file://${process.argv[1].replace(/\\/g, '/')}`
 
 if (isEntrypoint) {
-  runMigrations()
+  runMigrations({})
     .then(() => {
       console.log('migrations applied')
       process.exit(0)
