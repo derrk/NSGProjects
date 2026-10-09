@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { isAdmin } from "../../../../lib/admin-auth";
 import { supabaseConfigured } from "../../../../lib/supabase";
-import { setReservationStatus, resendConfirmation, setFeatured } from "../../../../lib/reservations-service";
+import { setReservationStatus, resendConfirmation, setFeatured, setSpotlightPosted } from "../../../../lib/reservations-service";
 
-type Action = "confirm" | "release" | "pending" | "resend" | "feature" | "unfeature";
-const ACTIONS: Action[] = ["confirm", "release", "pending", "resend", "feature", "unfeature"];
+type Action = "confirm" | "release" | "pending" | "resend" | "feature" | "unfeature" | "spotlight" | "unspotlight";
+const ACTIONS: Action[] = ["confirm", "release", "pending", "resend", "feature", "unfeature", "spotlight", "unspotlight"];
 
 export async function POST(req: Request) {
   if (!(await isAdmin())) {
@@ -34,6 +34,10 @@ export async function POST(req: Request) {
     }
     if (action === "feature" || action === "unfeature") {
       await setFeatured(resCode, action === "feature");
+      return NextResponse.json({ ok: true });
+    }
+    if (action === "spotlight" || action === "unspotlight") {
+      await setSpotlightPosted(resCode, action === "spotlight");
       return NextResponse.json({ ok: true });
     }
     await setReservationStatus(resCode, action);

@@ -379,20 +379,25 @@ export interface AdminReservation {
   amountCents: number;
   promoCode: string | null;
   featured: boolean;
+  spotlightPosted: boolean;
   createdAt: string;
   tables: number[];
 }
 
 export async function listReservations(): Promise<AdminReservation[]> {
   const sb = getServiceClient();
-  const { data, error } = await sb
-    .from("reservations")
-    .select(
-      "id,res_code,status,business,first_name,last_name,email,phone,instagram,category,photo,amount_cents,promo_code,featured,created_at,reservation_tables(table_number,active)"
-    )
-    .order("created_at", { ascending: false });
-  if (error) throw error;
-  return (data ?? []).map((r: Record<string, unknown>) => ({
+  const baseCols =
+    "id,res_code,status,business,first_name,last_name,email,phone,instagram,category,photo,amount_cents,promo_code,featured,created_at,reservation_tables(table_number,active)";
+  // `cols` is a plain string, so both calls share one (loose) result type — lets
+  // us fall back without spotlight_posted if the column isn't migrated yet (0008).
+  const run = (cols: string) =>
+    sb.from("reservations").select(cols).order("created_at", { ascending: false });
+  let res = await run(`${baseCols},spotlight_posted`);
+  if (res.error && /spotlight_posted/i.test(res.error.message ?? "")) {
+    res = await run(baseCols);
+  }
+  if (res.error) throw res.error;
+  return ((res.data ?? []) as unknown as Record<string, unknown>[]).map((r: Record<string, unknown>) => ({
     id: r.id as string,
     resCode: r.res_code as string,
     status: r.status as string,
@@ -407,6 +412,7 @@ export async function listReservations(): Promise<AdminReservation[]> {
     amountCents: r.amount_cents as number,
     promoCode: (r.promo_code as string) ?? null,
     featured: (r.featured as boolean) ?? false,
+    spotlightPosted: (r.spotlight_posted as boolean) ?? false,
     createdAt: r.created_at as string,
     tables: ((r.reservation_tables as { table_number: number; active: boolean }[]) ?? [])
       .filter((t) => t.active)
@@ -610,6 +616,22 @@ export async function setFeatured(resCode: string, featured: boolean): Promise<v
     .update({ featured, updated_at: new Date().toISOString() })
     .eq("res_code", resCode);
   if (error) throw error;
+}
+
+// Track whether we've created + uploaded the vendor's Instagram spotlight post.
+// Purely an internal admin flag — never shown on the public site.
+export async function setSpotlightPosted(resCode: string, value: boolean): Promise<void> {
+  const sb = getServiceClient();
+  const { error } = await sb
+    .from("reservations")
+    .update({ spotlight_posted: value, updated_at: new Date().toISOString() })
+    .eq("res_code", resCode);
+  if (error) {
+    if (/spotlight_posted/i.test(error.message ?? "")) {
+      throw new Error("Run migration 0008 (spotlight_posted) in Supabase first.");
+    }
+    throw error;
+  }
 }
 
 export async function setReservationStatus(

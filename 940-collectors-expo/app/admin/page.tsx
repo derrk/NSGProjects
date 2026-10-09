@@ -25,6 +25,7 @@ interface AdminReservation {
   amountCents: number;
   promoCode: string | null;
   featured: boolean;
+  spotlightPosted: boolean;
   createdAt: string;
   tables: number[];
 }
@@ -327,6 +328,28 @@ export default function AdminPage() {
     setBusy(null);
   };
 
+  const toggleSpotlight = async (resCode: string, next: boolean) => {
+    setBusy(resCode + "spotlight");
+    try {
+      const res = await fetch("/api/admin/reservations/action", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ resCode, action: next ? "spotlight" : "unspotlight" }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        setFlash({
+          text: typeof j.error === "string" ? `Couldn't update: ${j.error}` : "Couldn't update spotlight.",
+          kind: "error",
+        });
+      }
+      await load();
+    } catch {
+      setFlash({ text: "Couldn't update spotlight.", kind: "error" });
+    }
+    setBusy(null);
+  };
+
   const exportTicketsCsv = () => {
     const header = ["Order", "Name", "Phone", "Email", "VIP", "General", "ExtraEntries", "GiveawayEntries", "AmountUSD", "PaidAt"];
     const lines = paidTickets.map((t) => [
@@ -617,7 +640,7 @@ export default function AdminPage() {
           <Section title={`Pending payment (${pending.length} ${pending.length === 1 ? "vendor" : "vendors"} · ${pendingTables} ${pendingTables === 1 ? "table" : "tables"})`}>
             {pending.length === 0 && <Empty>No pending requests.</Empty>}
             {pending.map((r) => (
-              <ResRow key={r.id} r={r} busy={busy} onEdit={() => setEditRes(r)} onConfirm={() => act(r.resCode, "confirm")} onRelease={() => act(r.resCode, "release")} />
+              <ResRow key={r.id} r={r} busy={busy} onEdit={() => setEditRes(r)} onConfirm={() => act(r.resCode, "confirm")} onRelease={() => act(r.resCode, "release")} onToggleSpotlight={() => toggleSpotlight(r.resCode, !r.spotlightPosted)} />
             ))}
           </Section>
 
@@ -631,6 +654,7 @@ export default function AdminPage() {
                 onEdit={() => setEditRes(r)}
                 onResend={() => resendEmail(r.resCode)}
                 onToggleFeature={() => toggleFeature(r.resCode, !r.featured)}
+                onToggleSpotlight={() => toggleSpotlight(r.resCode, !r.spotlightPosted)}
                 onUnconfirm={() => act(r.resCode, "pending")}
                 onRelease={() => act(r.resCode, "release")}
               />
@@ -1106,6 +1130,7 @@ function ResRow({
   onEdit,
   onResend,
   onToggleFeature,
+  onToggleSpotlight,
   onUnconfirm,
 }: {
   r: AdminReservation;
@@ -1115,6 +1140,7 @@ function ResRow({
   onEdit?: () => void;
   onResend?: () => void;
   onToggleFeature?: () => void;
+  onToggleSpotlight?: () => void;
   onUnconfirm?: () => void;
 }) {
   return (
@@ -1153,6 +1179,24 @@ function ResRow({
             <p className="text-[11px] text-red-300/80 mt-1">
               ⚠ On a table that no longer exists in the new layout — use Edit to reassign.
             </p>
+          )}
+          {onToggleSpotlight && (
+            <label className="inline-flex items-center gap-2 mt-2.5 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={r.spotlightPosted}
+                disabled={busy === r.resCode + "spotlight"}
+                onChange={onToggleSpotlight}
+                className="h-4 w-4 rounded border-white/20 bg-[#0B0713] accent-[#A855F7] cursor-pointer"
+              />
+              <span className={`text-xs font-medium ${r.spotlightPosted ? "text-[#6EE04A]" : "text-[#E5E7EB]/55"}`}>
+                {busy === r.resCode + "spotlight"
+                  ? "Saving…"
+                  : r.spotlightPosted
+                  ? "📸 IG spotlight posted"
+                  : "IG spotlight posted?"}
+              </span>
+            </label>
           )}
         </div>
         <div className="text-right shrink-0">
