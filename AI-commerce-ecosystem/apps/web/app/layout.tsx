@@ -23,6 +23,7 @@ const STATIONS = [
   { href: '/inbox', label: 'Quarantine' },
   { href: '/divisions', label: 'Outfits' },
   { href: '/agents', label: 'The Crew' },
+  { href: '/archives', label: 'Archives' },
 ] as const
 
 export default function RootLayout({ children }: { children: ReactNode }) {

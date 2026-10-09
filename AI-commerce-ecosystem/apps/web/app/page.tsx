@@ -1,5 +1,8 @@
-import { agents, approvals, db, divisions, opportunities, tasks } from '@acf/db'
+import { agents, db, divisions } from '@acf/db'
 import { eq, sql } from 'drizzle-orm'
+
+import { setAllDivisionsPaused } from './actions'
+import { IdeaBox } from './idea-box'
 
 export const dynamic = 'force-dynamic'
 
@@ -41,6 +44,10 @@ export default async function CompanyPage() {
 
   const rows = (queues as unknown as { rows?: QueueDepth[] }).rows ?? (queues as unknown as QueueDepth[])
   const money = ((cash as unknown as { rows?: CompanyCash[] }).rows ?? (cash as unknown as CompanyCash[]))[0]
+
+  const divisionRows = await database.select().from(divisions).orderBy(divisions.name)
+  const activeDivisions = divisionRows.filter((d) => d.status === 'active')
+  const everythingPaused = divisionRows.length > 0 && activeDivisions.length === 0
 
   const totals = rows.reduce(
     (acc, r) => ({
@@ -137,10 +144,39 @@ export default async function CompanyPage() {
         </table>
       )}
 
+      <h2 className="section-title">Research desk</h2>
+      <div className="crate" style={{ borderLeftColor: 'var(--toxic)' }}>
+        <div className="crate-body">
+          <p style={{ marginTop: 0, color: 'var(--muted)' }}>
+            Drop in an idea. An agent records it, and you decide in Quarantine whether to pursue
+            it.
+          </p>
+          <IdeaBox divisions={activeDivisions.map((d) => ({ id: d.id, name: d.name }))} />
+        </div>
+      </div>
+
+      <h2 className="section-title">Kill switch</h2>
+      <div className="crate" style={{ borderLeftColor: everythingPaused ? 'var(--rust)' : 'var(--edge)' }}>
+        <div className="crate-body">
+          <p style={{ marginTop: 0, color: 'var(--muted)' }}>
+            {everythingPaused
+              ? 'Every division is shuttered. Nothing is scheduled and no agent will start.'
+              : `${activeDivisions.length} division(s) running. Shuttering stops the scheduler for all of them within one tick.`}
+          </p>
+          <form action={setAllDivisionsPaused}>
+            <input type="hidden" name="paused" value={everythingPaused ? 'false' : 'true'} />
+            <button className={`act ${everythingPaused ? 'clear' : 'burn'}`} type="submit">
+              {everythingPaused ? 'Reopen everything' : 'Shutter everything'}
+            </button>
+          </form>
+        </div>
+      </div>
+
       <div className="notice" style={{ marginTop: 28 }}>
-        <strong>Week 1</strong> — the figures above are real, read from the ledger views, but the
-        ledger only has API spend in it so far. Revenue starts landing in week 2 when Store ops
-        publishes and orders sync.
+        <strong>Demo data</strong> — the divisions, niches and concepts shipped by the seed are
+        fictional, written by hand to exercise the pipeline. Money figures above are read from the
+        ledger, which so far contains only ESTIMATED API spend priced from a rate table. No
+        revenue here has been earned, and nothing has been verified against an invoice.
       </div>
     </>
   )

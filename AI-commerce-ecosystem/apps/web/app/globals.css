@@ -580,6 +580,34 @@ table.roster td.num {
   min-width: 240px;
 }
 
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.filter-bar input {
+  flex: 1 1 260px;
+  min-width: 180px;
+}
+
+.filter-bar input,
+.filter-bar select {
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 8px 10px;
+  background: var(--bg-sunken);
+  border: 1px solid var(--edge-bright);
+  border-radius: var(--radius);
+  color: var(--fg);
+}
+
+a.act {
+  text-decoration: none;
+  display: inline-block;
+}
+
 /* ---------------------------------------------------------------- *
  * Status lights
  * ---------------------------------------------------------------- */
