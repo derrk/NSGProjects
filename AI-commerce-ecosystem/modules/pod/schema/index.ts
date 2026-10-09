@@ -357,3 +357,150 @@ export const pricingRules = pod.table(
   },
   (t) => [uniqueIndex('pod_pricing_rules_idx').on(t.divisionId, t.productType)],
 )
+
+/* ------------------------------------------------------------------ *
+ * Commerce: suppliers, order lines, supplier orders
+ *
+ * Added for the Etsy + Shopify commerce brief. The existing `orders` table above
+ * stays as the channel-level record; these carry what routing and fulfilment need.
+ * ------------------------------------------------------------------ */
+
+export const salesChannel = pgEnum('pod_sales_channel', ['etsy', 'shopify'])
+
+export const fulfillmentKind = pgEnum('pod_fulfillment_kind', ['pod', 'dropship', 'in_house'])
+
+/** Where an item physically comes from. POD partners and dropship suppliers both. */
+export const suppliers = pod.table(
+  'suppliers',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    name: text('name').notNull(),
+    kind: fulfillmentKind('kind').notNull(),
+    /** Shown on the listing. Etsy requires this for a production partner. */
+    disclosureName: text('disclosure_name'),
+    shipsFrom: text('ships_from'),
+    /** Quoted handling plus transit, in days. Drives the honest delivery estimate. */
+    shipDaysMin: integer('ship_days_min'),
+    shipDaysMax: integer('ship_days_max'),
+    returnsPolicy: text('returns_policy'),
+    /** When the cost and stock figures were last confirmed. Stale data blocks listing. */
+    dataConfirmedAt: timestamp('data_confirmed_at', { withTimezone: true }),
+    approved: boolean('approved').notNull().default(false),
+    notes: text('notes'),
+    ...moduleAudit,
+  },
+  (t) => [uniqueIndex('pod_suppliers_name_idx').on(t.divisionId, t.name)],
+)
+
+/**
+ * One line of one order.
+ *
+ * The unique index on (channel, channel_order_id, channel_line_item_id) is what makes
+ * ingestion idempotent: a webhook delivered three times inserts once. Doing this in
+ * the database rather than in code means it holds even when two workers race.
+ */
+export const orderLines = pod.table(
+  'order_lines',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    orderId: uuid('order_id')
+      .notNull()
+      .references(() => orders.id, { onDelete: 'cascade' }),
+    channel: salesChannel('channel').notNull(),
+    channelOrderId: text('channel_order_id').notNull(),
+    channelLineItemId: text('channel_line_item_id').notNull(),
+    productId: uuid('product_id').references(() => products.id, { onDelete: 'set null' }),
+    sku: text('sku'),
+    quantity: integer('quantity').notNull().default(1),
+    unitPriceCents: integer('unit_price_cents').notNull().default(0),
+    /** Buyer-supplied text, names or image urls for a personalised item. */
+    personalization: jsonb('personalization'),
+    personalized: boolean('personalized').notNull().default(false),
+    personalizationReviewedAt: timestamp('personalization_reviewed_at', { withTimezone: true }),
+    personalizationReviewedBy: text('personalization_reviewed_by'),
+    ...moduleAudit,
+  },
+  (t) => [
+    uniqueIndex('pod_order_lines_channel_ref_idx').on(
+      t.channel,
+      t.channelOrderId,
+      t.channelLineItemId,
+    ),
+    index('pod_order_lines_order_idx').on(t.orderId),
+  ],
+)
+
+export const supplierOrderStatus = pgEnum('pod_supplier_order_status', [
+  'ready_to_route',
+  'submitted',
+  'in_production',
+  'shipped',
+  'delivered',
+  'exception',
+  'cancelled',
+])
+
+/**
+ * Our request to a supplier to make and ship one line.
+ *
+ * Separate from the order line because an order line can be re-sent after a supplier
+ * failure, and because "we told the supplier" is emphatically not "the customer has
+ * it". The unique index on order_line_id prevents paying twice for one line.
+ */
+export const supplierOrders = pod.table(
+  'supplier_orders',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    orderLineId: uuid('order_line_id')
+      .notNull()
+      .references(() => orderLines.id, { onDelete: 'cascade' }),
+    supplierId: uuid('supplier_id').references(() => suppliers.id, { onDelete: 'set null' }),
+    /** The supplier's own id for the job. */
+    externalId: text('external_id'),
+    status: supplierOrderStatus('status').notNull().default('ready_to_route'),
+    costCents: integer('cost_cents'),
+    /** Why it is stuck, when it is. Shown in the exception queue. */
+    exceptionReason: text('exception_reason'),
+    submittedAt: timestamp('submitted_at', { withTimezone: true }),
+    trackingNumber: text('tracking_number'),
+    trackingUrl: text('tracking_url'),
+    shippedAt: timestamp('shipped_at', { withTimezone: true }),
+    deliveredAt: timestamp('delivered_at', { withTimezone: true }),
+    ...moduleAudit,
+  },
+  (t) => [
+    // One supplier order per line. Retrying submission must never charge twice.
+    uniqueIndex('pod_supplier_orders_line_idx').on(t.orderLineId),
+    index('pod_supplier_orders_status_idx').on(t.status),
+  ],
+)
+
+/** One listing of one product on one channel. A product can live on both. */
+export const channelListings = pod.table(
+  'channel_listings',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    productId: uuid('product_id')
+      .notNull()
+      .references(() => products.id, { onDelete: 'cascade' }),
+    channel: salesChannel('channel').notNull(),
+    fulfillment: fulfillmentKind('fulfillment').notNull(),
+    supplierId: uuid('supplier_id').references(() => suppliers.id, { onDelete: 'set null' }),
+    /** The platform's own id, stored after creation to prevent duplicates. */
+    externalListingId: text('external_listing_id'),
+    externalUrl: text('external_url'),
+    originalDesign: boolean('original_design').notNull().default(false),
+    personalized: boolean('personalized').notNull().default(false),
+    aiAssisted: boolean('ai_assisted').notNull().default(false),
+    provenanceNote: text('provenance_note'),
+    productionPartner: text('production_partner'),
+    shipsFrom: text('ships_from'),
+    status: productStatus('status').notNull().default('draft'),
+    publishedAt: timestamp('published_at', { withTimezone: true }),
+    ...moduleAudit,
+  },
+  (t) => [
+    uniqueIndex('pod_channel_listings_product_channel_idx').on(t.productId, t.channel),
+    uniqueIndex('pod_channel_listings_external_idx').on(t.channel, t.externalListingId),
+  ],
+)

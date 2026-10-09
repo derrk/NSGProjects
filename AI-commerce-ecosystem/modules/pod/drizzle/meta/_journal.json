@@ -8,6 +8,13 @@
       "when": 1791481392358,
       "tag": "0000_pod_tables",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791521905204,
+      "tag": "0001_commerce_tables",
+      "breakpoints": true
     }
   ]
 }

@@ -19,6 +19,10 @@ import { storeOpsAgentSpec } from './agents/store-ops/index'
 export { createDesignerAgent, designerAgentSpec } from './agents/designer/index'
 export { createStoreOpsAgent, storeOpsAgentSpec } from './agents/store-ops/index'
 export * from './pricing'
+export * from './channel-rules'
+export * from './economics'
+export * from './fulfillment'
+export * from './publish'
 export * as podSchema from './schema/index'
 
 export const podModule: ModuleDefinition = {
@@ -50,6 +54,25 @@ export const podModule: ModuleDefinition = {
       cardComponent: 'pod/PriceChangeCard',
       // Reinforces the platform rule in never-auto.ts at the module level, so this
       // holds even if the hard-coded list is ever relaxed.
+      neverAuto: true,
+    },
+    {
+      kind: 'personalization_proof',
+      label: 'Personalised proof',
+      // Buyer-supplied text or images going to a printer unreviewed is unrecoverable
+      // once it is on a mug, so this never graduates to automatic.
+      neverAuto: true,
+    },
+    {
+      kind: 'supplier',
+      label: 'Supplier',
+      // Choosing who makes and ships your goods is not a decision an agent earns.
+      neverAuto: true,
+    },
+    {
+      kind: 'sample_order',
+      label: 'Paid sample',
+      // Spends real money with an outside party.
       neverAuto: true,
     },
   ],
