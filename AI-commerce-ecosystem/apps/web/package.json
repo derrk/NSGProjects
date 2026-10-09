@@ -9,7 +9,8 @@
     "start": "next start",
     "typegen": "next typegen",
     "seed": "tsx --env-file=.env.local scripts/seed.ts",
-    "agent": "tsx --env-file=.env.local scripts/run-agent.ts"
+    "agent": "tsx --env-file=.env.local scripts/run-agent.ts",
+    "new-division": "tsx --env-file=.env.local scripts/new-division.ts"
   },
   "dependencies": {
     "@acf/core": "workspace:*",

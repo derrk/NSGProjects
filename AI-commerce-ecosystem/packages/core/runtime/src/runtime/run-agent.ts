@@ -28,6 +28,8 @@ import {
   type TaskRecord,
   type TokenUsage,
   type ToolCallRecord,
+  type ToolCallOutcome,
+  type ToolDefinitionForModel,
 } from './types'
 
 export interface RunAgentInput<TInput> {
@@ -142,6 +144,13 @@ export async function runAgent<TInput, TOutput>(
 
   const usages: TokenUsage[] = []
   const toolCalls: ToolCallRecord[] = []
+  /** Tool spend accumulates alongside model spend; both land on the same run row. */
+  let toolCostCents = 0
+
+  // Built once from the agent ROW. An agent cannot widen its own grants mid-run.
+  const toolDefinitions: ToolDefinitionForModel[] = deps.tools
+    ? deps.tools.definitionsFor(agent.tools)
+    : []
   const remembered: MemoryEntry[] = []
   let attempts = 0
   let lastError: unknown
@@ -149,7 +158,7 @@ export async function runAgent<TInput, TOutput>(
   const settle = async () => {
     const tokensIn = usages.reduce((sum, u) => sum + inputTokensOf(u), 0)
     const tokensOut = usages.reduce((sum, u) => sum + u.outputTokens, 0)
-    const costCents = usages.reduce((sum, u) => sum + costCentsFor(u), 0)
+    const costCents = usages.reduce((sum, u) => sum + costCentsFor(u), 0) + toolCostCents
 
     // Reported once per run rather than per call, so `recordUsage` can stay sync.
     const unknown = [...new Set(usages.filter((u) => !isKnownModel(u.model)).map((u) => u.model))]
@@ -235,6 +244,35 @@ export async function runAgent<TInput, TOutput>(
       },
       recordToolCall: (call) => {
         toolCalls.push(call)
+      },
+
+      tools: toolDefinitions,
+
+      callTool: async (name, args): Promise<ToolCallOutcome> => {
+        if (!deps.tools) {
+          return { ok: false, error: 'no tools are available in this runtime' }
+        }
+        const started = Date.now()
+        const result = await deps.tools.invoke(name, args, agent.tools, {
+          divisionId: division.id,
+          agentId: agent.id,
+          agentName: agent.name,
+          taskId: task?.id ?? null,
+          crossDivision: agent.crossDivision ?? false,
+        })
+
+        toolCostCents += result.costCents
+        toolCalls.push({
+          name,
+          args,
+          ok: result.ok,
+          durationMs: Date.now() - started,
+          ...(result.error === undefined ? {} : { error: result.error }),
+        })
+
+        return result.ok
+          ? { ok: true, output: result.output }
+          : { ok: false, error: result.error ?? 'the tool failed' }
       },
       remember: (entry) => {
         remembered.push(entry)

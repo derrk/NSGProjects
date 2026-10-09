@@ -21,6 +21,6 @@ export const designerAgentSpec: ModuleAgentSpec = {
   description: 'Writes three generation prompts, renders them, verifies text, stores PNGs.',
   defaultModel: 'claude-sonnet-5-5',
   defaultSchedule: 'event:concept.approved',
-  defaultTools: ['generate_image', 'requestApproval', 'memory.recall', 'memory.write'],
+  defaultTools: ['generate_image', 'memory.recall', 'memory.write'],
   systemPrompt: DESIGNER_SYSTEM_PROMPT,
 }

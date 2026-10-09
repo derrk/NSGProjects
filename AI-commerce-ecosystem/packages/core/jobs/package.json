@@ -12,7 +12,8 @@
     "@acf/db": "workspace:*",
     "drizzle-orm": "0.45.4",
     "inngest": "^4.22.0",
-    "zod": "^4.6.5"
+    "zod": "^4.6.5",
+    "@acf/integrations": "workspace:*"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8"

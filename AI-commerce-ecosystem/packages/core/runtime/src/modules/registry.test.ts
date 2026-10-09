@@ -109,7 +109,7 @@ function makeModule(over: Partial<ModuleDefinition> = {}): ModuleDefinition {
         purpose: 'Turn approved concepts into design variants',
         defaultModel: 'claude-sonnet-5-5',
         defaultSchedule: 'event:concept.approved',
-        defaultTools: ['generate_image', 'requestApproval'],
+        defaultTools: ['generate_image'],
         systemPrompt: 'You are the Designer.',
       },
     ],
@@ -178,6 +178,27 @@ describe('registerModules', () => {
 
       // Otherwise the station renders blank forever and nothing says why.
       await expect(registerModules([mod], deps)).rejects.toThrow(/unknown agent "nobody"/)
+    })
+
+    it('rejects a grant for requestApproval, which is not a catalog tool', async () => {
+      const mod = makeModule({
+        agents: [
+          {
+            key: 'designer',
+            defaultName: 'Designer',
+            purpose: 'p',
+            defaultModel: 'claude-sonnet-5-5',
+            defaultSchedule: null,
+            defaultTools: ['requestApproval'],
+            systemPrompt: 'x',
+          },
+        ],
+      })
+
+      // requestApproval is a method on every agent's context, available whether or
+      // not anything was granted. Listing it as a tool means someone misunderstood
+      // where the approval gate lives.
+      await expect(registerModules([mod], deps)).rejects.toThrow(/unknown tool "requestApproval"/)
     })
 
     it('rejects an agent granted a tool nobody provides', async () => {
@@ -317,7 +338,7 @@ describe('createDivision', () => {
       moduleAgentKey: 'designer',
       model: 'claude-sonnet-5-5',
       schedule: 'event:concept.approved',
-      tools: ['generate_image', 'requestApproval'],
+      tools: ['generate_image'],
     })
   })
 

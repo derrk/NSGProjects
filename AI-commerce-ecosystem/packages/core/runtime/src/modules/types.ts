@@ -189,7 +189,17 @@ export function validateModule(mod: ModuleDefinition): string[] {
   return problems
 }
 
-/** Tools every module gets for free (SPEC.md §Module interface). */
+/**
+ * Tools every module gets for free (SPEC.md §Module interface).
+ *
+ * This list is what module validation checks agent grants against, so it must match
+ * what `createCoreToolCatalog` actually builds. A name here with no implementation
+ * behind it means an agent passes validation at boot and then asks for a tool that
+ * does not exist, mid-run, in production.
+ *
+ * `requestApproval` is deliberately absent: it is not a catalog tool but a method on
+ * every agent's context, available whether or not anything was granted.
+ */
 export const CORE_TOOL_NAMES = [
   'web_search',
   'fetch_page',
@@ -201,7 +211,6 @@ export const CORE_TOOL_NAMES = [
   'memory.recall',
   'memory.write',
   'ledger.post',
-  'requestApproval',
   'notify_operator',
   'send_email',
   'generate_image',

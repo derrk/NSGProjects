@@ -42,6 +42,7 @@ path. What you lose is cron scheduling and automatic handoff between agents.
 | `pnpm dev` | Run the app |
 | `pnpm test` | Run every test |
 | `pnpm --filter @acf/web agent "<name>"` | Run one agent from the CLI |
+| `pnpm --filter @acf/web new-division "<name>" [module]` | Create a division from the CLI |
 
 ---
 
@@ -86,6 +87,21 @@ packages/core/integrations Typed clients: Anthropic, fal.ai, Supabase Storage
 modules/pod               Division one: the print-on-demand store
 modules/_template         Copy this to start a new division
 ```
+
+### The tool catalog
+
+Every agent's capabilities come from the `tools` array on its row, enforced in the
+catalog rather than requested in a prompt. Granting a capability is a database change
+the operator can see; the model cannot talk its way into one.
+
+`db.query` is the one tool that runs model-authored SQL, and it has three independent
+defences: it must parse as a single SELECT, it may only name an allowlist of views, and
+it runs inside a `READ ONLY` transaction. The third holds even if the first two are
+wrong.
+
+`send_email` has no send path at all. It drafts and files for approval, because the most
+reliable way to guarantee a human sees outbound mail is for the sending code not to
+exist yet.
 
 Three rules hold it together:
 
@@ -141,13 +157,14 @@ These are real gaps, not polish:
 
 - **No authentication.** The inbox says so on the screen. Run it locally; do not deploy
   it to a public URL until operator sign-in lands.
-- **Memory recall is recency and pinning, not similarity.** `agent_memory` has a
-  `vector(1536)` column and pgvector is installed, but nothing computes embeddings yet,
-  so ranking by cosine distance over null vectors would be theatre. The signature is
-  already the one similarity search needs.
-- **Core tools are declared but not implemented.** `web_search`, `fetch_page`,
-  `generate_image` and the rest are validated at boot — an agent granted a tool nobody
-  provides is rejected — but no handlers exist.
+- **Memory recall is recency and pinning, not similarity.** `embed_text` exists now,
+  but the run loop does not yet embed memories on write, so `agent_memory.embedding`
+  is still null and recall cannot rank by distance. Wiring those two together is the
+  next small job.
+- **Two core tools are offline stand-ins.** `web_search` returns results that say
+  "SIMULATED" in the title until `TAVILY_API_KEY` is set, and `embed_text` uses a local
+  lexical vectoriser that reports `semantic: false` — it captures shared vocabulary,
+  not meaning. Both are honest about it in their own output.
 - **Three of the four POD agents are seeded paused.** Store ops, Support and Trend scout
   are declared so their stations appear, with no runner behind them yet. The registry
   marks them "no runner yet" rather than pretending.
@@ -157,8 +174,9 @@ These are real gaps, not polish:
 
 ### The next thing to build
 
-Core tools, starting with `embed_text` and `web_search`. They unblock memory recall and
-every agent after the Designer.
+Embed memories on write, so recall ranks by similarity instead of recency — the tool
+and the column both exist, they are just not connected. After that, the Store ops agent
+and the Printify client.
 
 ---
 

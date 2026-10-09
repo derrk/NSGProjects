@@ -152,6 +152,34 @@ export interface TokenUsage {
   cacheReadInputTokens?: number
 }
 
+/** One tool, as the model is shown it. */
+export interface ToolDefinitionForModel {
+  name: string
+  description: string
+  input_schema: Record<string, unknown>
+}
+
+export type ToolCallOutcome =
+  | { ok: true; output: unknown }
+  | { ok: false; error: string }
+
+/** Runs tools on an agent's behalf, enforcing what it was granted. */
+export interface ToolRunner {
+  definitionsFor(granted: readonly string[]): ToolDefinitionForModel[]
+  invoke(
+    name: string,
+    args: unknown,
+    granted: readonly string[],
+    ctx: {
+      divisionId: string
+      agentId: string
+      agentName: string
+      taskId: string | null
+      crossDivision: boolean
+    },
+  ): Promise<{ ok: boolean; output?: unknown; error?: string; costCents: number }>
+}
+
 /** A tool call, recorded for the run history. Bodies over 2 KB are truncated. */
 export interface ToolCallRecord {
   name: string
@@ -208,6 +236,22 @@ export interface AgentContext<TInput> {
 
   /** Record a tool call for the run history. */
   recordToolCall(call: ToolCallRecord): void
+
+  /**
+   * The tools this agent was granted, ready to hand to the model.
+   *
+   * Empty when the agent's row grants none. The runtime builds this from the agent
+   * row, so an agent cannot widen its own capabilities at run time.
+   */
+  readonly tools: readonly ToolDefinitionForModel[]
+
+  /**
+   * Run one tool the model asked for.
+   *
+   * Never throws for anything the model got wrong — an ungranted tool or bad
+   * arguments come back as an error result the model can read and correct.
+   */
+  callTool(name: string, args: unknown): Promise<ToolCallOutcome>
 
   /**
    * Keep something for next time. At most `MAX_MEMORIES_PER_RUN` are written; beyond
@@ -301,6 +345,8 @@ export interface RunLoopDeps {
   ledger?: LedgerPort
   tasks?: TaskStore
   spendGuard?: SpendGuard
+  /** Supplies the agent's granted tools. Omit for an agent that needs none. */
+  tools?: ToolRunner
   /** Injected so jitter is deterministic under test. */
   random?: () => number
   backoff?: BackoffOptions

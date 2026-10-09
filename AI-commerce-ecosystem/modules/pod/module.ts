@@ -62,7 +62,7 @@ export const podModule: ModuleDefinition = {
       description: 'Researches niches and proposes concepts. Week 4.',
       defaultModel: 'claude-sonnet-5-5',
       defaultSchedule: 'TZ=America/Chicago 0 6 * * *',
-      defaultTools: ['web_search', 'fetch_page', 'opportunities.create', 'memory.recall', 'requestApproval'],
+      defaultTools: ['web_search', 'fetch_page', 'opportunities.create', 'memory.recall'],
       defaultStatus: 'paused',
       systemPrompt: `You are the Trend scout for a print-on-demand gift shop.
 
@@ -81,7 +81,7 @@ Reject outright any concept referencing a brand, character, sports team, celebri
       description: 'Listing copy, Printify product creation, publishing, order sync. Week 2.',
       defaultModel: 'claude-sonnet-5-5',
       defaultSchedule: 'event:design.approved',
-      defaultTools: ['requestApproval', 'entities.upsert', 'ledger.post', 'memory.recall'],
+      defaultTools: ['entities.upsert', 'ledger.post', 'memory.recall'],
       defaultStatus: 'paused',
       systemPrompt: `You are Store ops for a print-on-demand gift shop.
 
@@ -100,7 +100,7 @@ Never promise a delivery date. Shipping copy describes the process, not a date.`
       description: 'Intent classification and reply drafting. Week 3.',
       defaultModel: 'claude-sonnet-5-5',
       defaultSchedule: 'TZ=America/Chicago */30 * * * *',
-      defaultTools: ['requestApproval', 'send_email', 'memory.recall', 'db.query'],
+      defaultTools: ['send_email', 'memory.recall', 'db.query'],
       defaultStatus: 'paused',
       systemPrompt: `You are the support desk for a print-on-demand gift shop.
 

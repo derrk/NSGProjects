@@ -84,7 +84,7 @@ function agentRecord(divisionId: string): AgentRecord {
     moduleAgentKey: 'designer',
     model: 'claude-sonnet-5-5',
     systemPrompt: '',
-    tools: ['generate_image', 'requestApproval'],
+    tools: ['generate_image'],
     autonomy: 'propose',
     maxSteps: 12,
   }

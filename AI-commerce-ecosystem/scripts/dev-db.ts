@@ -35,7 +35,9 @@ function containerState(): 'missing' | 'exited' | 'running' {
   }
 }
 
-function main() {
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
+
+async function main() {
   try {
     docker(['info'], { quiet: true })
   } catch {
@@ -72,9 +74,15 @@ function main() {
     console.log(`${NAME} is already running`)
   }
 
-  // Wait for it to accept connections; `docker run` returns before Postgres is up.
+  /*
+   * Wait for it to accept connections; `docker run` returns before Postgres is up.
+   *
+   * The wait is an awaited timer, not a shelled-out sleep. Windows' `timeout /t`
+   * needs an interactive console and exits 125 when stdin is redirected — which is
+   * exactly how this runs from a package script.
+   */
   process.stdout.write('waiting for postgres')
-  for (let i = 0; i < 40; i++) {
+  for (let i = 0; i < 60; i++) {
     try {
       execSync(`docker exec ${NAME} pg_isready -U acf -d acf`, { stdio: 'ignore' })
       console.log('\n')
@@ -83,14 +91,14 @@ function main() {
       return
     } catch {
       process.stdout.write('.')
-      execSync(process.platform === 'win32' ? 'timeout /t 1 /nobreak > nul' : 'sleep 1', {
-        stdio: 'ignore',
-        shell: process.platform === 'win32' ? 'cmd.exe' : '/bin/sh',
-      })
+      await sleep(1000)
     }
   }
   console.error('\npostgres did not become ready in time')
   process.exit(1)
 }
 
-main()
+main().catch((err: unknown) => {
+  console.error('dev database failed to start:', err)
+  process.exit(1)
+})

@@ -14,6 +14,6 @@ export const intakeAgentSpec: ModuleAgentSpec = {
   description: 'The template agent. Calls no external API; useful the moment the division exists.',
   defaultModel: 'claude-sonnet-5-5',
   defaultSchedule: null,
-  defaultTools: ['requestApproval', 'opportunities.create', 'memory.write'],
+  defaultTools: ['opportunities.create', 'memory.write'],
   systemPrompt: INTAKE_SYSTEM_PROMPT,
 }

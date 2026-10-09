@@ -622,3 +622,153 @@ describe('run loop spend guard', () => {
     expect(seen).toEqual(['div_pod'])
   })
 })
+
+describe('run loop tools', () => {
+  function runnerFor(result: { ok: boolean; output?: unknown; error?: string; costCents: number }) {
+    const calls: Array<{ name: string; args: unknown; granted: readonly string[] }> = []
+    return {
+      calls,
+      runner: {
+        definitionsFor: (granted: readonly string[]) =>
+          granted.map((name) => ({ name, description: name, input_schema: {} })),
+        invoke: async (name: string, args: unknown, granted: readonly string[]) => {
+          calls.push({ name, args, granted })
+          return result
+        },
+      },
+    }
+  }
+
+  it('hands the agent only the tools its row grants', async () => {
+    const { runner } = runnerFor({ ok: true, output: {}, costCents: 0 })
+    let seen: readonly { name: string }[] = []
+
+    await runAgent(
+      defineAgent(async (ctx) => {
+        seen = ctx.tools
+        return { ok: true }
+      }),
+      request({ agent: { ...AGENT, tools: ['web_search', 'memory.recall'] } }),
+      { ...deps, tools: runner },
+    )
+
+    expect(seen.map((t) => t.name)).toEqual(['web_search', 'memory.recall'])
+  })
+
+  it('gives an agent with no grants an empty tool list', async () => {
+    const { runner } = runnerFor({ ok: true, output: {}, costCents: 0 })
+    let seen: readonly unknown[] = ['not empty']
+
+    await runAgent(
+      defineAgent(async (ctx) => {
+        seen = ctx.tools
+        return { ok: true }
+      }),
+      request({ agent: { ...AGENT, tools: [] } }),
+      { ...deps, tools: runner },
+    )
+
+    expect(seen).toEqual([])
+  })
+
+  it('passes the grant list to the runner so it can refuse', async () => {
+    const { calls, runner } = runnerFor({ ok: true, output: { hit: true }, costCents: 0 })
+
+    await runAgent(
+      defineAgent(async (ctx) => {
+        await ctx.callTool('web_search', { query: 'x' })
+        return { ok: true }
+      }),
+      request({ agent: { ...AGENT, tools: ['web_search'] } }),
+      { ...deps, tools: runner },
+    )
+
+    // Enforcement lives in the runner, but it can only enforce what it is told.
+    expect(calls[0]).toMatchObject({ name: 'web_search', granted: ['web_search'] })
+  })
+
+  it('records every tool call in the run history', async () => {
+    const { runner } = runnerFor({ ok: true, output: { n: 1 }, costCents: 0 })
+
+    await runAgent(
+      defineAgent(async (ctx) => {
+        await ctx.callTool('web_search', { query: 'a' })
+        await ctx.callTool('web_search', { query: 'b' })
+        return { ok: true }
+      }),
+      request(),
+      { ...deps, tools: runner },
+    )
+
+    const calls = runs.only().toolCalls as Array<{ name: string; ok: boolean }>
+    expect(calls).toHaveLength(2)
+    expect(calls.every((c) => c.name === 'web_search' && c.ok)).toBe(true)
+  })
+
+  it('bills tool cost onto the same run as model cost', async () => {
+    const { runner } = runnerFor({ ok: true, output: {}, costCents: 3 })
+
+    await runAgent(
+      defineAgent(async (ctx) => {
+        ctx.recordUsage({ model: 'claude-opus-5-5', inputTokens: 10_000, outputTokens: 2_000 })
+        await ctx.callTool('web_search', { query: 'x' })
+        return { ok: true }
+      }),
+      request(),
+      { ...deps, tools: runner },
+    )
+
+    // 8c of model plus 3c of tool.
+    expect(runs.only().costCents).toBeCloseTo(11, 6)
+  })
+
+  it('hands a tool failure back to the agent rather than killing the run', async () => {
+    const { runner } = runnerFor({ ok: false, error: 'rate limited', costCents: 1 })
+    let outcome: unknown
+
+    const result = await runAgent(
+      defineAgent(async (ctx) => {
+        outcome = await ctx.callTool('web_search', { query: 'x' })
+        return { ok: true }
+      }),
+      request(),
+      { ...deps, tools: runner },
+    )
+
+    // The agent can see the error and work around it; the run still succeeds.
+    expect(outcome).toEqual({ ok: false, error: 'rate limited' })
+    expect(result).toEqual({ ok: true })
+    expect(runs.only().status).toBe('ok')
+  })
+
+  it('records a failed tool call, with its error, in the history', async () => {
+    const { runner } = runnerFor({ ok: false, error: 'rate limited', costCents: 0 })
+
+    await runAgent(
+      defineAgent(async (ctx) => {
+        await ctx.callTool('web_search', {})
+        return { ok: true }
+      }),
+      request(),
+      { ...deps, tools: runner },
+    )
+
+    expect(runs.only().toolCalls).toEqual([
+      expect.objectContaining({ name: 'web_search', ok: false, error: 'rate limited' }),
+    ])
+  })
+
+  it('tells an agent plainly when no tools are wired at all', async () => {
+    let outcome: unknown
+    await runAgent(
+      defineAgent(async (ctx) => {
+        outcome = await ctx.callTool('web_search', {})
+        return { ok: true }
+      }),
+      request(),
+      deps,
+    )
+
+    expect(outcome).toEqual({ ok: false, error: 'no tools are available in this runtime' })
+  })
+})

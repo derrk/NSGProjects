@@ -31,6 +31,8 @@ import {
   taskStore,
 } from './adapters'
 import { memoryStore } from './memory'
+import { resolveCredential } from './credentials'
+import { createCoreToolCatalog } from './tools/index'
 import type { AgentResolver } from './functions/types'
 
 export type ExecuteTaskResult =
@@ -43,6 +45,8 @@ export interface ExecuteTaskDeps {
   resolveAgent: AgentResolver
   /** Where `<kind>.approved` and friends are published. */
   bus: Inngest.Any
+  /** Offline stand-ins for the paid integrations. */
+  useMocks?: boolean
 }
 
 export async function executeTask(
@@ -80,6 +84,9 @@ export async function executeTask(
     return { status: 'failed', reason }
   }
 
+  const requestApprovalFor = (input: Parameters<typeof requestApproval>[0]) =>
+    requestApproval(input, gate)
+
   const gate = {
     approvals: approvalStore(db),
     rules: ruleStore(db),
@@ -98,6 +105,64 @@ export async function executeTask(
     title: claimed.title,
     input: claimed.input,
     source: claimed.source,
+  }
+
+  /*
+   * The tool catalog, built per run.
+   *
+   * Core tools plus whatever the division's module adds. Which of them this agent may
+   * actually call comes from its ROW, enforced inside the catalog — building the
+   * catalog does not grant anything.
+   */
+  const catalog = createCoreToolCatalog({
+    db,
+    useMocks: deps.useMocks ?? process.env['ACF_MOCK_INTEGRATIONS'] === '1',
+    requestApproval: async (input) => {
+      const outcome = await requestApprovalFor({
+        ...input,
+        requestedBy: input.requestedBy as never,
+      } as never)
+      return { approval: { id: outcome.approval.id } }
+    },
+  })
+
+  const toolRunner = {
+    definitionsFor: (granted: readonly string[]) => catalog.definitionsFor(granted),
+    invoke: async (
+      name: string,
+      args: unknown,
+      granted: readonly string[],
+      toolCtx: {
+        divisionId: string
+        agentId: string
+        agentName: string
+        taskId: string | null
+        crossDivision: boolean
+      },
+    ) => {
+      const result = await catalog.invoke(
+        name,
+        args,
+        {
+          ...toolCtx,
+          credential: (credentialName: string) => resolveCredential(db, toolCtx.divisionId, credentialName),
+          log: (kind: string, message: string, opts?: { level?: 'info' | 'warn' | 'error'; refTable?: string; refId?: string }) =>
+            eventSink(db).emit({
+              divisionId: toolCtx.divisionId,
+              agentId: toolCtx.agentId,
+              kind,
+              level: opts?.level ?? 'info',
+              message,
+              ...(opts?.refTable === undefined ? {} : { refTable: opts.refTable }),
+              ...(opts?.refId === undefined ? {} : { refId: opts.refId }),
+            }),
+        },
+        granted,
+      )
+      return result.ok
+        ? { ok: true as const, output: result.output, costCents: result.costCents }
+        : { ok: false as const, error: result.error, costCents: result.costCents }
+    },
   }
 
   try {
@@ -145,6 +210,7 @@ export async function executeTask(
         ledger: ledgerPort(db),
         tasks,
         spendGuard: spendGuard(db),
+        tools: toolRunner,
         requestApproval: (req) => requestApproval(req as never, gate) as Promise<ApprovalOutcome>,
       },
     )

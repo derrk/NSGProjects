@@ -7,6 +7,7 @@
     "./approvals": "./src/approvals/index.ts",
     "./runtime": "./src/runtime/index.ts",
     "./health": "./src/health/index.ts",
-    "./modules": "./src/modules/index.ts"
+    "./modules": "./src/modules/index.ts",
+    "./tools": "./src/tools/index.ts"
   }
 }

@@ -167,6 +167,9 @@ importers:
       '@acf/db':
         specifier: workspace:*
         version: link:../db
+      '@acf/integrations':
+        specifier: workspace:*
+        version: link:../integrations
       drizzle-orm:
         specifier: 0.45.4
         version: 0.45.4(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(@types/pg@8.15.6)(postgres@3.4.9)
