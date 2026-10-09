@@ -14,6 +14,7 @@
     "dev:db": "tsx scripts/dev-db.ts",
     "dev": "pnpm --filter @acf/web dev",
     "seed": "pnpm --filter @acf/web seed",
+    "seed:pet": "pnpm --filter @acf/web seed:pet",
     "dev:db:reset": "docker rm -f acf-pg && tsx scripts/dev-db.ts"
   },
   "devDependencies": {

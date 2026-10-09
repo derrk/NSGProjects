@@ -19,6 +19,7 @@ You need [Node 24+](https://nodejs.org), [pnpm 11+](https://pnpm.io) and
 pnpm install
 pnpm dev:db        # Postgres 17 + pgvector in Docker, on port 5433
 pnpm seed          # migrations, then demo data
+pnpm seed:pet      # optional: the pet division, with fictional orders and margins
 pnpm dev           # http://localhost:3000
 ```
 
@@ -39,6 +40,7 @@ path. What you lose is cron scheduling and automatic handoff between agents.
 | `pnpm dev:db` | Start the database (idempotent) |
 | `pnpm dev:db:reset` | Destroy it and start clean |
 | `pnpm seed` | Apply migrations and insert demo data |
+| `pnpm seed:pet` | Add the pet division: 2 products, 2 orders, fictional margins |
 | `pnpm dev` | Run the app |
 | `pnpm test` | Run every test |
 | `pnpm --filter @acf/web agent "<name>"` | Run one agent from the CLI |
