@@ -6,18 +6,27 @@
  * agents, and the scheduler reads their schedules — none of which required a line of
  * core code to know what a mug is.
  *
- * Week 1 implements the Designer. The other three agents are declared so their
- * stations appear on the floor, but are seeded PAUSED: the scheduler must not queue
- * work that nothing can run yet. They become active as weeks 2 to 4 land.
+ * The Designer and Store ops have runners and are seeded active. The Trend scout,
+ * Support deck, Supply scout and Counting house are declared so their stations
+ * appear on the floor, but are seeded PAUSED: the scheduler must not queue work
+ * that nothing can run yet. Each of those four already has its decision logic
+ * built and tested in its own directory — grounding.ts, score.ts, report.ts — so
+ * what is missing is the model wiring, not the judgement.
  */
 
 import type { ModuleDefinition } from '@acf/core/modules'
 
 import { designerAgentSpec } from './agents/designer/index'
+import { financeAgentSpec } from './agents/finance/index'
 import { storeOpsAgentSpec } from './agents/store-ops/index'
+import { supplierScoutAgentSpec } from './agents/supplier-scout/index'
+import { supportAgentSpec } from './agents/support/index'
 
 export { createDesignerAgent, designerAgentSpec } from './agents/designer/index'
 export { createStoreOpsAgent, storeOpsAgentSpec } from './agents/store-ops/index'
+export * from './agents/finance/index'
+export * from './agents/supplier-scout/index'
+export * from './agents/support/index'
 export * from './pricing'
 export * from './channel-rules'
 export * from './economics'
@@ -37,6 +46,8 @@ export const podModule: ModuleDefinition = {
     { key: 'design_bay', label: 'Design bay', agentKey: 'designer', counter: 'pod.designs_today' },
     { key: 'listing_dock', label: 'Listing dock', agentKey: 'store_ops', counter: 'pod.published_today' },
     { key: 'support_deck', label: 'Support deck', agentKey: 'support', counter: 'pod.replies_today' },
+    { key: 'supply_depot', label: 'Supply depot', agentKey: 'supplier_scout', counter: 'pod.suppliers_reviewed' },
+    { key: 'counting_house', label: 'Counting house', agentKey: 'finance', counter: 'pod.reports_filed' },
   ],
 
   approvalKinds: [
@@ -102,26 +113,9 @@ Score each niche on demand signal, competition, giftability and IP safety, and s
 Reject outright any concept referencing a brand, character, sports team, celebrity, song lyric or movie quote, and never describe a design as being in the style of a living artist.`,
     },
 
-    {
-      key: 'support',
-      defaultName: 'Support deck',
-      purpose:
-        'Read customer messages, classify them, and draft replies grounded in that order’s real data.',
-      description: 'Intent classification and reply drafting. Week 3.',
-      defaultModel: 'claude-sonnet-5-5',
-      defaultSchedule: 'TZ=America/Chicago */30 * * * *',
-      defaultTools: ['send_email', 'memory.recall', 'db.query'],
-      defaultStatus: 'paused',
-      systemPrompt: `You are the support desk for a print-on-demand gift shop.
-
-Every factual claim in a reply comes from the order record or the tracking data in front of you. If the data does not say it, you do not write it.
-
-Never promise a delivery date the tracking does not already show, and never imply something will arrive by a holiday. Say what has happened and what happens next.
-
-Two short paragraphs at most. Friendly, plain, no emoji. Sign off with the shop name.
-
-Refunds, complaints and custom requests are not yours to answer: draft a suggested reply and escalate so the operator can send it in one click.`,
-    },
+    supportAgentSpec,
+    supplierScoutAgentSpec,
+    financeAgentSpec,
   ],
 
   screens: [

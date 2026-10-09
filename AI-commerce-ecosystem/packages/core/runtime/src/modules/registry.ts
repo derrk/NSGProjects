@@ -63,10 +63,14 @@ export interface ModuleStore {
 export interface DivisionStore {
   insert(row: Omit<DivisionRow, 'id'>): Promise<DivisionRow>
   findBySlug(slug: string): Promise<DivisionRow | null>
+  /** Every division built from a given module. Needed to reconcile after an upgrade. */
+  listByModuleName?(moduleName: string): Promise<DivisionRow[]>
 }
 
 export interface AgentStore {
   insertMany(rows: Array<Omit<SeededAgent, 'id'>>): Promise<SeededAgent[]>
+  /** Which module agent keys a division already has rows for. */
+  listKeysForDivision?(divisionId: string): Promise<string[]>
 }
 
 export interface ApprovalRuleSeedStore {
@@ -87,6 +91,58 @@ export interface RegistryDeps {
   agents: AgentStore
   rules: ApprovalRuleSeedStore
   events: EventSink
+}
+
+/**
+ * Give an existing division the agents its module has gained since it was created.
+ *
+ * Without this, adding an agent to a module only reaches divisions created after the
+ * change — an upgrade that silently applies to new customers and not to the one
+ * already running. The seed would look like it worked and the station would never
+ * appear.
+ *
+ * Strictly additive. An agent row is the editable thing in this system: its prompt,
+ * tools, schedule and autonomy are all changed from the UI without a deploy, and a
+ * reconcile that overwrote them would throw away exactly the work the design exists
+ * to make possible. So a key the division already has is left completely alone, even
+ * when the module's defaults have moved on.
+ */
+export async function reconcileDivisionAgents(
+  division: DivisionRow,
+  mod: ModuleDefinition,
+  deps: RegistryDeps,
+): Promise<SeededAgent[]> {
+  if (!deps.agents.listKeysForDivision) return []
+
+  const existing = new Set(await deps.agents.listKeysForDivision(division.id))
+  const missing = mod.agents.filter((spec) => !existing.has(spec.key))
+  if (missing.length === 0) return []
+
+  const added = await deps.agents.insertMany(
+    missing.map((spec) => ({
+      divisionId: division.id,
+      name: spec.defaultName,
+      purpose: spec.purpose,
+      moduleAgentKey: spec.key,
+      model: spec.defaultModel,
+      systemPrompt: spec.systemPrompt,
+      tools: spec.defaultTools,
+      schedule: spec.defaultSchedule,
+      autonomy: spec.defaultAutonomy ?? 'propose',
+      status: spec.defaultStatus ?? 'active',
+    })),
+  )
+
+  await deps.events.emit({
+    divisionId: division.id,
+    kind: 'division.agents_reconciled',
+    level: 'info',
+    message: `added ${added.length} agent(s) to ${division.name}: ${added.map((a) => a.moduleAgentKey).join(', ')}`,
+    refTable: 'divisions',
+    refId: division.id,
+  })
+
+  return added
 }
 
 /**

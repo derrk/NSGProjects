@@ -576,6 +576,13 @@ export function divisionStore(db: Database): DivisionStore {
       const [row] = await db.select().from(divisions).where(eq(divisions.slug, slug)).limit(1)
       return (row ?? null) as DivisionRow | null
     },
+
+    async listByModuleName(moduleName) {
+      // Matched on `type` rather than joined through `moduleId`: a division keeps its
+      // type when a module row is replaced, and this has to find it either way.
+      const rows = await db.select().from(divisions).where(eq(divisions.type, moduleName))
+      return rows as unknown as DivisionRow[]
+    },
   }
 }
 
@@ -585,6 +592,14 @@ export function agentStore(db: Database): AgentStore {
       if (rows.length === 0) return []
       const inserted = await db.insert(agents).values(rows).returning()
       return inserted as unknown as SeededAgent[]
+    },
+
+    async listKeysForDivision(divisionId) {
+      const rows = await db
+        .select({ key: agents.moduleAgentKey })
+        .from(agents)
+        .where(eq(agents.divisionId, divisionId))
+      return rows.map((r) => r.key).filter((k): k is string => k !== null)
     },
   }
 }

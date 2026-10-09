@@ -4,6 +4,7 @@ import { FakeEventSink } from '../../test/fakes'
 import {
   createDivision,
   DivisionSlugTakenError,
+  reconcileDivisionAgents,
   registerModules,
   type AgentStore,
   type ApprovalRuleSeedStore,
@@ -49,6 +50,10 @@ class FakeDivisionStore implements DivisionStore {
   async findBySlug(slug: string): Promise<DivisionRow | null> {
     return this.rows.find((r) => r.slug === slug) ?? null
   }
+
+  async listByModuleName(moduleName: string): Promise<DivisionRow[]> {
+    return this.rows.filter((r) => r.type === moduleName)
+  }
 }
 
 class FakeAgentStore implements AgentStore {
@@ -59,6 +64,10 @@ class FakeAgentStore implements AgentStore {
     const next = rows.map((r) => ({ ...r, id: `agent_${++this.seq}` }))
     this.rows.push(...next)
     return next
+  }
+
+  async listKeysForDivision(divisionId: string): Promise<string[]> {
+    return this.rows.filter((r) => r.divisionId === divisionId).map((r) => r.moduleAgentKey)
   }
 }
 
@@ -472,5 +481,134 @@ describe('createDivision', () => {
     const spy = vi.fn()
     await createDivision({ name: 'POD', slug: 'p1', moduleName: 'pod' }, mods, deps)
     expect(spy).not.toHaveBeenCalled()
+  })
+})
+
+/* ------------------------------------------------------------------ *
+ * reconcileDivisionAgents
+ * ------------------------------------------------------------------ */
+
+const SECOND_AGENT = {
+  key: 'finance',
+  defaultName: 'Counting house',
+  purpose: 'Read the ledger',
+  defaultModel: 'claude-sonnet-5-5',
+  defaultSchedule: 'TZ=America/Chicago 0 7 * * 1',
+  defaultTools: ['db.query'],
+  defaultStatus: 'paused' as const,
+  systemPrompt: 'You are the finance analyst.',
+}
+
+describe('reconcileDivisionAgents', () => {
+  it('gives an existing division an agent its module has since gained', async () => {
+    // Without this, adding an agent only ever reaches divisions created afterwards —
+    // an upgrade that silently skips the division actually running.
+    const before = makeModule()
+    const { division } = await createDivision(
+      { name: 'Deadstock', slug: 'pod-store', moduleName: 'pod' },
+      [before],
+      deps,
+    )
+
+    const after = makeModule({ agents: [...before.agents, SECOND_AGENT] })
+    const added = await reconcileDivisionAgents(division, after, deps)
+
+    expect(added.map((a) => a.moduleAgentKey)).toEqual(['finance'])
+    expect(agents.rows).toHaveLength(2)
+  })
+
+  it('adds nothing when the module has not changed', async () => {
+    const mod = makeModule()
+    const { division } = await createDivision(
+      { name: 'Deadstock', slug: 'pod-store', moduleName: 'pod' },
+      [mod],
+      deps,
+    )
+
+    expect(await reconcileDivisionAgents(division, mod, deps)).toEqual([])
+    expect(events.kinds()).not.toContain('division.agents_reconciled')
+  })
+
+  it('leaves an agent the operator has edited completely alone', async () => {
+    /*
+     * The row is the editable thing: prompt, tools, schedule and autonomy are all
+     * changed from the UI without a deploy. A reconcile that refreshed them from the
+     * module defaults would throw away the work the design exists to make possible.
+     */
+    const before = makeModule()
+    const { division } = await createDivision(
+      { name: 'Deadstock', slug: 'pod-store', moduleName: 'pod' },
+      [before],
+      deps,
+    )
+
+    const edited = agents.rows[0]!
+    edited.systemPrompt = 'Operator rewrote this.'
+    edited.schedule = 'TZ=America/Chicago 0 23 * * *'
+    edited.autonomy = 'auto'
+
+    await reconcileDivisionAgents(
+      division,
+      makeModule({ agents: [...before.agents, SECOND_AGENT] }),
+      deps,
+    )
+
+    expect(agents.rows[0]).toMatchObject({
+      systemPrompt: 'Operator rewrote this.',
+      schedule: 'TZ=America/Chicago 0 23 * * *',
+      autonomy: 'auto',
+    })
+  })
+
+  it('is idempotent: running it twice adds the agent once', async () => {
+    const before = makeModule()
+    const { division } = await createDivision(
+      { name: 'Deadstock', slug: 'pod-store', moduleName: 'pod' },
+      [before],
+      deps,
+    )
+    const after = makeModule({ agents: [...before.agents, SECOND_AGENT] })
+
+    await reconcileDivisionAgents(division, after, deps)
+    const second = await reconcileDivisionAgents(division, after, deps)
+
+    expect(second).toEqual([])
+    expect(agents.rows.filter((a) => a.moduleAgentKey === 'finance')).toHaveLength(1)
+  })
+
+  it('seeds a reconciled agent paused when the module says so', async () => {
+    const before = makeModule()
+    const { division } = await createDivision(
+      { name: 'Deadstock', slug: 'pod-store', moduleName: 'pod' },
+      [before],
+      deps,
+    )
+
+    const [added] = await reconcileDivisionAgents(
+      division,
+      makeModule({ agents: [...before.agents, SECOND_AGENT] }),
+      deps,
+    )
+
+    // The scheduler must not queue work for an agent with no runner behind it.
+    expect(added!.status).toBe('paused')
+    expect(added!.autonomy).toBe('propose')
+  })
+
+  it('records what it did, so the change is not silent', async () => {
+    const before = makeModule()
+    const { division } = await createDivision(
+      { name: 'Deadstock', slug: 'pod-store', moduleName: 'pod' },
+      [before],
+      deps,
+    )
+
+    await reconcileDivisionAgents(
+      division,
+      makeModule({ agents: [...before.agents, SECOND_AGENT] }),
+      deps,
+    )
+
+    expect(events.kinds()).toContain('division.agents_reconciled')
   })
 })

@@ -10,7 +10,7 @@
  *   pnpm --filter @acf/web seed
  */
 
-import { createDivision, registerModules } from '@acf/core/modules'
+import { createDivision, reconcileDivisionAgents, registerModules } from '@acf/core/modules'
 import { createDatabase, runMigrations, users } from '@acf/db'
 import {
   POD_MIGRATIONS,
@@ -209,6 +209,26 @@ async function main() {
   const backfilled = await backfillMemoryEmbeddings(db)
   if (backfilled.embedded > 0) {
     console.log(`backfilled ${backfilled.embedded} memory embedding(s)`)
+  }
+
+  /*
+   * Catch existing divisions up with agents their module has gained.
+   *
+   * Without this, adding an agent to a module only ever reaches divisions created
+   * afterwards — the seed prints success, and the new station never appears for the
+   * division that is actually running. Strictly additive: a prompt, schedule or
+   * autonomy the operator has changed is left exactly as they left it.
+   */
+  for (const mod of MODULES) {
+    for (const division of (await deps.divisions.listByModuleName?.(mod.name)) ?? []) {
+      const added = await reconcileDivisionAgents(division, mod, deps)
+      if (added.length > 0) {
+        console.log(
+          `added ${added.length} agent(s) to "${division.slug}": ` +
+            added.map((a) => a.moduleAgentKey).join(', '),
+        )
+      }
+    }
   }
 
   const existing = await deps.divisions.findBySlug(DIVISION_SLUG)
