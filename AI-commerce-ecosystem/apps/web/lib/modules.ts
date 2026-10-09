@@ -4,7 +4,8 @@ import { createModelClient, createOfflineModelClient } from '@acf/integrations/a
 import { createFalPipeline, createMockFalPipeline } from '@acf/integrations/fal'
 import { createMockStorage, createSupabaseStorage } from '@acf/integrations/storage'
 import { db } from '@acf/db'
-import { createDesignerAgent, podModule } from '@acf/pod'
+import { createPrintifyClient, createMockPrintifyClient } from '@acf/integrations/printify'
+import { createDesignerAgent, createStoreOpsAgent, podModule } from '@acf/pod'
 import { createIntakeAgent, templateModule } from '@acf/template'
 
 /**
@@ -56,7 +57,24 @@ export function resolveAgentDefinition(
     }) as unknown as AgentDefinition<never, never>
   }
 
-  // scout, store_ops and support are declared in module.ts so their stations appear
-  // on the floor, but are seeded paused until weeks 2 to 4 implement them.
+  if (agentKey === 'store_ops') {
+    /*
+     * Store ops has had a runner since the Printify client landed, and was not wired
+     * here. The agent seeds ACTIVE — its spec carries no `defaultStatus` — so every
+     * scheduled run failed with "module pod has no runner for agent key store_ops".
+     * execute-task fails loudly rather than dropping the work, which is why this was
+     * recoverable rather than silent, but it still meant a station that could never
+     * produce anything.
+     */
+    return createStoreOpsAgent({
+      db: db() as never,
+      model: useMocks ? createOfflineModelClient() : createModelClient(),
+      printify: useMocks ? createMockPrintifyClient() : createPrintifyClient(),
+    }) as unknown as AgentDefinition<never, never>
+  }
+
+  // scout, support, supplier_scout and finance are declared in module.ts so their
+  // stations appear on the floor, and each already has its decision logic built and
+  // tested. They are seeded paused until their runners are wired here.
   return null
 }
