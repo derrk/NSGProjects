@@ -83,6 +83,20 @@ export interface ApprovalRuleSeedStore {
       thresholdCount: number
     }>,
   ): Promise<void>
+  /**
+   * Turn `never_auto` ON for kinds a module now marks that way.
+   *
+   * `seed` is onConflictDoNothing, which protects a bucket's earned counters and is
+   * right for everything except this. A module that TIGHTENS a guardrail on an
+   * existing kind — marking `reply` neverAuto because there is no send path — reached
+   * divisions created afterwards and no others, which is the same hole reconcile was
+   * written to close, one level down.
+   *
+   * One direction only. Tightening propagates; loosening does not, because a module
+   * relaxing a safety flag should not silently un-protect a division that has been
+   * running under it.
+   */
+  tightenNeverAuto?(divisionId: string, kinds: readonly string[]): Promise<number>
 }
 
 export interface RegistryDeps {
@@ -134,6 +148,21 @@ export async function reconcileDivisionAgents(
       thresholdCount: kind.thresholdCount ?? (kind.kind === 'design' ? 50 : 20),
     })),
   )
+
+  const nowNeverAuto = mod.approvalKinds.filter((k) => k.neverAuto).map((k) => k.kind)
+  if (nowNeverAuto.length > 0 && deps.rules.tightenNeverAuto) {
+    const tightened = await deps.rules.tightenNeverAuto(division.id, nowNeverAuto)
+    if (tightened > 0) {
+      await deps.events.emit({
+        divisionId: division.id,
+        kind: 'division.never_auto_tightened',
+        level: 'warn',
+        message: `${tightened} rule(s) in ${division.name} are now never-auto: ${nowNeverAuto.join(', ')}`,
+        refTable: 'divisions',
+        refId: division.id,
+      })
+    }
+  }
 
   if (!deps.agents.listKeysForDivision) return []
 

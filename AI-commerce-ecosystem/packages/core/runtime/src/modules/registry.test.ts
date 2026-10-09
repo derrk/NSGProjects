@@ -87,6 +87,18 @@ class FakeRuleSeedStore implements ApprovalRuleSeedStore {
    * that re-seeds safely from one that resets a bucket's earned counters — the whole
    * reason the real adapter has that clause.
    */
+  async tightenNeverAuto(divisionId: string, kinds: readonly string[]): Promise<number> {
+    let n = 0
+    for (const row of this.rows) {
+      if (row.divisionId !== divisionId) continue
+      if (!kinds.includes(row.kind)) continue
+      if (row.neverAuto) continue
+      row.neverAuto = true
+      n += 1
+    }
+    return n
+  }
+
   async seed(rows: typeof this.rows): Promise<void> {
     for (const row of rows) {
       const clash = this.rows.some(
@@ -635,6 +647,54 @@ describe('reconcileDivisionAgents', () => {
 
     expect(added).toEqual([])
     expect(rules.rows.some((r) => r.kind === 'refund')).toBe(true)
+  })
+
+  it('turns never_auto ON for a kind the module has since marked that way', async () => {
+    /*
+     * seed() is onConflictDoNothing, which protects earned counters and is right for
+     * everything except this. A module TIGHTENING a guardrail on an existing kind —
+     * marking `reply` neverAuto because there is no send path — reached divisions
+     * created afterwards and no others. Same hole reconcile exists to close, one
+     * level down, and it bit a real change: the flag was set in module.ts and the
+     * running divisions never saw it.
+     */
+    const before = makeModule({ approvalKinds: [{ kind: 'reply', label: 'Reply' }] })
+    const { division } = await createDivision(
+      { name: 'Deadstock', slug: 'pod-store', moduleName: 'pod' },
+      [before],
+      deps,
+    )
+    expect(rules.rows.find((r) => r.kind === 'reply')!.neverAuto).toBe(false)
+
+    await reconcileDivisionAgents(
+      division,
+      makeModule({ approvalKinds: [{ kind: 'reply', label: 'Reply', neverAuto: true }] }),
+      deps,
+    )
+
+    expect(rules.rows.find((r) => r.kind === 'reply')!.neverAuto).toBe(true)
+    expect(events.kinds()).toContain('division.never_auto_tightened')
+  })
+
+  it('does not turn never_auto OFF again when a module relaxes it', async () => {
+    // One direction only. A module relaxing a safety flag must not silently
+    // un-protect a division that has been running under it.
+    const strict = makeModule({
+      approvalKinds: [{ kind: 'reply', label: 'Reply', neverAuto: true }],
+    })
+    const { division } = await createDivision(
+      { name: 'Deadstock', slug: 'pod-store', moduleName: 'pod' },
+      [strict],
+      deps,
+    )
+
+    await reconcileDivisionAgents(
+      division,
+      makeModule({ approvalKinds: [{ kind: 'reply', label: 'Reply' }] }),
+      deps,
+    )
+
+    expect(rules.rows.find((r) => r.kind === 'reply')!.neverAuto).toBe(true)
   })
 
   it('does not reset a rule the operator has already earned autonomy on', async () => {

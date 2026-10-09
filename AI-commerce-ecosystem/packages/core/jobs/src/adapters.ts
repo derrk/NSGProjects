@@ -6,7 +6,7 @@
  * real world, and it is deliberately thin: mapping only, no decisions.
  */
 
-import { and, desc, eq, sql } from 'drizzle-orm'
+import { and, desc, eq, inArray, sql } from 'drizzle-orm'
 import type { Inngest } from 'inngest'
 
 import type {
@@ -615,6 +615,24 @@ export function approvalRuleSeedStore(db: Database): ApprovalRuleSeedStore {
         .onConflictDoNothing({
           target: [approvalRules.divisionId, approvalRules.kind, approvalRules.category],
         })
+    },
+
+    async tightenNeverAuto(divisionId, kinds) {
+      if (kinds.length === 0) return 0
+      // Only false to true, and counters are untouched. A bucket keeps whatever it
+      // has earned; it simply stops being allowed to spend it on this kind.
+      const updated = await db
+        .update(approvalRules)
+        .set({ neverAuto: true, updatedAt: new Date() })
+        .where(
+          and(
+            eq(approvalRules.divisionId, divisionId),
+            inArray(approvalRules.kind, [...kinds]),
+            eq(approvalRules.neverAuto, false),
+          ),
+        )
+        .returning({ id: approvalRules.id })
+      return updated.length
     },
   }
 }
