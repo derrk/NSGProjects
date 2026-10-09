@@ -1,12 +1,12 @@
 /**
- * Derive each station's status from its run history.
+ * Derive each station's status from the agent registry and recent run history.
  *
  * Pure: no database, no clock of its own. `health.heartbeat` calls this every 15
- * minutes and writes the result; the factory floor renders exactly what it says.
+ * minutes and writes the result.
  */
 
+import { intervalMinutes } from './schedule'
 import {
-  AGENTS,
   FAILURE_STREAK_FOR_RED,
   LIGHT_BY_STATUS,
   STALE_INTERVAL_MULTIPLIER,
@@ -16,41 +16,38 @@ import {
 } from './types'
 
 export interface AssessOptions {
-  /** Agents currently held back by a spend cap or the pause switch. */
-  blocked?: ReadonlySet<string> | readonly string[]
-  agents?: readonly AgentDescriptor[]
+  /** Divisions or agents held back by a spend cap or a pause switch. */
+  blockedAgents?: ReadonlySet<string> | readonly string[]
+  blockedDivisions?: ReadonlySet<string> | readonly string[]
 }
 
 const MINUTE_MS = 60_000
 
-function minutesSince(from: Date, now: Date): number {
-  return (now.getTime() - from.getTime()) / MINUTE_MS
-}
-
 /**
  * Status precedence: error > running > blocked > stale > idle.
  *
- * Errors outrank a run that is in flight on purpose — an agent retrying after three
- * straight failures is still a red light, and showing green because something is
- * currently executing would hide exactly the condition the operator needs to see.
+ * Errors outrank an in-flight run deliberately. An agent retrying after three straight
+ * failures is still a red light, and showing green because something happens to be
+ * executing would hide exactly the condition the operator needs to see.
  */
 export function assessAgentHealth(
+  agents: readonly AgentDescriptor[],
   runs: readonly RunSummary[],
   now: Date,
   options: AssessOptions = {},
 ): AgentHealth[] {
-  const agents = options.agents ?? AGENTS
-  const blocked = new Set(options.blocked ?? [])
+  const blockedAgents = new Set(options.blockedAgents ?? [])
+  const blockedDivisions = new Set(options.blockedDivisions ?? [])
 
   const byAgent = new Map<string, RunSummary[]>()
   for (const run of runs) {
-    const list = byAgent.get(run.agent)
+    const list = byAgent.get(run.agentId)
     if (list) list.push(run)
-    else byAgent.set(run.agent, [run])
+    else byAgent.set(run.agentId, [run])
   }
 
   return agents.map((agent) => {
-    const history = (byAgent.get(agent.name) ?? [])
+    const history = (byAgent.get(agent.id) ?? [])
       .slice()
       .sort((a, b) => b.startedAt.getTime() - a.startedAt.getTime())
 
@@ -64,12 +61,17 @@ export function assessAgentHealth(
     }
 
     const lastRunAt = history[0]?.startedAt ?? null
+    const interval = intervalMinutes(agent.schedule)
+
     const build = (status: AgentHealth['status'], reason: string): AgentHealth => ({
+      agentId: agent.id,
       agent: agent.name,
+      divisionId: agent.divisionId,
       status,
       light: LIGHT_BY_STATUS[status],
       lastRunAt,
       consecutiveFailures,
+      intervalMinutes: interval,
       reason,
     })
 
@@ -77,15 +79,16 @@ export function assessAgentHealth(
       return build('error', `${consecutiveFailures} consecutive failed runs`)
     }
     if (inFlight) return build('running', 'a run is in flight')
-    if (blocked.has(agent.name)) return build('blocked', 'held by a spend cap or the pause switch')
+    if (agent.status === 'paused') return build('blocked', 'agent is paused')
+    if (blockedAgents.has(agent.id) || blockedDivisions.has(agent.divisionId)) {
+      return build('blocked', 'held by a spend cap or a paused division')
+    }
 
-    // Event-driven agents are not overdue just because nothing triggered them.
-    if (agent.intervalMinutes !== undefined) {
-      const limit = agent.intervalMinutes * STALE_INTERVAL_MULTIPLIER
-      if (lastRunAt === null) {
-        return build('stale', 'has never run')
-      }
-      const age = minutesSince(lastRunAt, now)
+    // An event-driven agent is not overdue just because nothing triggered it.
+    if (interval !== null) {
+      const limit = interval * STALE_INTERVAL_MULTIPLIER
+      if (lastRunAt === null) return build('stale', 'has never run')
+      const age = (now.getTime() - lastRunAt.getTime()) / MINUTE_MS
       if (age > limit) {
         return build(
           'stale',

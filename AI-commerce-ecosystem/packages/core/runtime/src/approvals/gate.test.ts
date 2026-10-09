@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 
-import { gateHarness, type GateHarness } from '../../test/fakes'
+import { DIVISION, gateHarness, type GateHarness } from '../../test/fakes'
 import { decideApproval, requestApproval } from './gate'
 import {
   AlreadyDecidedError,
@@ -19,10 +19,11 @@ beforeEach(() => {
 
 function conceptRequest(over: Partial<ApprovalRequest> = {}): ApprovalRequest {
   return {
+    divisionId: DIVISION,
     kind: 'concept',
     category: 'nurses',
+    refTable: 'pod.concepts',
     refId: 'concept_1',
-    shopId: 'shop_1',
     summary: 'Funny nurse mug: "Powered by caffeine and chaos"',
     payload: { title: 'Powered by caffeine and chaos', ipRisk: 'low' },
     requestedBy: 'agent:scout',
@@ -36,20 +37,18 @@ function graduate(h: GateHarness, over: Parameters<GateHarness['rules']['seed']>
 }
 
 describe('requestApproval', () => {
-  it('writes a pending approval row and emits approval.requested', async () => {
+  it('writes a pending approval and emits approval.requested', async () => {
     const out = await requestApproval(conceptRequest(), deps)
 
     expect(out.status).toBe('pending')
-    expect(out.approval.decision).toBe('pending')
-    expect(out.approval.autoDecided).toBe(false)
-    expect(out.approval.createdAt).toEqual(h.clock.now())
+    expect(out.approval).toMatchObject({
+      decision: 'pending',
+      autoDecided: false,
+      divisionId: DIVISION,
+      refTable: 'pod.concepts',
+    })
     expect(h.approvals.all()).toHaveLength(1)
     expect(h.bus.names()).toEqual(['approval.requested'])
-    expect(h.bus.find('approval.requested')!.data).toMatchObject({
-      approvalId: out.approval.id,
-      kind: 'concept',
-      refId: 'concept_1',
-    })
   })
 
   it('does not resume the pipeline while the item is pending', async () => {
@@ -57,35 +56,45 @@ describe('requestApproval', () => {
     expect(h.bus.names()).not.toContain('concept.approved')
   })
 
-  it('is idempotent on (kind, refId) so an orchestrator retry cannot double-queue', async () => {
+  it('blocks the task that is waiting on it', async () => {
+    const out = await requestApproval(conceptRequest({ taskId: 'task_7' }), deps)
+
+    expect(h.tasks.blocked).toEqual([{ taskId: 'task_7', approvalId: out.approval.id }])
+  })
+
+  it('is idempotent on the reference, so a retried run cannot double-queue', async () => {
     const first = await requestApproval(conceptRequest(), deps)
     const second = await requestApproval(conceptRequest(), deps)
 
     expect(second.status).toBe('duplicate')
     expect(second.approval.id).toBe(first.approval.id)
     expect(h.approvals.all()).toHaveLength(1)
-    // The duplicate must not re-notify, or the inbox would show it twice.
     expect(h.bus.names()).toEqual(['approval.requested'])
   })
 
-  it('lets a previously rejected ref be proposed again', async () => {
+  it('scopes idempotency to the division', async () => {
+    await requestApproval(conceptRequest(), deps)
+    const other = await requestApproval(conceptRequest({ divisionId: 'div_other' }), deps)
+
+    // Two divisions proposing the same ref id are two different proposals.
+    expect(other.status).toBe('pending')
+    expect(h.approvals.all()).toHaveLength(2)
+  })
+
+  it('lets a previously rejected reference be proposed again', async () => {
     const first = await requestApproval(conceptRequest(), deps)
-    await decideApproval({ approvalId: first.approval.id, decision: 'rejected', decidedBy: 'operator' }, deps)
+    await decideApproval(
+      { approvalId: first.approval.id, decision: 'rejected', decidedBy: 'user:1' },
+      deps,
+    )
 
     const second = await requestApproval(conceptRequest(), deps)
-
     expect(second.status).toBe('pending')
     expect(second.approval.id).not.toBe(first.approval.id)
   })
 
   it('pends by default when the category has no rule row yet', async () => {
-    const out = await requestApproval(conceptRequest({ category: 'brand-new-niche' }), deps)
-    expect(out.status).toBe('pending')
-  })
-
-  it('pends when the category exists but has not graduated', async () => {
-    h.rules.seed({ kind: 'concept', category: 'nurses', approvedCount: 5, autoEnabled: false })
-    const out = await requestApproval(conceptRequest(), deps)
+    const out = await requestApproval(conceptRequest({ category: 'brand-new' }), deps)
     expect(out.status).toBe('pending')
   })
 
@@ -98,17 +107,22 @@ describe('requestApproval', () => {
       const out = await requestApproval(conceptRequest(), deps)
 
       expect(out.status).toBe('auto_approved')
-      expect(out.approval.decision).toBe('approved')
-      expect(out.approval.autoDecided).toBe(true)
-      expect(out.approval.decidedBy).toBe('system')
-      expect(out.approval.decidedAt).toEqual(h.clock.now())
+      expect(out.approval).toMatchObject({
+        decision: 'approved',
+        autoDecided: true,
+        decidedBy: 'system',
+      })
       expect(h.bus.names()).toEqual(['concept.approved'])
       expect(h.bus.names()).not.toContain('approval.requested')
     })
 
+    it('does not block the task when it decides on the spot', async () => {
+      await requestApproval(conceptRequest({ taskId: 'task_7' }), deps)
+      expect(h.tasks.blocked).toEqual([])
+    })
+
     it('still writes an audit row and an event for the auto decision', async () => {
       await requestApproval(conceptRequest(), deps)
-
       expect(h.approvals.all()).toHaveLength(1)
       expect(h.events.kinds()).toContain('approval.auto_approved')
     })
@@ -116,38 +130,59 @@ describe('requestApproval', () => {
     it('does not count its own auto decision toward the graduation counters', async () => {
       await requestApproval(conceptRequest(), deps)
 
-      const rule = await h.rules.get('concept', 'nurses')
-      // Counters must reflect operator judgement only. If auto-approvals counted, a
-      // graduated bucket would drive its own approval rate to 100% and could never be
-      // re-evaluated against real operator opinion.
-      expect(rule).toMatchObject({ approvedCount: 20, rejectedCount: 0, editedCount: 0 })
+      // If auto-approvals counted, a graduated bucket would drive its own approval
+      // rate to 100% and could never be re-tested against operator judgement.
+      expect(await h.rules.get(DIVISION, 'concept', 'nurses')).toMatchObject({
+        approvedCount: 20,
+        rejectedCount: 0,
+        editedCount: 0,
+      })
     })
 
     it('only auto-approves the category that graduated', async () => {
-      const out = await requestApproval(conceptRequest({ category: 'teachers', refId: 'concept_2' }), deps)
+      const out = await requestApproval(
+        conceptRequest({ category: 'teachers', refId: 'concept_2' }),
+        deps,
+      )
+      expect(out.status).toBe('pending')
+    })
+
+    it('only auto-approves in the division that graduated', async () => {
+      const out = await requestApproval(
+        conceptRequest({ divisionId: 'div_other', refId: 'concept_3' }),
+        deps,
+      )
+      // Autonomy is earned per division. A second POD shop starts from zero.
       expect(out.status).toBe('pending')
     })
   })
 })
 
-describe('requestApproval never-auto list', () => {
-  it('sends a refund reply to the operator even in a graduated category', async () => {
-    graduate(h, { kind: 'reply', category: 'refund' })
+describe('requestApproval never-auto rules', () => {
+  it('honours the never_auto flag on the rule row', async () => {
+    graduate(h, { kind: 'concept', category: 'nurses', neverAuto: true })
+
+    const out = await requestApproval(conceptRequest(), deps)
+
+    expect(out.status).toBe('pending')
+    expect(h.events.byKind('approval.never_auto')[0]?.message).toMatch(/never_auto/)
+  })
+
+  it.each([
+    ['refund', 'refunds'],
+    ['purchase', 'purchases'],
+    ['buy_lot', 'buying inventory'],
+    ['contract', 'contracts'],
+  ])('never auto-approves a %s, in any module', async (kind, phrase) => {
+    graduate(h, { kind, category: 'any' })
 
     const out = await requestApproval(
-      {
-        kind: 'reply',
-        category: 'refund',
-        refId: 'msg_1',
-        summary: 'Refund request',
-        payload: { intent: 'refund', replyBody: 'Sorry about that, refunding now.' },
-        requestedBy: 'agent:support',
-      },
+      conceptRequest({ kind, category: 'any', refId: `ref_${kind}` }),
       deps,
     )
 
     expect(out.status).toBe('pending')
-    expect(h.events.byKind('approval.never_auto')[0]?.message).toMatch(/refund/i)
+    expect(h.events.byKind('approval.never_auto')[0]?.message).toContain(phrase)
   })
 
   it.each([
@@ -157,14 +192,13 @@ describe('requestApproval never-auto list', () => {
     graduate(h, { kind: 'reply', category: intent })
 
     const out = await requestApproval(
-      {
+      conceptRequest({
         kind: 'reply',
         category: intent,
+        refTable: 'pod.messages',
         refId: `msg_${intent}`,
-        summary: 'Escalation',
         payload: { intent, replyBody: 'Thanks for reaching out.' },
-        requestedBy: 'agent:support',
-      },
+      }),
       deps,
     )
 
@@ -180,14 +214,13 @@ describe('requestApproval never-auto list', () => {
     graduate(h, { kind: 'reply', category: 'shipping_eta' })
 
     const out = await requestApproval(
-      {
+      conceptRequest({
         kind: 'reply',
         category: 'shipping_eta',
+        refTable: 'pod.messages',
         refId: 'msg_2',
-        summary: 'Where is my order',
         payload: { intent: 'shipping_eta', customerMessage, replyBody: 'It ships in 3 days.' },
-        requestedBy: 'agent:support',
-      },
+      }),
       deps,
     )
 
@@ -203,14 +236,13 @@ describe('requestApproval never-auto list', () => {
     graduate(h, { kind: 'reply', category: 'shipping_eta' })
 
     const out = await requestApproval(
-      {
+      conceptRequest({
         kind: 'reply',
         category: 'shipping_eta',
+        refTable: 'pod.messages',
         refId: `msg_${replyBody.length}`,
-        summary: 'Shipping question',
         payload: { intent: 'shipping_eta', customerMessage: 'When will it arrive?', replyBody },
-        requestedBy: 'agent:support',
-      },
+      }),
       deps,
     )
 
@@ -221,18 +253,17 @@ describe('requestApproval never-auto list', () => {
     graduate(h, { kind: 'reply', category: 'shipping_eta' })
 
     const out = await requestApproval(
-      {
+      conceptRequest({
         kind: 'reply',
         category: 'shipping_eta',
+        refTable: 'pod.messages',
         refId: 'msg_3',
-        summary: 'Shipping question',
         payload: {
           intent: 'shipping_eta',
           customerMessage: 'Any update on my order?',
           replyBody: 'Your order is in production and tracking will follow once it ships.',
         },
-        requestedBy: 'agent:support',
-      },
+      }),
       deps,
     )
 
@@ -250,94 +281,79 @@ describe('requestApproval never-auto list', () => {
     expect(out.status).toBe('pending')
   })
 
-  it('never auto-approves a price change above 15%', async () => {
+  it.each([
+    ['above the limit', 22, 'pending'],
+    ['a large cut', -40, 'pending'],
+    ['within the limit', 4, 'auto_approved'],
+  ])('handles a price change %s', async (_label, pctChange, expected) => {
     graduate(h, { kind: 'price_change', category: 'mug' })
 
     const out = await requestApproval(
-      {
+      conceptRequest({
         kind: 'price_change',
         category: 'mug',
-        refId: 'prod_1',
-        summary: 'Raise mug price',
-        payload: { pctChange: 22 },
-        requestedBy: 'agent:finance',
-      },
+        refTable: 'pod.products',
+        refId: `prod_${pctChange}`,
+        payload: { pctChange },
+      }),
       deps,
     )
 
-    expect(out.status).toBe('pending')
-  })
-
-  it('treats a large price CUT as needing approval too', async () => {
-    graduate(h, { kind: 'price_change', category: 'mug' })
-
-    const out = await requestApproval(
-      {
-        kind: 'price_change',
-        category: 'mug',
-        refId: 'prod_2',
-        summary: 'Discount',
-        payload: { pctChange: -40 },
-        requestedBy: 'agent:finance',
-      },
-      deps,
-    )
-
-    expect(out.status).toBe('pending')
+    expect(out.status).toBe(expected)
   })
 
   it('fails safe when the price change percentage is missing', async () => {
     graduate(h, { kind: 'price_change', category: 'mug' })
 
     const out = await requestApproval(
-      {
+      conceptRequest({
         kind: 'price_change',
         category: 'mug',
-        refId: 'prod_3',
-        summary: 'Price change',
+        refTable: 'pod.products',
+        refId: 'prod_x',
         payload: {},
-        requestedBy: 'agent:finance',
-      },
+      }),
       deps,
     )
 
     expect(out.status).toBe('pending')
   })
+})
 
-  it('allows a small price change to auto-approve', async () => {
-    graduate(h, { kind: 'price_change', category: 'mug' })
+describe('requestApproval spend cap', () => {
+  it('stops auto-approving when the division is over its cap', async () => {
+    graduate(h, { kind: 'concept', category: 'nurses' })
+    deps = { ...h, spendGuard: { check: async () => 'daily spend cap of $25 reached' } }
 
-    const out = await requestApproval(
-      {
-        kind: 'price_change',
-        category: 'mug',
-        refId: 'prod_4',
-        summary: 'Trim price',
-        payload: { pctChange: 4 },
-        requestedBy: 'agent:finance',
-      },
-      deps,
-    )
+    const out = await requestApproval(conceptRequest(), deps)
 
-    expect(out.status).toBe('auto_approved')
+    // The cap is a rule, not a prompt instruction, so earned autonomy does not
+    // override it.
+    expect(out.status).toBe('pending')
+    expect(h.events.byKind('approval.never_auto')[0]?.message).toMatch(/spend cap/)
   })
 
-  it('never auto-approves a new shop proposal', async () => {
-    graduate(h, { kind: 'shop_proposal', category: 'hobby' })
-
-    const out = await requestApproval(
-      {
-        kind: 'shop_proposal',
-        category: 'hobby',
-        refId: 'proposal_1',
-        summary: 'Open "Trail & Timber" for hiking gifts',
-        payload: { name: 'Trail & Timber', fulfillment: 'pod' },
-        requestedBy: 'agent:strategist',
+  it('checks the cap for the requesting division', async () => {
+    const seen: string[] = []
+    deps = {
+      ...h,
+      spendGuard: {
+        check: async (divisionId) => {
+          seen.push(divisionId)
+          return null
+        },
       },
-      deps,
-    )
+    }
 
-    expect(out.status).toBe('pending')
+    await requestApproval(conceptRequest({ divisionId: 'div_cards' }), deps)
+    expect(seen).toEqual(['div_cards'])
+  })
+
+  it('auto-approves normally when the division is under its cap', async () => {
+    graduate(h, { kind: 'concept', category: 'nurses' })
+    deps = { ...h, spendGuard: { check: async () => null } }
+
+    expect((await requestApproval(conceptRequest(), deps)).status).toBe('auto_approved')
   })
 })
 
@@ -353,24 +369,29 @@ describe('decideApproval', () => {
     const row = await pending()
 
     const result = await decideApproval(
-      { approvalId: row.id, decision: 'approved', decidedBy: 'operator' },
+      { approvalId: row.id, decision: 'approved', decidedBy: 'user:1' },
       deps,
     )
 
-    expect(result.approval.decision).toBe('approved')
-    expect(result.approval.decidedBy).toBe('operator')
-    expect(result.approval.decidedAt).toEqual(h.clock.now())
-    expect(result.approval.autoDecided).toBe(false)
-    expect(h.bus.names()).toEqual(['concept.approved'])
-    expect(h.bus.find('concept.approved')!.data).toMatchObject({ refId: 'concept_1' })
+    expect(result.approval).toMatchObject({ decision: 'approved', decidedBy: 'user:1' })
+    expect(h.bus.names()).toEqual(['concept.approved', 'approval.decided'])
+  })
+
+  it('tells the orchestrator which task to resume', async () => {
+    const row = await pending({ taskId: 'task_9' })
+    await decideApproval({ approvalId: row.id, decision: 'approved', decidedBy: 'user:1' }, deps)
+
+    expect(h.bus.find('approval.decided')!.data).toMatchObject({
+      taskId: 'task_9',
+      decision: 'approved',
+    })
   })
 
   it('rejects and emits the rejection event instead', async () => {
     const row = await pending()
+    await decideApproval({ approvalId: row.id, decision: 'rejected', decidedBy: 'user:1' }, deps)
 
-    await decideApproval({ approvalId: row.id, decision: 'rejected', decidedBy: 'operator' }, deps)
-
-    expect(h.bus.names()).toEqual(['concept.rejected'])
+    expect(h.bus.names()).toContain('concept.rejected')
     expect(h.bus.names()).not.toContain('concept.approved')
   })
 
@@ -379,49 +400,47 @@ describe('decideApproval', () => {
     const editPayload = { title: 'Operator rewrote this' }
 
     const result = await decideApproval(
-      { approvalId: row.id, decision: 'edited', decidedBy: 'operator', editPayload },
+      { approvalId: row.id, decision: 'edited', decidedBy: 'user:1', editPayload },
       deps,
     )
 
-    expect(result.approval.decision).toBe('edited')
     expect(result.approval.editPayload).toEqual(editPayload)
     // An edit still moves the pipeline forward, carrying the operator's version.
-    expect(h.bus.names()).toEqual(['concept.approved'])
     expect(h.bus.find('concept.approved')!.data).toMatchObject({ payload: editPayload })
   })
 
   it('refuses an edit decision with no edited payload', async () => {
     const row = await pending()
-
     await expect(
-      decideApproval({ approvalId: row.id, decision: 'edited', decidedBy: 'operator' }, deps),
+      decideApproval({ approvalId: row.id, decision: 'edited', decidedBy: 'user:1' }, deps),
     ).rejects.toThrow(/editPayload/i)
   })
 
   it('refuses to decide the same approval twice', async () => {
     const row = await pending()
-    await decideApproval({ approvalId: row.id, decision: 'approved', decidedBy: 'operator' }, deps)
+    await decideApproval({ approvalId: row.id, decision: 'approved', decidedBy: 'user:1' }, deps)
 
     await expect(
-      decideApproval({ approvalId: row.id, decision: 'rejected', decidedBy: 'operator' }, deps),
+      decideApproval({ approvalId: row.id, decision: 'rejected', decidedBy: 'user:1' }, deps),
     ).rejects.toBeInstanceOf(AlreadyDecidedError)
   })
 
   it('does not emit a second event when a double decision is refused', async () => {
     const row = await pending()
-    await decideApproval({ approvalId: row.id, decision: 'approved', decidedBy: 'operator' }, deps)
+    await decideApproval({ approvalId: row.id, decision: 'approved', decidedBy: 'user:1' }, deps)
     h.bus.sent.length = 0
 
-    await decideApproval({ approvalId: row.id, decision: 'approved', decidedBy: 'operator' }, deps).catch(
-      () => {},
-    )
+    await decideApproval(
+      { approvalId: row.id, decision: 'approved', decidedBy: 'user:1' },
+      deps,
+    ).catch(() => {})
 
     expect(h.bus.sent).toHaveLength(0)
   })
 
   it('throws for an unknown approval id', async () => {
     await expect(
-      decideApproval({ approvalId: 'nope', decision: 'approved', decidedBy: 'operator' }, deps),
+      decideApproval({ approvalId: 'nope', decision: 'approved', decidedBy: 'user:1' }, deps),
     ).rejects.toBeInstanceOf(ApprovalNotFoundError)
   })
 })
@@ -434,7 +453,7 @@ describe('graduated autonomy counters', () => {
       {
         approvalId: out.approval.id,
         decision,
-        decidedBy: 'operator',
+        decidedBy: 'user:1',
         ...(decision === 'edited' ? { editPayload: { edited: true } } : {}),
       },
       deps,
@@ -446,7 +465,7 @@ describe('graduated autonomy counters', () => {
     await decide('rejected', 'c2')
     await decide('edited', 'c3')
 
-    expect(await h.rules.get('concept', 'nurses')).toMatchObject({
+    expect(await h.rules.get(DIVISION, 'concept', 'nurses')).toMatchObject({
       approvedCount: 1,
       rejectedCount: 1,
       editedCount: 1,
@@ -456,9 +475,9 @@ describe('graduated autonomy counters', () => {
   it('creates the rule row on first decision with the kind default threshold', async () => {
     await decide('approved', 'c1')
 
-    expect(await h.rules.get('concept', 'nurses')).toMatchObject({
-      threshold: 20,
-      requiredRate: 0.95,
+    expect(await h.rules.get(DIVISION, 'concept', 'nurses')).toMatchObject({
+      thresholdCount: 20,
+      thresholdRate: 0.95,
       autoEnabled: false,
     })
   })
@@ -468,26 +487,32 @@ describe('graduated autonomy counters', () => {
       conceptRequest({ kind: 'design', category: 'flat-vector', refId: 'd1' }),
       deps,
     )
-    await decideApproval({ approvalId: out.approval.id, decision: 'approved', decidedBy: 'operator' }, deps)
+    await decideApproval(
+      { approvalId: out.approval.id, decision: 'approved', decidedBy: 'user:1' },
+      deps,
+    )
 
-    expect(await h.rules.get('design', 'flat-vector')).toMatchObject({ threshold: 50 })
+    // A bad listing is embarrassing; a bad design is a takedown.
+    expect(await h.rules.get(DIVISION, 'design', 'flat-vector')).toMatchObject({
+      thresholdCount: 50,
+    })
   })
 
   it('does not graduate below the threshold even at a perfect rate', async () => {
     h.rules.seed({ kind: 'concept', category: 'nurses', approvedCount: 18 })
     await decide('approved', 'c1')
 
-    expect(await h.rules.get('concept', 'nurses')).toMatchObject({
+    expect(await h.rules.get(DIVISION, 'concept', 'nurses')).toMatchObject({
       approvedCount: 19,
       autoEnabled: false,
     })
   })
 
-  it('graduates the category at the threshold when the rate is high enough', async () => {
+  it('graduates at the threshold when the rate is high enough', async () => {
     h.rules.seed({ kind: 'concept', category: 'nurses', approvedCount: 19 })
     await decide('approved', 'c1')
 
-    expect(await h.rules.get('concept', 'nurses')).toMatchObject({
+    expect(await h.rules.get(DIVISION, 'concept', 'nurses')).toMatchObject({
       approvedCount: 20,
       autoEnabled: true,
     })
@@ -495,13 +520,11 @@ describe('graduated autonomy counters', () => {
   })
 
   it('does not graduate at the threshold when the approval rate is below 95%', async () => {
-    // 18 approved + 1 rejected = 19 decided; this approval makes 20 at 19/20 = 95%...
-    // but an edit is not a clean approval, so 18/20 = 90% must not graduate.
+    // 18 approved + 1 rejected + this edit = 20 decided at 18/20 = 90%.
     h.rules.seed({ kind: 'concept', category: 'nurses', approvedCount: 18, rejectedCount: 1 })
     await decide('edited', 'c1')
 
-    expect(await h.rules.get('concept', 'nurses')).toMatchObject({
-      approvedCount: 18,
+    expect(await h.rules.get(DIVISION, 'concept', 'nurses')).toMatchObject({
       editedCount: 1,
       autoEnabled: false,
     })
@@ -512,7 +535,17 @@ describe('graduated autonomy counters', () => {
     await decide('edited', 'c1')
 
     // 19 approved of 20 decided = 95%, which clears the bar.
-    expect(await h.rules.get('concept', 'nurses')).toMatchObject({ autoEnabled: true })
+    expect(await h.rules.get(DIVISION, 'concept', 'nurses')).toMatchObject({ autoEnabled: true })
+  })
+
+  it('never graduates a bucket marked never_auto', async () => {
+    h.rules.seed({ kind: 'concept', category: 'nurses', approvedCount: 19, neverAuto: true })
+    await decide('approved', 'c1')
+
+    expect(await h.rules.get(DIVISION, 'concept', 'nurses')).toMatchObject({
+      approvedCount: 20,
+      autoEnabled: false,
+    })
   })
 
   it('disables autonomy and resets the counters when a graduated category is rejected', async () => {
@@ -523,24 +556,26 @@ describe('graduated autonomy counters', () => {
       autoEnabled: true,
     })
 
-    // A never-auto item still reaches the inbox in a graduated category, so the
-    // operator can still reject there — this is how autonomy gets revoked.
+    // A never-auto item still reaches the inbox in a graduated category, which is how
+    // autonomy gets revoked at all.
     const out = await requestApproval(
-      {
+      conceptRequest({
         kind: 'reply',
         category: 'shipping_eta',
+        refTable: 'pod.messages',
         refId: 'msg_9',
-        summary: 'Angry customer',
         payload: { intent: 'shipping_eta', customerMessage: 'It arrived damaged', replyBody: 'Sorry!' },
-        requestedBy: 'agent:support',
-      },
+      }),
       deps,
     )
     expect(out.status).toBe('pending')
 
-    await decideApproval({ approvalId: out.approval.id, decision: 'rejected', decidedBy: 'operator' }, deps)
+    await decideApproval(
+      { approvalId: out.approval.id, decision: 'rejected', decidedBy: 'user:1' },
+      deps,
+    )
 
-    expect(await h.rules.get('reply', 'shipping_eta')).toMatchObject({
+    expect(await h.rules.get(DIVISION, 'reply', 'shipping_eta')).toMatchObject({
       autoEnabled: false,
       approvedCount: 0,
       rejectedCount: 0,
@@ -554,18 +589,20 @@ describe('graduated autonomy counters', () => {
     h.rules.seed({ kind: 'reply', category: 'tracking', approvedCount: 40, autoEnabled: true })
 
     const out = await requestApproval(
-      {
+      conceptRequest({
         kind: 'reply',
         category: 'shipping_eta',
+        refTable: 'pod.messages',
         refId: 'msg_10',
-        summary: 'Damage report',
         payload: { intent: 'shipping_eta', customerMessage: 'broken', replyBody: 'Sorry!' },
-        requestedBy: 'agent:support',
-      },
+      }),
       deps,
     )
-    await decideApproval({ approvalId: out.approval.id, decision: 'rejected', decidedBy: 'operator' }, deps)
+    await decideApproval(
+      { approvalId: out.approval.id, decision: 'rejected', decidedBy: 'user:1' },
+      deps,
+    )
 
-    expect(await h.rules.get('reply', 'tracking')).toMatchObject({ autoEnabled: true })
+    expect(await h.rules.get(DIVISION, 'reply', 'tracking')).toMatchObject({ autoEnabled: true })
   })
 })

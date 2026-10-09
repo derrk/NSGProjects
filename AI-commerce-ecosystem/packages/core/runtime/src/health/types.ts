@@ -1,8 +1,8 @@
 /**
- * Station health (SPEC.md §Orchestrator, `health.heartbeat`).
+ * Station health (SPEC.md §Orchestrator → health.heartbeat).
  *
- * Status is derived here, server-side, and never guessed by the client — the factory
- * floor renders what this says.
+ * Status is derived here, server-side, from the agent registry; the floor renders
+ * exactly what this says and the client never guesses.
  */
 
 export type StationStatus =
@@ -12,12 +12,11 @@ export type StationStatus =
   | 'idle'
   /** Overdue: no run for more than twice its interval. */
   | 'stale'
-  /** Held back by a spend cap or the global pause switch. */
+  /** Held back by a spend cap or a paused division. */
   | 'blocked'
   /** Three consecutive failed runs. */
   | 'error'
 
-/** What the station light shows. */
 export type StationLight = 'green' | 'amber' | 'red'
 
 export const LIGHT_BY_STATUS: Record<StationStatus, StationLight> = {
@@ -28,42 +27,36 @@ export const LIGHT_BY_STATUS: Record<StationStatus, StationLight> = {
   error: 'red',
 }
 
+/** The subset of an `agents` row the assessment needs. */
 export interface AgentDescriptor {
+  id: string
   name: string
-  /**
-   * Minutes between scheduled runs. Omitted for event-driven agents (Designer, Store
-   * ops), which are not overdue just because nothing has triggered them.
-   */
-  intervalMinutes?: number
+  divisionId: string
+  /** Cron expression, `event:<name>`, or null for manual-only. */
+  schedule?: string | null
+  status?: 'active' | 'paused' | 'retired'
 }
 
-/** The agent roster and their cadences, from the schedule table in SPEC.md. */
-export const AGENTS: readonly AgentDescriptor[] = [
-  { name: 'scout', intervalMinutes: 24 * 60 },
-  { name: 'strategist', intervalMinutes: 7 * 24 * 60 },
-  { name: 'designer' },
-  { name: 'store' },
-  { name: 'orders', intervalMinutes: 60 },
-  { name: 'support', intervalMinutes: 30 },
-  { name: 'finance', intervalMinutes: 24 * 60 },
-]
-
-/** The minimum an assessment needs to know about a past run. */
+/** The subset of an `agent_runs` row the assessment needs. */
 export interface RunSummary {
-  agent: string
+  agentId: string
   status: 'running' | 'ok' | 'error'
   startedAt: Date
   finishedAt: Date | null
 }
 
 export interface AgentHealth {
+  agentId: string
   agent: string
+  divisionId: string
   status: StationStatus
   light: StationLight
   lastRunAt: Date | null
   /** How many of the most recent finished runs failed in a row. */
   consecutiveFailures: number
-  /** Human-readable explanation for the drawer. */
+  /** Expected minutes between runs, or null for an event-driven agent. */
+  intervalMinutes: number | null
+  /** Human-readable explanation for the station drawer. */
   reason: string
 }
 

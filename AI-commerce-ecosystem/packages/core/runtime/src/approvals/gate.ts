@@ -1,19 +1,18 @@
 /**
- * The approval gate (SPEC.md §Orchestrator).
+ * The approval gate (SPEC.md §Orchestrator, tasks and approvals).
  *
- * `requestApproval` is the ONLY way an agent proposes a side effect. It either parks
- * the proposal in the operator's inbox or — once that category has earned autonomy —
- * decides it on the spot. Either way the agent's job ends there; the pipeline resumes
- * when an event fires.
+ * `requestApproval` is the ONLY way an agent causes a side effect. It either parks the
+ * proposal in the operator's inbox and blocks the task, or — once that category has
+ * earned autonomy — decides it on the spot. Either way the agent's run ends there; the
+ * task resumes when an event fires.
  */
 
 import { neverAutoReason } from './never-auto'
 import {
   AlreadyDecidedError,
   ApprovalNotFoundError,
-  DEFAULT_REQUIRED_RATE,
-  DEFAULT_THRESHOLDS,
-  type ApprovalKind,
+  DEFAULT_THRESHOLD_RATE,
+  thresholdFor,
   type ApprovalOutcome,
   type ApprovalRequest,
   type ApprovalRow,
@@ -22,61 +21,76 @@ import {
   type GateDeps,
 } from './types'
 
-/** Strip the `agent:` prefix so events land on the right station. */
-function stationOf(actor: string): string {
-  return actor.startsWith('agent:') ? actor.slice('agent:'.length) : actor
-}
-
-function defaultRule(kind: ApprovalKind, category: string): ApprovalRule {
+function defaultRule(divisionId: string, kind: string, category: string): ApprovalRule {
   return {
+    divisionId,
     kind,
     category,
     approvedCount: 0,
     rejectedCount: 0,
     editedCount: 0,
     autoEnabled: false,
-    threshold: DEFAULT_THRESHOLDS[kind],
-    requiredRate: DEFAULT_REQUIRED_RATE,
+    thresholdCount: thresholdFor(kind),
+    thresholdRate: DEFAULT_THRESHOLD_RATE,
+    neverAuto: false,
   }
 }
 
 function eventPayload(row: ApprovalRow, payload: unknown, actor: string, ts: Date) {
   return {
     approvalId: row.id,
+    divisionId: row.divisionId,
     kind: row.kind,
     category: row.category,
+    refTable: row.refTable,
     refId: row.refId,
-    shopId: row.shopId,
+    taskId: row.taskId,
     payload,
     actor,
     ts: ts.toISOString(),
   }
 }
 
-export async function requestApproval(req: ApprovalRequest, deps: GateDeps): Promise<ApprovalOutcome> {
-  // An orchestrator retry must not queue the same proposal twice.
-  const existing = await deps.approvals.findByRef(req.kind, req.refId)
+export async function requestApproval(
+  req: ApprovalRequest,
+  deps: GateDeps,
+): Promise<ApprovalOutcome> {
+  // A retried run must not queue the same proposal twice.
+  const existing = await deps.approvals.findByRef(req.divisionId, req.kind, req.refTable, req.refId)
   if (existing) return { status: 'duplicate', approval: existing }
 
-  const blocked = neverAutoReason(req)
-  const rule = await deps.rules.get(req.kind, req.category)
+  const rule = await deps.rules.get(req.divisionId, req.kind, req.category)
+
+  // Three independent reasons this cannot auto-run, checked before graduation:
+  // the hard-coded platform list, the rule's own never_auto flag, and the division's
+  // spend cap. All of them outrank earned autonomy.
+  const blockedReasons: string[] = []
+  const hardCoded = neverAutoReason(req)
+  if (hardCoded) blockedReasons.push(hardCoded)
+  if (rule?.neverAuto) blockedReasons.push('category is marked never_auto')
+  if (deps.spendGuard) {
+    const capped = await deps.spendGuard.check(req.divisionId)
+    if (capped) blockedReasons.push(capped)
+  }
+
   const graduated = rule?.autoEnabled === true
-  const auto = graduated && blocked === null
+  const auto = graduated && blockedReasons.length === 0
 
   const now = deps.clock.now()
-  const station = stationOf(req.requestedBy)
 
   const saved = await deps.approvals.insert({
     id: deps.newId(),
-    shopId: req.shopId ?? null,
+    divisionId: req.divisionId,
     kind: req.kind,
     category: req.category,
+    refTable: req.refTable,
     refId: req.refId,
     summary: req.summary,
     payload: req.payload,
     decision: auto ? 'approved' : 'pending',
     autoDecided: auto,
     editPayload: null,
+    taskId: req.taskId ?? null,
     requestedBy: req.requestedBy,
     decidedBy: auto ? 'system' : null,
     createdAt: now,
@@ -85,7 +99,7 @@ export async function requestApproval(req: ApprovalRequest, deps: GateDeps): Pro
 
   if (auto) {
     await deps.events.emit({
-      agent: station,
+      divisionId: req.divisionId,
       kind: 'approval.auto_approved',
       level: 'info',
       message: `auto-approved ${req.kind} (${req.category}): ${req.summary}`,
@@ -96,21 +110,26 @@ export async function requestApproval(req: ApprovalRequest, deps: GateDeps): Pro
     return { status: 'auto_approved', approval: saved }
   }
 
-  // Worth surfacing only when it actually overrode an earned autonomy — otherwise
-  // every proposal in an ungraduated category would log a "never auto" line.
-  if (blocked !== null && graduated) {
+  // Only worth surfacing when it actually overrode earned autonomy; otherwise every
+  // proposal in an ungraduated category would log a "never auto" line.
+  if (blockedReasons.length > 0 && graduated) {
     await deps.events.emit({
-      agent: station,
+      divisionId: req.divisionId,
       kind: 'approval.never_auto',
       level: 'warn',
-      message: `held for the operator despite autonomy: ${blocked}`,
+      message: `held for the operator despite autonomy: ${blockedReasons.join('; ')}`,
       refTable: 'approvals',
       refId: saved.id,
     })
   }
 
+  // The task waits here. This is what makes an agent's run end at the gate.
+  if (saved.taskId && deps.tasks) {
+    await deps.tasks.block(saved.taskId, saved.id)
+  }
+
   await deps.events.emit({
-    agent: station,
+    divisionId: req.divisionId,
     kind: 'approval.requested',
     level: 'info',
     message: `${req.kind} awaiting approval: ${req.summary}`,
@@ -129,7 +148,10 @@ export interface DecisionResult {
   autonomyRevoked: boolean
 }
 
-export async function decideApproval(input: DecisionInput, deps: GateDeps): Promise<DecisionResult> {
+export async function decideApproval(
+  input: DecisionInput,
+  deps: GateDeps,
+): Promise<DecisionResult> {
   const row = await deps.approvals.findById(input.approvalId)
   if (!row) throw new ApprovalNotFoundError(input.approvalId)
   if (row.decision !== 'pending') throw new AlreadyDecidedError(input.approvalId, row.decision)
@@ -148,7 +170,7 @@ export async function decideApproval(input: DecisionInput, deps: GateDeps): Prom
   const { rule, graduated, autonomyRevoked } = await updateCounters(approval, input.decision, deps)
 
   await deps.events.emit({
-    agent: 'orchestrator',
+    divisionId: approval.divisionId,
     kind: 'approval.decided',
     level: 'info',
     message: `${approval.kind} ${input.decision} by ${input.decidedBy}: ${approval.summary}`,
@@ -158,17 +180,17 @@ export async function decideApproval(input: DecisionInput, deps: GateDeps): Prom
 
   if (graduated) {
     await deps.events.emit({
-      agent: 'orchestrator',
+      divisionId: approval.divisionId,
       kind: 'approval.graduated',
       level: 'info',
-      message: `${rule.kind}/${rule.category} earned auto-approval (${rule.approvedCount}/${rule.threshold})`,
+      message: `${rule.kind}/${rule.category} earned auto-approval (${rule.approvedCount}/${rule.thresholdCount})`,
       refTable: 'approval_rules',
       refId: `${rule.kind}:${rule.category}`,
     })
   }
   if (autonomyRevoked) {
     await deps.events.emit({
-      agent: 'orchestrator',
+      divisionId: approval.divisionId,
       kind: 'approval.autonomy_revoked',
       level: 'warn',
       message: `${rule.kind}/${rule.category} lost auto-approval after a rejection; counters reset`,
@@ -181,7 +203,13 @@ export async function decideApproval(input: DecisionInput, deps: GateDeps): Prom
   const shipped = input.decision === 'edited' ? input.editPayload : approval.payload
   const eventName =
     input.decision === 'rejected' ? `${approval.kind}.rejected` : `${approval.kind}.approved`
+
   await deps.bus.send(eventName, eventPayload(approval, shipped, input.decidedBy, now))
+  // The orchestrator listens for this to resume the blocked task with the decision.
+  await deps.bus.send('approval.decided', {
+    ...eventPayload(approval, shipped, input.decidedBy, now),
+    decision: input.decision,
+  })
 
   return { approval, rule, graduated, autonomyRevoked }
 }
@@ -189,9 +217,9 @@ export async function decideApproval(input: DecisionInput, deps: GateDeps): Prom
 /**
  * Move the graduated-autonomy counters for this bucket.
  *
- * Only decisions a human made are counted. A bucket that auto-approves its own work
- * would otherwise hold its approval rate at 100% forever and could never be
- * re-tested against real operator judgement.
+ * Only decisions a human made are counted. A bucket that approved its own work would
+ * hold its rate at 100% forever and could never be re-tested against real operator
+ * judgement.
  */
 async function updateCounters(
   approval: ApprovalRow,
@@ -199,8 +227,8 @@ async function updateCounters(
   deps: GateDeps,
 ): Promise<{ rule: ApprovalRule; graduated: boolean; autonomyRevoked: boolean }> {
   const current =
-    (await deps.rules.get(approval.kind, approval.category)) ??
-    defaultRule(approval.kind, approval.category)
+    (await deps.rules.get(approval.divisionId, approval.kind, approval.category)) ??
+    defaultRule(approval.divisionId, approval.kind, approval.category)
 
   if (approval.autoDecided) {
     return { rule: current, graduated: false, autonomyRevoked: false }
@@ -215,15 +243,15 @@ async function updateCounters(
   let autonomyRevoked = false
 
   if (decision === 'rejected' && current.autoEnabled) {
-    // One bad auto-era decision is enough to pull the category back under review.
+    // One bad decision in the auto era pulls the whole category back under review.
     next.autoEnabled = false
     next.approvedCount = 0
     next.rejectedCount = 0
     next.editedCount = 0
     autonomyRevoked = true
-  } else if (!next.autoEnabled) {
+  } else if (!next.autoEnabled && !next.neverAuto) {
     const decided = next.approvedCount + next.rejectedCount + next.editedCount
-    if (decided >= next.threshold && next.approvedCount / decided >= next.requiredRate) {
+    if (decided >= next.thresholdCount && next.approvedCount / decided >= next.thresholdRate) {
       next.autoEnabled = true
       graduated = true
     }

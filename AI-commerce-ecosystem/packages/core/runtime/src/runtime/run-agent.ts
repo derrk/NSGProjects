@@ -1,31 +1,49 @@
 /**
- * The agent run wrapper (SPEC.md §Agent run contract).
+ * The agent run loop (SPEC.md §Agent framework).
  *
- * Every agent invocation goes through here. The wrapper owns the `agent_runs` row,
- * retries with backoff, output validation, token/cost accounting and the terminal
- * event, so an agent only has to implement `run(ctx)` and return valid JSON.
+ * Load the agent, its division, its goals and its memories; run it; validate; write
+ * the output to the task, the memories to agent_memory, the cost to the ledger, and a
+ * terminal event. A module supplies only `run(ctx)`.
  */
 
 import { costCentsFor, inputTokensOf, isKnownModel } from './pricing'
 import {
   AgentRunFailedError,
+  DEFAULT_LESSON_RECALL,
+  DEFAULT_MEMORY_RECALL,
+  MAX_MEMORIES_PER_RUN,
   NonRetriableError,
   OutputValidationError,
   RunBlockedError,
   describeError,
   type AgentContext,
   type AgentDefinition,
+  type AgentRecord,
   type BackoffOptions,
-  type RunAgentDeps,
+  type DivisionRecord,
+  type GoalRecord,
+  type MemoryEntry,
+  type RecalledMemory,
+  type RunLoopDeps,
+  type TaskRecord,
   type TokenUsage,
-  type Trigger,
+  type ToolCallRecord,
 } from './types'
 
+export interface RunAgentInput<TInput> {
+  agent: AgentRecord
+  division: DivisionRecord
+  task?: TaskRecord | null
+  input: TInput
+  goals?: readonly GoalRecord[]
+  trigger?: TaskRecord['source']
+}
+
 export interface RunOptions {
-  shopId?: string | null
   backoff?: BackoffOptions
-  /** Overrides the agent's own `maxAttempts` for this invocation. */
   maxAttempts?: number
+  /** Skip memory recall, e.g. for a one-off operator run. */
+  skipMemory?: boolean
 }
 
 const DEFAULT_MAX_ATTEMPTS = 4
@@ -33,7 +51,7 @@ const DEFAULT_BACKOFF: Required<BackoffOptions> = { baseMs: 1_000, maxMs: 30_000
 
 /**
  * How long to wait before retry number `attempt` (1-based): exponential from `baseMs`,
- * capped at `maxMs`, then spread by `jitter` so retrying agents do not sync up.
+ * capped at `maxMs`, then spread by `jitter`.
  */
 export function backoffDelay(attempt: number, opts: BackoffOptions, random: () => number): number {
   const { baseMs, maxMs, jitter } = { ...DEFAULT_BACKOFF, ...opts }
@@ -44,36 +62,49 @@ export function backoffDelay(attempt: number, opts: BackoffOptions, random: () =
 }
 
 /**
- * Retrying only helps for failures that might not happen again. A bad request, a bad
- * credential or a business-rule violation will fail identically every time, so those
- * are raised as `NonRetriableError` and abandoned on the first attempt.
+ * Retrying only helps for failures that might not repeat. A bad request, a bad
+ * credential or a business-rule violation fails identically every time.
  */
 function isRetriable(err: unknown): boolean {
   return !(err instanceof NonRetriableError)
 }
 
+/** A short, stable description of the task, used as the memory-recall query. */
+function recallQuery(task: TaskRecord | null, input: unknown): string {
+  const parts = [task?.title ?? '']
+  try {
+    parts.push(JSON.stringify(input).slice(0, 500))
+  } catch {
+    /* input is not serialisable; the title alone will do */
+  }
+  return parts.filter(Boolean).join('\n')
+}
+
 export async function runAgent<TInput, TOutput>(
   definition: AgentDefinition<TInput, TOutput>,
-  input: TInput,
-  trigger: Trigger,
-  deps: RunAgentDeps,
+  request: RunAgentInput<TInput>,
+  deps: RunLoopDeps,
   options: RunOptions = {},
 ): Promise<TOutput> {
-  const { name } = definition
-  const shopId = options.shopId ?? null
+  const { agent, division, input } = request
+  const task = request.task ?? null
+  const goals = request.goals ?? []
+  const trigger = request.trigger ?? task?.source ?? 'operator'
 
-  // Spend caps and the pause switch are checked before anything is recorded: a run
-  // that never started should not clutter the agent's run history.
+  // The spend cap and the pause switch are checked before anything is recorded: a run
+  // that never started should not clutter the agent's history.
   if (deps.spendGuard) {
-    const blocked = await deps.spendGuard.check(name)
+    const blocked = await deps.spendGuard.check(division.id)
     if (blocked) {
       await deps.events.emit({
-        agent: name,
+        divisionId: division.id,
+        agentId: agent.id,
+        station: agent.moduleAgentKey,
         kind: 'agent.blocked',
         level: 'warn',
         message: `run blocked: ${blocked}`,
       })
-      throw new RunBlockedError(name, blocked)
+      throw new RunBlockedError(agent.name, blocked)
     }
   }
 
@@ -81,15 +112,27 @@ export async function runAgent<TInput, TOutput>(
   const backoff = { ...DEFAULT_BACKOFF, ...deps.backoff, ...options.backoff }
   const random = deps.random ?? Math.random
 
+  let memories: RecalledMemory[] = []
+  if (deps.memory && !options.skipMemory) {
+    memories = await deps.memory.recall({
+      agentId: agent.id,
+      divisionId: division.id,
+      query: recallQuery(task, input),
+      limit: DEFAULT_MEMORY_RECALL,
+      lessonLimit: DEFAULT_LESSON_RECALL,
+    })
+  }
+
   const run = await deps.runs.start({
-    agent: name,
-    shopId,
-    trigger,
+    agentId: agent.id,
+    taskId: task?.id ?? null,
+    divisionId: division.id,
     status: 'running',
     startedAt: deps.clock.now(),
     finishedAt: null,
     input,
     output: null,
+    toolCalls: [],
     tokensIn: 0,
     tokensOut: 0,
     costCents: 0,
@@ -98,6 +141,8 @@ export async function runAgent<TInput, TOutput>(
   })
 
   const usages: TokenUsage[] = []
+  const toolCalls: ToolCallRecord[] = []
+  const remembered: MemoryEntry[] = []
   let attempts = 0
   let lastError: unknown
 
@@ -106,16 +151,44 @@ export async function runAgent<TInput, TOutput>(
     const tokensOut = usages.reduce((sum, u) => sum + u.outputTokens, 0)
     const costCents = usages.reduce((sum, u) => sum + costCentsFor(u), 0)
 
-    // Reported once per run rather than on every call, so `recordUsage` can stay sync.
+    // Reported once per run rather than per call, so `recordUsage` can stay sync.
     const unknown = [...new Set(usages.filter((u) => !isKnownModel(u.model)).map((u) => u.model))]
     for (const model of unknown) {
       await deps.events.emit({
-        agent: name,
+        divisionId: division.id,
+        agentId: agent.id,
         kind: 'agent.unknown_model',
         level: 'warn',
         message: `no pricing for model "${model}" — this run's cost is understated`,
         refTable: 'agent_runs',
         refId: run.id,
+      })
+    }
+
+    // API spend is posted to the ledger, not merely counted, so the Company screen and
+    // the per-division cap read the same number. Negative: a cost reduces the company.
+    if (deps.ledger && costCents > 0) {
+      await deps.ledger.post({
+        divisionId: division.id,
+        kind: 'api_cost',
+        amountCents: -costCents,
+        source: `agent:${agent.name}`,
+        description: `${agent.name} run`,
+        refTable: 'agent_runs',
+        refId: run.id,
+      })
+    }
+
+    // The most important memories win, so a chatty agent cannot flood its own context.
+    if (deps.memory && remembered.length > 0) {
+      const entries = [...remembered]
+        .sort((a, b) => b.importance - a.importance)
+        .slice(0, MAX_MEMORIES_PER_RUN)
+      await deps.memory.write({
+        agentId: agent.id,
+        divisionId: division.id,
+        taskId: task?.id ?? null,
+        entries,
       })
     }
 
@@ -127,29 +200,44 @@ export async function runAgent<TInput, TOutput>(
 
     const ctx: AgentContext<TInput> = {
       runId: run.id,
-      agent: name,
-      shopId,
+      agent,
+      division,
+      task,
       input,
+      goals,
+      memories,
       attempt,
       maxAttempts,
       ...(lastError === undefined ? {} : { previousError: describeError(lastError) }),
+
       log: (kind, message, opts = {}) =>
         deps.events.emit({
-          agent: name,
+          divisionId: division.id,
+          agentId: agent.id,
+          station: agent.moduleAgentKey,
           kind,
           level: opts.level ?? 'info',
           message,
           ...(opts.refTable === undefined ? {} : { refTable: opts.refTable }),
           ...(opts.refId === undefined ? {} : { refId: opts.refId }),
         }),
+
       requestApproval: (req) =>
         deps.requestApproval({
-          shopId,
           ...req,
-          requestedBy: deps.actor ?? (`agent:${name}` as const),
-        } as Parameters<RunAgentDeps['requestApproval']>[0]),
+          divisionId: division.id,
+          taskId: task?.id ?? null,
+          requestedBy: `agent:${agent.id}`,
+        } as Parameters<RunLoopDeps['requestApproval']>[0]),
+
       recordUsage: (usage) => {
         usages.push(usage)
+      },
+      recordToolCall: (call) => {
+        toolCalls.push(call)
+      },
+      remember: (entry) => {
+        remembered.push(entry)
       },
     }
 
@@ -162,7 +250,7 @@ export async function runAgent<TInput, TOutput>(
       } catch (err) {
         // A malformed response is a retry, not a crash: the next attempt is told what
         // was wrong and usually fixes it.
-        throw new OutputValidationError(name, describeError(err))
+        throw new OutputValidationError(agent.name, describeError(err))
       }
 
       const totals = await settle()
@@ -170,15 +258,20 @@ export async function runAgent<TInput, TOutput>(
         status: 'ok',
         finishedAt: deps.clock.now(),
         output,
+        toolCalls,
         attempts,
         error: null,
         ...totals,
       })
+      if (task && deps.tasks) await deps.tasks.complete(task.id, output)
+
       await deps.events.emit({
-        agent: name,
-        kind: 'agent.ok',
+        divisionId: division.id,
+        agentId: agent.id,
+        station: agent.moduleAgentKey,
+        kind: 'agent.run_ok',
         level: 'info',
-        message: `${name} finished in ${attempts} attempt(s), ${totals.costCents.toFixed(2)}c`,
+        message: `${agent.name} finished in ${attempts} attempt(s), ${totals.costCents.toFixed(2)}c`,
         refTable: 'agent_runs',
         refId: run.id,
       })
@@ -191,7 +284,8 @@ export async function runAgent<TInput, TOutput>(
 
       const delay = backoffDelay(attempt, backoff, random)
       await deps.events.emit({
-        agent: name,
+        divisionId: division.id,
+        agentId: agent.id,
         kind: 'agent.retry',
         level: 'warn',
         message: `attempt ${attempt}/${maxAttempts} failed, retrying in ${delay}ms: ${describeError(err)}`,
@@ -207,18 +301,23 @@ export async function runAgent<TInput, TOutput>(
     status: 'error',
     finishedAt: deps.clock.now(),
     output: null,
+    toolCalls,
     attempts,
     error: describeError(lastError),
     ...totals,
   })
+  if (task && deps.tasks) await deps.tasks.fail(task.id, describeError(lastError))
+
   await deps.events.emit({
-    agent: name,
-    kind: 'agent.error',
+    divisionId: division.id,
+    agentId: agent.id,
+    station: agent.moduleAgentKey,
+    kind: 'agent.run_error',
     level: 'error',
-    message: `${name} failed after ${attempts} attempt(s): ${describeError(lastError)}`,
+    message: `${agent.name} failed after ${attempts} attempt(s): ${describeError(lastError)}`,
     refTable: 'agent_runs',
     refId: run.id,
   })
 
-  throw new AgentRunFailedError(name, attempts, lastError)
+  throw new AgentRunFailedError(agent.name, attempts, lastError)
 }

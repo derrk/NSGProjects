@@ -1,6 +1,6 @@
 /**
- * In-memory implementations of every port the approval gate and the agent run wrapper
- * depend on. These let the whole orchestration contract be tested with no database,
+ * In-memory implementations of every port the gate, the run loop and the health
+ * assessment depend on, so the whole orchestration contract runs with no database,
  * no scheduler, no network and no clock.
  */
 
@@ -13,11 +13,14 @@ import type {
   EventBus,
   EventSink,
   RuleStore,
+  TaskGate,
 } from '../src/approvals/types'
 import type { AgentRunRecord, AgentRunStore, Sleeper } from '../src/runtime/types'
 
 export interface RecordedEvent {
-  agent: string
+  divisionId?: string | null
+  agentId?: string | null
+  station?: string | null
   kind: string
   level: 'info' | 'warn' | 'error'
   message: string
@@ -60,12 +63,23 @@ export class FakeEventBus implements EventBus {
 export class FakeApprovalStore implements ApprovalStore {
   readonly rows = new Map<string, ApprovalRow>()
 
-  async findByRef(kind: ApprovalKind, refId: string): Promise<ApprovalRow | null> {
+  async findByRef(
+    divisionId: string,
+    kind: ApprovalKind,
+    refTable: string,
+    refId: string,
+  ): Promise<ApprovalRow | null> {
     for (const row of this.rows.values()) {
-      // A rejected request may legitimately be re-proposed later (e.g. a redesigned
-      // concept reusing the same ref); anything else is a duplicate.
-      if (row.kind === kind && row.refId === refId && row.decision !== 'rejected') {
-        return row
+      // A rejected request may legitimately be re-proposed later; anything else live
+      // is a duplicate.
+      if (
+        row.divisionId === divisionId &&
+        row.kind === kind &&
+        row.refTable === refTable &&
+        row.refId === refId &&
+        row.decision !== 'rejected'
+      ) {
+        return { ...row }
       }
     }
     return null
@@ -98,33 +112,49 @@ export class FakeApprovalStore implements ApprovalStore {
 export class FakeRuleStore implements RuleStore {
   readonly rules = new Map<string, ApprovalRule>()
 
-  private key(kind: ApprovalKind, category: string) {
-    return `${kind}::${category}`
+  private key(divisionId: string, kind: ApprovalKind, category: string) {
+    return `${divisionId}::${kind}::${category}`
   }
 
-  async get(kind: ApprovalKind, category: string): Promise<ApprovalRule | null> {
-    const rule = this.rules.get(this.key(kind, category))
+  async get(
+    divisionId: string,
+    kind: ApprovalKind,
+    category: string,
+  ): Promise<ApprovalRule | null> {
+    const rule = this.rules.get(this.key(divisionId, kind, category))
     return rule ? { ...rule } : null
   }
 
   async upsert(rule: ApprovalRule): Promise<ApprovalRule> {
-    this.rules.set(this.key(rule.kind, rule.category), { ...rule })
+    this.rules.set(this.key(rule.divisionId, rule.kind, rule.category), { ...rule })
     return { ...rule }
   }
 
   /** Test convenience: seed a bucket in a known state. */
-  seed(partial: Partial<ApprovalRule> & Pick<ApprovalRule, 'kind' | 'category'>): ApprovalRule {
+  seed(
+    partial: Partial<ApprovalRule> & Pick<ApprovalRule, 'kind' | 'category'>,
+  ): ApprovalRule {
     const rule: ApprovalRule = {
+      divisionId: DIVISION,
       approvedCount: 0,
       rejectedCount: 0,
       editedCount: 0,
       autoEnabled: false,
-      threshold: 20,
-      requiredRate: 0.95,
+      thresholdCount: 20,
+      thresholdRate: 0.95,
+      neverAuto: false,
       ...partial,
     }
-    this.rules.set(this.key(rule.kind, rule.category), rule)
+    this.rules.set(this.key(rule.divisionId, rule.kind, rule.category), rule)
     return rule
+  }
+}
+
+export class FakeTaskGate implements TaskGate {
+  readonly blocked: Array<{ taskId: string; approvalId: string }> = []
+
+  async block(taskId: string, approvalId: string): Promise<void> {
+    this.blocked.push({ taskId, approvalId })
   }
 }
 
@@ -172,8 +202,8 @@ export class FakeClock implements Clock {
 }
 
 /**
- * Records how long the code under test asked to sleep, without actually sleeping, and
- * advances the supplied clock so elapsed-time accounting stays consistent.
+ * Records how long the code asked to sleep without sleeping, and advances the supplied
+ * clock so elapsed-time accounting stays consistent.
  */
 export class FakeSleeper implements Sleeper {
   readonly slept: number[] = []
@@ -190,7 +220,6 @@ export class FakeSleeper implements Sleeper {
   }
 }
 
-/** Deterministic id generator: id_1, id_2, ... */
 export function fakeIds(prefix = 'id'): () => string {
   let n = 0
   return () => `${prefix}_${++n}`
@@ -201,12 +230,16 @@ export function fixedRandom(value = 0.5): () => number {
   return () => value
 }
 
+/** The division every gate test operates in unless it says otherwise. */
+export const DIVISION = 'div_pod'
+
 export interface GateHarness {
   approvals: FakeApprovalStore
   rules: FakeRuleStore
   events: FakeEventSink
   bus: FakeEventBus
   clock: FakeClock
+  tasks: FakeTaskGate
   newId: () => string
 }
 
@@ -217,6 +250,7 @@ export function gateHarness(): GateHarness {
     events: new FakeEventSink(),
     bus: new FakeEventBus(),
     clock: new FakeClock(),
+    tasks: new FakeTaskGate(),
     newId: fakeIds('apr'),
   }
 }
