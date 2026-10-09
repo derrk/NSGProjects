@@ -1,11 +1,11 @@
-import type { ModuleDefinition } from '@acf/core/modules'
+import type { CounterResolvers, ModuleDefinition } from '@acf/core/modules'
 import type { AgentDefinition } from '@acf/core/runtime'
 import { createModelClient, createOfflineModelClient } from '@acf/integrations/anthropic'
 import { createFalPipeline, createMockFalPipeline } from '@acf/integrations/fal'
 import { createMockStorage, createSupabaseStorage } from '@acf/integrations/storage'
 import { db } from '@acf/db'
 import { createPrintifyClient, createMockPrintifyClient } from '@acf/integrations/printify'
-import { createDesignerAgent, createStoreOpsAgent, podModule } from '@acf/pod'
+import { createDesignerAgent, createPodCounters, createStoreOpsAgent, podModule } from '@acf/pod'
 import { createIntakeAgent, templateModule } from '@acf/template'
 
 /**
@@ -77,4 +77,19 @@ export function resolveAgentDefinition(
   // stations appear on the floor, and each already has its decision logic built and
   // tested. They are seeded paused until their runners are wired here.
   return null
+}
+
+/**
+ * Resolve a module's station counters against the live database.
+ *
+ * Same split as `resolveAgentDefinition`, for the same reason: `module.ts` declares
+ * the counter NAMES so they can be validated at boot, and the queries live here where
+ * a database handle is allowed to exist.
+ *
+ * A module with no counters returns an empty record, and the floor renders its
+ * stations without figures rather than with zeros.
+ */
+export function resolveCounters(moduleName: string): CounterResolvers {
+  if (moduleName === 'pod') return createPodCounters(db() as never)
+  return {}
 }

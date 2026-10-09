@@ -189,6 +189,34 @@ describe('registerModules', () => {
       await expect(registerModules([mod], deps)).rejects.toThrow(/unknown agent "nobody"/)
     })
 
+    it('rejects a station naming a counter the module cannot resolve', async () => {
+      const mod = makeModule({
+        stations: [
+          { key: 'design_bay', label: 'Design bay', agentKey: 'designer', counter: 'pod.ghost' },
+        ],
+      })
+
+      // A counter nothing resolves renders as a permanent blank, and a blank where a
+      // number should be reads as zero. Zero is a claim.
+      await expect(registerModules([mod], deps)).rejects.toThrow(/pod\.ghost/)
+    })
+
+    it('accepts a station whose counter the module declares', async () => {
+      const mod = makeModule({
+        stations: [
+          { key: 'design_bay', label: 'Design bay', agentKey: 'designer', counter: 'pod.designs' },
+        ],
+        counterNames: ['pod.designs'],
+      })
+
+      await expect(registerModules([mod], deps)).resolves.toHaveLength(1)
+    })
+
+    it('accepts a station with no counter at all', async () => {
+      // Not every station has a number worth showing.
+      await expect(registerModules([makeModule()], deps)).resolves.toHaveLength(1)
+    })
+
     it('rejects a grant for requestApproval, which is not a catalog tool', async () => {
       const mod = makeModule({
         agents: [

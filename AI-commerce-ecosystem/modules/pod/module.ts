@@ -17,6 +17,7 @@
 import type { ModuleDefinition } from '@acf/core/modules'
 
 import { designerAgentSpec } from './agents/designer/index'
+import { POD_COUNTER_NAMES } from './counters'
 import { financeAgentSpec } from './agents/finance/index'
 import { storeOpsAgentSpec } from './agents/store-ops/index'
 import { supplierScoutAgentSpec } from './agents/supplier-scout/index'
@@ -32,6 +33,7 @@ export * from './channel-rules'
 export * from './economics'
 export * from './fulfillment'
 export * from './publish'
+export * from './counters'
 export * from './integrations'
 export * from './walkthrough'
 export * as podSchema from './schema/index'
@@ -42,12 +44,52 @@ export const podModule: ModuleDefinition = {
   description: 'Print-on-demand store: concepts to designs to live listings.',
 
   stations: [
-    { key: 'scout', label: 'Trend scout', agentKey: 'scout', counter: 'pod.concepts_today' },
-    { key: 'design_bay', label: 'Design bay', agentKey: 'designer', counter: 'pod.designs_today' },
-    { key: 'listing_dock', label: 'Listing dock', agentKey: 'store_ops', counter: 'pod.published_today' },
-    { key: 'support_deck', label: 'Support deck', agentKey: 'support', counter: 'pod.replies_today' },
-    { key: 'supply_depot', label: 'Supply depot', agentKey: 'supplier_scout', counter: 'pod.suppliers_reviewed' },
-    { key: 'counting_house', label: 'Counting house', agentKey: 'finance', counter: 'pod.reports_filed' },
+    {
+      key: 'scout',
+      label: 'Trend scout',
+      agentKey: 'scout',
+      counter: 'pod.concepts_today',
+      counterLabel: 'concepts today',
+    },
+    {
+      key: 'design_bay',
+      label: 'Design bay',
+      agentKey: 'designer',
+      counter: 'pod.designs_today',
+      counterLabel: 'designs today',
+    },
+    {
+      key: 'listing_dock',
+      label: 'Listing dock',
+      agentKey: 'store_ops',
+      counter: 'pod.published_today',
+      counterLabel: 'published today',
+    },
+    {
+      key: 'support_deck',
+      label: 'Support deck',
+      agentKey: 'support',
+      counter: 'pod.replies_today',
+      // Drafted, never sent: this system has no send path. "replies today" on a
+      // support station would otherwise read as messages that reached a customer.
+      counterLabel: 'drafted today — none sent',
+    },
+    {
+      key: 'supply_depot',
+      label: 'Supply depot',
+      agentKey: 'supplier_scout',
+      counter: 'pod.suppliers_reviewed',
+      counterLabel: 'suppliers on file',
+      // The scout runs weekly, so a daily count would read zero six days in seven.
+      counterIsRunningTotal: true,
+    },
+    {
+      key: 'counting_house',
+      label: 'Counting house',
+      agentKey: 'finance',
+      counter: 'pod.reports_filed',
+      counterLabel: 'reports filed',
+    },
   ],
 
   approvalKinds: [
@@ -117,6 +159,10 @@ Reject outright any concept referencing a brand, character, sports team, celebri
     supplierScoutAgentSpec,
     financeAgentSpec,
   ],
+
+  // Declared here, resolved at the composition root — the same split agents use, and
+  // for the same reason: this file must be readable at boot without a database.
+  counterNames: POD_COUNTER_NAMES,
 
   screens: [
     { path: 'concepts', label: 'Concepts' },

@@ -23,6 +23,7 @@ export const metadata: Metadata = {
 const STATIONS = [
   { href: '/', label: 'The Holding' },
   { href: '/inbox', label: 'Quarantine' },
+  { href: '/floor', label: 'The Yard' },
   { href: '/divisions', label: 'Outfits' },
   { href: '/agents', label: 'The Crew' },
   { href: '/treasury', label: 'Treasury' },

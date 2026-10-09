@@ -23,7 +23,56 @@ export interface StationSpec {
    * module's own counter resolver rather than by core running arbitrary SQL.
    */
   counter?: string
+  /**
+   * What the number means, under it. "designs today", "suppliers on file".
+   *
+   * Lives on the station rather than in a lookup table in the UI, so adding a
+   * division never means editing the floor. The floor must not know what any
+   * particular module counts.
+   */
+  counterLabel?: string
+  /**
+   * True when the figure is a running total rather than today's.
+   *
+   * A weekly agent counted daily reads zero on six days in seven, which says nothing.
+   * The floor labels these so a total is never mistaken for a day's work.
+   */
+  counterIsRunningTotal?: boolean
 }
+
+/**
+ * What a module's counters are given to compute from.
+ *
+ * Deliberately narrow. Core hands over a division id and a window, and nothing else —
+ * the module brings its own database handle through its composition, so core never
+ * runs a module's SQL and never learns what a `design` is.
+ */
+export interface CounterContext {
+  divisionId: string
+  /** Counters are "today" figures, so both ends are supplied rather than assumed. */
+  since: Date
+  until: Date
+}
+
+/**
+ * One named counter, resolved by the module that declared it.
+ *
+ * Returning null means "this cannot be counted yet" and the floor shows a dash. That
+ * is a different thing from zero, and conflating them is how a station that has never
+ * worked looks like a station that had a quiet day.
+ */
+export type CounterResolver = (ctx: CounterContext) => Promise<number | null>
+
+/**
+ * A module's counter resolvers, built against a live database.
+ *
+ * Note the shape: a factory, wired at the composition root, exactly as agent runners
+ * are. The alternative — resolvers sitting on the static `ModuleDefinition` — would
+ * put a database handle in `module.ts`, and that file has to be readable at boot with
+ * no credentials and no network. So the NAMES are declared there and validated, and
+ * the implementations are resolved beside `resolveAgentDefinition`.
+ */
+export type CounterResolvers = Record<string, CounterResolver>
 
 /** An approval kind this module may propose. */
 export interface ApprovalKindSpec {
@@ -110,6 +159,14 @@ export interface ModuleDefinition {
   tools?: ToolSpec[]
   screens?: ScreenSpec[]
   /**
+   * Every counter name this module can resolve.
+   *
+   * Declared here, implemented at the composition root. A station naming a counter
+   * absent from this list is a validation error rather than a blank, because a number
+   * that silently never appears reads as zero — and zero is a claim.
+   */
+  counterNames?: string[]
+  /**
    * Validate tokens, register webhooks, seed reference data, write the first tasks.
    * Runs after the division row and its agents exist.
    */
@@ -160,6 +217,13 @@ export function validateModule(mod: ModuleDefinition): string[] {
   for (const station of mod.stations) {
     if (!agentKeys.has(station.agentKey)) {
       problems.push(`station "${station.key}" points at unknown agent "${station.agentKey}"`)
+    }
+    // A counter nothing resolves renders as a permanent blank, which reads as "zero
+    // today" rather than "this was never wired".
+    if (station.counter && !(mod.counterNames ?? []).includes(station.counter)) {
+      problems.push(
+        `station "${station.key}" names counter "${station.counter}", which is not in the module's counterNames`,
+      )
     }
   }
 

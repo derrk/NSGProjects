@@ -25,7 +25,9 @@ export const templateModule: ModuleDefinition = {
   version: '0.1.0',
   description: 'A blank division: record ideas, triage them, grow from there.',
 
-  stations: [{ key: 'intake', label: 'Intake', agentKey: 'intake', counter: 'generic.ideas_today' }],
+  // No counter. The template has nothing worth counting, and a counter name with no
+  // resolver behind it renders as a permanent blank that reads as zero.
+  stations: [{ key: 'intake', label: 'Intake', agentKey: 'intake' }],
 
   approvalKinds: [
     {
