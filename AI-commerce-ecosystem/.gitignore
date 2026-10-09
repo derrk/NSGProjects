@@ -35,3 +35,7 @@ next-env.d.ts
 
 # local dev database (PGlite data directory)
 .pglite/
+
+# local dev server logs
+.next-dev.log
+.inngest-dev.log

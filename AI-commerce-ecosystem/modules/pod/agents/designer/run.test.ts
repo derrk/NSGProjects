@@ -504,11 +504,57 @@ describe('Designer refusals and idempotency', () => {
     expect(output.designIds).toHaveLength(3)
   })
 
-  it('refuses a task with no concept id at all', async () => {
-    const { division } = await seedConcept()
+  it('takes the next waiting concept when the task names none', async () => {
+    const { division, concept } = await seedConcept()
+
+    // This is what "Run now" sends. Making a human paste a UUID to see the pipeline
+    // work is a bad trade for one ordered query.
+    const { output } = await runDesigner({
+      division,
+      conceptId: '',
+      modelQueue: [plan(false)],
+      useRefId: true,
+    })
+
+    expect(output.conceptId).toBe(concept.id)
+    expect(output.designIds).toHaveLength(3)
+  })
+
+  it('refuses when there is no concept waiting at all', async () => {
+    const [division] = await h.db
+      .insert(divisions)
+      .values({ name: 'Empty', slug: 'empty', type: 'pod', status: 'active' })
+      .returning()
+
     await expect(
-      runDesigner({ division, conceptId: '', modelQueue: [plan(false)], useRefId: true }),
-    ).rejects.toThrow(/no concept id/)
+      runDesigner({ division: division!, conceptId: '', modelQueue: [], useRefId: true }),
+    ).rejects.toThrow(/no concept waiting/)
+  })
+
+  it('skips a concept that already has designs when picking the next one', async () => {
+    const { division, concept } = await seedConcept()
+    const [second] = await h.db
+      .insert(concepts)
+      .values({
+        divisionId: division.id,
+        title: 'Second concept',
+        promptBrief: 'Another brief.',
+        style: 'flat-vector',
+        status: 'approved',
+      })
+      .returning()
+
+    await runDesigner({ division, conceptId: '', modelQueue: [plan(false)], useRefId: true })
+    const again = await runDesigner({
+      division,
+      conceptId: '',
+      modelQueue: [plan(false)],
+      useRefId: true,
+    })
+
+    // Otherwise "Run now" would keep re-proposing the same concept forever.
+    expect(again.output.conceptId).not.toBe(concept.id)
+    expect(again.output.conceptId).toBe(second!.id)
   })
 
   it('refuses a concept belonging to another division', async () => {
