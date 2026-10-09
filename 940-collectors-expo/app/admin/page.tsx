@@ -372,7 +372,7 @@ export default function AdminPage() {
   const exportVendorsCsv = () => {
     const header = [
       "Status", "Business", "First name", "Last name", "Email", "Phone",
-      "Instagram", "Spotlight posted", "Category", "Tables", "Table count", "Amount paid (USD)",
+      "Instagram", "Logo uploaded", "Spotlight posted", "Category", "Tables", "Table count", "Amount paid (USD)",
       "Promo code", "Reservation", "Booked",
     ];
     const statusLabel = (s: string) =>
@@ -391,6 +391,7 @@ export default function AdminPage() {
       clean(r.email),
       clean(r.phone),
       clean(r.instagram),
+      r.photo && r.photo.startsWith("data:image/") ? "Yes" : "No",
       r.spotlightPosted ? "Yes" : "No",
       clean(r.category),
       [...r.tables].sort((a, b) => a - b).join(" "),
