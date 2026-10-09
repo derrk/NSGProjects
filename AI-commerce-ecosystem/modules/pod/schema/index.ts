@@ -84,10 +84,21 @@ export const productType = pgEnum('pod_product_type', [
   'tee',
   'sweatshirt',
   'hoodie',
+  'poster',
+  // Dropshipped goods are not a product type we print, so there is nothing to
+  // enumerate: what matters about them is the supplier SKU, not the blueprint.
+  'other',
 ])
 
 export const orderStatus = pgEnum('pod_order_status', [
   'received',
+  /**
+   * Held for a human to read what the buyer typed.
+   *
+   * Distinct from `issue` on purpose: nothing has gone wrong, and filing it as an
+   * exception would bury it in the queue the operator scans for actual failures.
+   */
+  'needs_review',
   'in_production',
   'shipped',
   'delivered',

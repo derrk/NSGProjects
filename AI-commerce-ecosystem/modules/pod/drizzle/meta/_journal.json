@@ -15,6 +15,13 @@
       "when": 1791521905204,
       "tag": "0001_commerce_tables",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791524000000,
+      "tag": "0002_poster_and_review",
+      "breakpoints": true
     }
   ]
 }
