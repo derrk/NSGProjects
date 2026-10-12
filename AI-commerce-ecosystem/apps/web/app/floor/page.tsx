@@ -1,8 +1,10 @@
 import { assessAgentHealth } from '@acf/core/health'
-import { agentRuns, agents, db, divisions, events } from '@acf/db'
-import { desc, eq, inArray } from 'drizzle-orm'
+import { agentRuns, agents, approvals, db, divisions, events, tasks } from '@acf/db'
+import { and, desc, eq, inArray } from 'drizzle-orm'
 
 import { MODULES, resolveAgentDefinition, resolveCounters } from '@/lib/modules'
+
+import { Gate, Post, type GateView, type PostView, type UnitState } from './compound'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,6 +19,136 @@ export const dynamic = 'force-dynamic'
  * resolved shows "—", because a station that has never worked and a station that had
  * a quiet day are different things and the floor exists to tell them apart.
  */
+
+
+/**
+ * What one post looks like right now.
+ *
+ * The state is decided by the work against it, not only by the agent's health: a
+ * healthy, idle agent with four queued tasks is not fine, it is a queue. The order
+ * of these checks is the order of severity.
+ */
+function buildPost(input: {
+  key: string
+  label: string
+  agent: { id: string; name: string; status: string } | null
+  runnable: boolean
+  healthReason: string
+  tasks: Array<{ status: string; title: string }>
+}): PostView {
+  const queued = input.tasks.filter((t) => t.status === 'queued').length
+  const blocked = input.tasks.filter((t) => t.status === 'blocked').length
+  const failed = input.tasks.filter((t) => t.status === 'failed').length
+  const running = input.tasks.find((t) => t.status === 'running') ?? null
+
+  let state: UnitState
+  let reason: string
+
+  if (!input.agent) {
+    state = 'unmanned'
+    reason = 'no agent mans this post'
+  } else if (!input.runnable) {
+    // Red whatever the agent row says. An agent with no runner is not waiting, it is
+    // stranded, and work queued at it will never move.
+    state = 'stuck'
+    reason = 'nothing is wired to work this post'
+  } else if (failed > 0) {
+    state = 'stuck'
+    reason = `${failed} task(s) failed here`
+  } else if (running) {
+    state = 'running'
+    reason = 'working'
+  } else if (input.agent.status === 'paused') {
+    state = 'paused'
+    reason = queued > 0 ? `paused, with ${queued} waiting` : 'paused'
+  } else if (queued > 0) {
+    state = 'waiting'
+    reason = `${queued} waiting to be picked up`
+  } else if (blocked > 0) {
+    state = 'waiting'
+    reason = `${blocked} held at the gate`
+  } else {
+    state = 'idle'
+    reason = input.healthReason
+  }
+
+  return {
+    key: input.key,
+    label: input.label,
+    agentName: input.agent?.name ?? null,
+    state,
+    doing: running?.title ?? null,
+    reason,
+    queued,
+    blocked,
+    failed,
+    runnable: input.runnable,
+  }
+}
+
+function buildGate(pending: Array<{ kind: string }>): GateView {
+  const byKind = new Map<string, number>()
+  for (const row of pending) byKind.set(row.kind, (byKind.get(row.kind) ?? 0) + 1)
+  return {
+    pending: pending.length,
+    byKind: [...byKind.entries()]
+      .map(([kind, count]) => ({ kind, count }))
+      .sort((a, b) => b.count - a.count),
+  }
+}
+
+/**
+ * The one sentence worth reading before the map.
+ *
+ * Names the post holding the most work it cannot move, and says which kind of stuck
+ * it is — because "nobody picked it up", "it is waiting on you" and "it broke" are
+ * three different problems and only one of them is yours.
+ */
+function verdictFor(posts: PostView[], gate: GateView): { text: string; clear: boolean } {
+  const broken = posts.filter((p) => p.failed > 0).sort((a, b) => b.failed - a.failed)
+  if (broken[0]) {
+    return {
+      text: `${broken[0].label} has ${broken[0].failed} failed task(s). Work is breaking there, not queueing.`,
+      clear: false,
+    }
+  }
+
+  const stranded = posts.filter((p) => !p.runnable && p.queued > 0)
+  if (stranded[0]) {
+    return {
+      text: `${stranded[0].label} has ${stranded[0].queued} task(s) queued and nothing wired to work them. They will sit there.`,
+      clear: false,
+    }
+  }
+
+  const queueing = posts.filter((p) => p.queued > 0).sort((a, b) => b.queued - a.queued)
+  if (queueing[0] && queueing[0].queued >= gate.pending) {
+    const post = queueing[0]
+    return {
+      text:
+        `${post.label} is the bottleneck: ${post.queued} waiting to be picked up` +
+        (post.state === 'paused' ? ', and it is paused.' : '.'),
+      clear: false,
+    }
+  }
+
+  if (gate.pending > 0) {
+    return {
+      text: `The bottleneck is you: ${gate.pending} decision(s) waiting in Quarantine. Nothing downstream moves until they are made.`,
+      clear: false,
+    }
+  }
+
+  const unmanned = posts.filter((p) => !p.runnable).length
+  return {
+    text:
+      'Nothing is queued, held or broken.' +
+      (unmanned > 0
+        ? ` ${unmanned} post(s) have no runner, so they will stay quiet whatever happens.`
+        : ''),
+    clear: true,
+  }
+}
 
 function startOfToday(now: Date): Date {
   const d = new Date(now)
@@ -44,6 +176,8 @@ interface StationView {
   counterValue: number | null
   counterLabel: string | null
   isRunningTotal: boolean
+  /** Everything the compound map needs to draw this post. */
+  post: PostView
   recent: Array<{ ts: Date; kind: string; level: string; message: string }>
 }
 
@@ -88,6 +222,42 @@ export default async function FloorPage() {
   const healthBy = new Map(health.map((h) => [h.agentId, h]))
 
   const divisionIds = divisionRows.map((d) => d.id)
+
+  /*
+   * Work, by where it is stuck.
+   *
+   * `queued` is work nobody has picked up; `blocked` is work waiting on the operator;
+   * `failed` is work that broke. Those three are the only states that can pile up,
+   * and each one means something different to fix — so they are counted apart rather
+   * than totalled into "open work".
+   */
+  const liveTasks =
+    divisionIds.length > 0
+      ? await database
+          .select({
+            agentId: tasks.agentId,
+            status: tasks.status,
+            title: tasks.title,
+            updatedAt: tasks.updatedAt,
+          })
+          .from(tasks)
+          .where(
+            and(
+              inArray(tasks.divisionId, divisionIds),
+              inArray(tasks.status, ['queued', 'running', 'blocked', 'failed']),
+            ),
+          )
+      : []
+
+  const pendingApprovals =
+    divisionIds.length > 0
+      ? await database
+          .select({ kind: approvals.kind, divisionId: approvals.divisionId })
+          .from(approvals)
+          .where(
+            and(inArray(approvals.divisionId, divisionIds), eq(approvals.decision, 'pending')),
+          )
+      : []
   const eventRows =
     divisionIds.length > 0
       ? await database
@@ -104,6 +274,7 @@ export default async function FloorPage() {
     divisionStatus: string
     moduleName: string
     stations: StationView[]
+    gate: GateView
     unmanned: string[]
   }> = []
 
@@ -118,6 +289,7 @@ export default async function FloorPage() {
         divisionStatus: division.status,
         moduleName: division.type,
         stations: [],
+        gate: { pending: 0, byKind: [] },
         unmanned: [`no module named "${division.type}" is composed into this app`],
       })
       continue
@@ -162,6 +334,16 @@ export default async function FloorPage() {
         // particular module counts.
         counterLabel: station.counterLabel ?? station.counter ?? null,
         isRunningTotal: isRunning,
+        post: buildPost({
+          key: station.key,
+          label: station.label,
+          agent,
+          runnable: resolveAgentDefinition(division.type, station.agentKey) !== null,
+          healthReason: agent
+            ? (healthBy.get(agent.id)?.reason ?? 'no assessment')
+            : 'no agent row mans this station',
+          tasks: liveTasks.filter((t) => agent !== null && t.agentId === agent.id),
+        }),
         recent: eventRows
           .filter((e) => e.divisionId === division.id && e.station === station.key)
           .slice(0, 4)
@@ -170,6 +352,7 @@ export default async function FloorPage() {
     }
 
     floors.push({
+      gate: buildGate(pendingApprovals.filter((a) => a.divisionId === division.id)),
       divisionId: division.id,
       divisionName: division.name,
       divisionStatus: division.status,
@@ -215,25 +398,74 @@ export default async function FloorPage() {
               {floor.unmanned[0] ?? 'This module declares no stations.'}
             </div>
           ) : (
-            <div className="stat-row">
-              {floor.stations.map((s) => (
-                <div className="stat" key={`${floor.divisionId}-${s.key}`}>
-                  <span className="stat-label">{s.label}</span>
-                  <span
-                    className={`stat-value ${
-                      s.counterValue === null || s.agentStatus !== 'active' ? 'is-waiting' : ''
-                    }`}
-                  >
-                    {/* A dash, not a zero: never-counted is not nothing-happened. */}
-                    {s.counterValue === null ? '—' : s.counterValue}
-                  </span>
-                  <span className="hash" style={{ display: 'block', marginTop: 4 }}>
-                    {s.counterLabel ?? 'no counter'}
-                    {s.isRunningTotal ? ' (total)' : ''}
-                  </span>
-                </div>
-              ))}
-            </div>
+            <>
+              {(() => {
+                const verdict = verdictFor(
+                  floor.stations.map((s) => s.post),
+                  floor.gate,
+                )
+                return (
+                  <p className={`verdict ${verdict.clear ? 'is-clear' : ''}`}>{verdict.text}</p>
+                )
+              })()}
+
+              {/*
+                The gate sits in the middle of the posts because that is where it is
+                in the system: every agent's run ends at it. Half the posts, then the
+                gate, then the rest — so the picture reads as everything feeding one
+                place, which is what actually happens.
+              */}
+              {(() => {
+                /*
+                 * The gate goes in the MIDDLE column, not merely halfway through the
+                 * list. In a three-column grid that means an index where i % 3 === 1,
+                 * so the split is nudged to the nearest one rather than taken at the
+                 * halfway point — otherwise the hub ends up against the left wall and
+                 * the picture stops saying what it is for.
+                 */
+                const count = floor.stations.length
+                const middle = Math.ceil(count / 2)
+                let gateAt = middle
+                for (let step = 0; step < 3; step += 1) {
+                  if ((middle + step) % 3 === 1) {
+                    gateAt = middle + step
+                    break
+                  }
+                }
+
+                return (
+                  <div className="compound">
+                    {floor.stations.slice(0, gateAt).map((s) => (
+                      <Post post={s.post} key={`${floor.divisionId}-${s.key}-post`} />
+                    ))}
+                    <Gate gate={floor.gate} />
+                    {floor.stations.slice(gateAt).map((s) => (
+                      <Post post={s.post} key={`${floor.divisionId}-${s.key}-post`} />
+                    ))}
+                  </div>
+                )
+              })()}
+
+              <div className="stat-row">
+                {floor.stations.map((s) => (
+                  <div className="stat" key={`${floor.divisionId}-${s.key}`}>
+                    <span className="stat-label">{s.label}</span>
+                    <span
+                      className={`stat-value ${
+                        s.counterValue === null || s.agentStatus !== 'active' ? 'is-waiting' : ''
+                      }`}
+                    >
+                      {/* A dash, not a zero: never-counted is not nothing-happened. */}
+                      {s.counterValue === null ? '—' : s.counterValue}
+                    </span>
+                    <span className="hash" style={{ display: 'block', marginTop: 4 }}>
+                      {s.counterLabel ?? 'no counter'}
+                      {s.isRunningTotal ? ' (total)' : ''}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </>
           )}
 
           {floor.stations.map((s) => (

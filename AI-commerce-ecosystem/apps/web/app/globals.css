@@ -671,3 +671,192 @@ code {
     flex: 1 1 auto;
   }
 }
+
+/* ---------------------------------------------------------------- *
+ * The compound map — the Yard rendered as a place, not a list
+ *
+ * The layout is not decoration: every agent in this system ends its run at the
+ * approval gate, so the gate sits in the middle and every post feeds it. The
+ * hub-and-spoke shape IS the architecture, and a pile of crates against one wall
+ * is a bottleneck you can point at.
+ * ---------------------------------------------------------------- */
+
+.compound {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+@media (max-width: 860px) {
+  .compound {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* One post: a station, its unit, and the work stacked against it. */
+.post {
+  border: 1px solid var(--edge);
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+  padding: 12px;
+  min-height: 168px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* A post with work it cannot move is where you look first. */
+.post.is-stuck {
+  border-color: var(--rust);
+}
+.post.is-waiting {
+  border-color: var(--amber);
+}
+
+/* The hazard chevrons along the top of a post that is actively running. */
+.post.is-running::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 2px;
+  background: var(--stripe);
+  background-size: 28px 100%;
+  animation: crawl 1.4s linear infinite;
+}
+
+@keyframes crawl {
+  to {
+    background-position: 28px 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .post.is-running::before {
+    animation: none;
+  }
+}
+
+.post-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.post-name {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+/* The unit standing at the post. */
+.unit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.unit svg {
+  flex: none;
+}
+
+.unit-doing {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.35;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+/* Work, stacked. The whole point: a tall stack is a queue you can see. */
+.stacks {
+  display: flex;
+  gap: 14px;
+  margin-top: auto;
+  align-items: flex-end;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
+  gap: 2px;
+  min-height: 34px;
+  justify-content: flex-start;
+}
+
+.stack-label {
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.stack-count {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The gate in the middle of the compound. */
+.gate {
+  border: 1px solid var(--amber);
+  background: var(--bg-sunken);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: var(--radius);
+}
+
+.gate.is-empty {
+  border-color: var(--edge-bright);
+}
+
+.gate-title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin: 0;
+  color: var(--amber);
+}
+
+.gate.is-empty .gate-title {
+  color: var(--muted);
+}
+
+.gate-count {
+  font-size: 34px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.gate-kinds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* The one-line verdict above the map. */
+.verdict {
+  border-left: 3px solid var(--rust);
+  background: var(--bg-raised);
+  padding: 10px 14px;
+  margin-bottom: 18px;
+  font-size: 13px;
+}
+
+.verdict.is-clear {
+  border-left-color: var(--toxic);
+}
