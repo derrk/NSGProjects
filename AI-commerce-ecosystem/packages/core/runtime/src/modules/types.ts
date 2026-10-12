@@ -167,10 +167,29 @@ export interface ModuleDefinition {
    */
   counterNames?: string[]
   /**
-   * Validate tokens, register webhooks, seed reference data, write the first tasks.
-   * Runs after the division row and its agents exist.
+   * Validate tokens, register webhooks, write the first tasks.
+   * Runs ONCE, after the division row and its agents exist.
+   *
+   * Reference data does not belong here — see `seedReferenceData`.
    */
   onDivisionCreate?: (ctx: DivisionCreateContext) => Promise<void>
+  /**
+   * Rows the module's own code reads and the operator never has to create.
+   *
+   * Separate from `onDivisionCreate`, and called on every reconcile rather than once,
+   * for the same reason approval rules are seeded on every reconcile: a division
+   * created before the module declared the data has none of it, and the code that
+   * reads it cannot tell an empty table from a permissive one.
+   *
+   * That failure already happened. The pod module's IP gate reads `blocked_phrases`,
+   * which was seeded by a one-off script for the first division only — so three of
+   * four divisions had an empty blocklist, and `checkIpRisk` against zero phrases
+   * returns zero findings, which is indistinguishable from a clean design. A gate
+   * that is open reads exactly like a gate that passed you.
+   *
+   * MUST be idempotent: it runs on boot, on every division, every time.
+   */
+  seedReferenceData?: (ctx: DivisionCreateContext) => Promise<void>
 }
 
 export class UnknownModuleError extends Error {

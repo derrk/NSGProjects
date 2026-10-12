@@ -8,7 +8,9 @@
     "./designer": "./agents/designer/index.ts",
     "./integrations": "./integrations.ts",
     "./walkthrough": "./walkthrough.ts",
-    "./schema": "./schema/index.ts"
+    "./schema": "./schema/index.ts",
+    "./seed-reference": "./seed-reference.ts",
+    "./reference-data": "./reference-data.ts"
   },
   "dependencies": {
     "@acf/core": "workspace:*",

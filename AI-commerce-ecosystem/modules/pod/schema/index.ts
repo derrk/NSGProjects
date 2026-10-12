@@ -165,7 +165,13 @@ export const niches = pod.table(
     opportunityId: uuid('opportunity_id'),
     ...moduleAudit,
   },
-  (t) => [uniqueIndex('pod_niches_name_idx').on(t.name), index('pod_niches_status_idx').on(t.status)],
+  (t) => [
+    // Per DIVISION, not globally. Two divisions can both find "dog people"; only one
+    // of them can own the name, and whichever scout ran second used to overwrite the
+    // other division's row with its own score. See drizzle/0003.
+    uniqueIndex('pod_niches_name_idx').on(t.divisionId, t.name),
+    index('pod_niches_status_idx').on(t.status),
+  ],
 )
 
 /** One design idea. Approval gate #1. */
@@ -348,7 +354,12 @@ export const blockedPhrases = pod.table(
     reason: text('reason'),
     ...moduleAudit,
   },
-  (t) => [uniqueIndex('pod_blocked_phrases_idx').on(t.phrase)],
+  (t) => [
+    // Per DIVISION. Keyed on phrase alone, the first division seeded took all ten
+    // phrases and every later one took none — an IP gate that reads as on and is
+    // empty. See drizzle/0003.
+    uniqueIndex('pod_blocked_phrases_idx').on(t.divisionId, t.phrase),
+  ],
 )
 
 /** Per-product-type pricing, editable from the division's settings. */

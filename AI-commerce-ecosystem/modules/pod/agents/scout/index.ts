@@ -1,6 +1,8 @@
 import type { ModuleAgentSpec } from '@acf/core/modules'
 
 export * from './niche-score'
+export * from './run'
+export * from './schema'
 
 export const SCOUT_SYSTEM_PROMPT = `You are the Trend scout for a print-on-demand gift shop.
 
@@ -37,6 +39,14 @@ export const scoutAgentSpec: ModuleAgentSpec = {
   defaultModel: 'claude-sonnet-5-5',
   defaultSchedule: 'TZ=America/Chicago 0 6 * * *',
   defaultTools: ['web_search', 'fetch_page', 'memory.recall', 'memory.write'],
-  defaultStatus: 'paused',
+  /*
+   * Active.
+   *
+   * Paused was correct while there was no runner: the scheduler must not queue work
+   * nothing can take. There is one now, so this agent is the front of the whole
+   * pipeline — it is what turns an idea the operator typed, or no idea at all, into
+   * a sourced niche with an approval card behind it.
+   */
+  defaultStatus: 'active',
   systemPrompt: SCOUT_SYSTEM_PROMPT,
 }

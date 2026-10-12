@@ -11,7 +11,8 @@
  */
 
 import { createDivision, reconcileDivisionAgents, registerModules } from '@acf/core/modules'
-import { createDatabase, runMigrations, users } from '@acf/db'
+import { createDatabase, users } from '@acf/db'
+import { runMigrations } from '@acf/db/migrate'
 import {
   POD_MIGRATIONS,
   blockedPhrases,

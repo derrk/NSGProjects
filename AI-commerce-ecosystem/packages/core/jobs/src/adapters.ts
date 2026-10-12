@@ -6,7 +6,7 @@
  * real world, and it is deliberately thin: mapping only, no decisions.
  */
 
-import { and, desc, eq, inArray, sql } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import type { Inngest } from 'inngest'
 
 import type {
@@ -600,6 +600,39 @@ export function agentStore(db: Database): AgentStore {
         .from(agents)
         .where(eq(agents.divisionId, divisionId))
       return rows.map((r) => r.key).filter((k): k is string => k !== null)
+    },
+
+    async activateUntouched(divisionId, keys) {
+      if (keys.length === 0) return []
+      /*
+       * The three conditions below are the whole guarantee, and all three are load-
+       * bearing:
+       *
+       *   lastRunAt IS NULL — it has never run. `stampAgentRun` writes `updatedAt` on
+       *   every run, so without this an agent that ran once and was then deliberately
+       *   paused would look identical to one nobody has touched.
+       *
+       *   updatedAt = createdAt — nobody has edited it. Both columns default to the
+       *   statement timestamp, so they are exactly equal until something writes one.
+       *
+       *   status = 'paused' — there is nothing to do otherwise, and this keeps the
+       *   write a no-op on the ordinary boot rather than a table-wide update.
+       */
+      const woken = await db
+        .update(agents)
+        .set({ status: 'active', updatedAt: new Date() })
+        .where(
+          and(
+            eq(agents.divisionId, divisionId),
+            inArray(agents.moduleAgentKey, [...keys]),
+            eq(agents.status, 'paused'),
+            isNull(agents.lastRunAt),
+            sql`${agents.updatedAt} = ${agents.createdAt}`,
+          ),
+        )
+        .returning({ key: agents.moduleAgentKey })
+
+      return woken.map((r) => r.key).filter((k): k is string => k !== null)
     },
   }
 }

@@ -1,8 +1,18 @@
 /**
  * Apply pending migrations.
  *
- * Run with `pnpm --filter @acf/db db:migrate`. Uses DIRECT_DATABASE_URL (the session
- * pooler) rather than the runtime transaction pooler: migrations need session state.
+ * Run with `pnpm --filter @acf/db db:migrate`, which goes through migrate-cli.ts.
+ * Uses DIRECT_DATABASE_URL (the session pooler) rather than the runtime transaction
+ * pooler: migrations need session state.
+ *
+ * NOT re-exported from the package barrel, and the CLI that used to sit at the
+ * bottom of this file is now in migrate-cli.ts. Both for the same reason: this file
+ * imports `node:url` and `node:path` at the top level and the old CLI block called
+ * `process.argv` and `process.exit` at module scope, so anything that imported
+ * `@acf/db` for a database handle dragged all of it along. In a Next edge bundle
+ * that is not a warning, it is a compile error — and the thing that failed to
+ * compile was the boot hook that reconciles every division, which then silently did
+ * not run. Import this as `@acf/db/migrate`, from a script, deliberately.
  */
 
 import { fileURLToPath } from 'node:url'
@@ -44,18 +54,4 @@ export async function runMigrations(options: MigrateOptions = {}): Promise<void>
   } finally {
     await client.end()
   }
-}
-
-const isEntrypoint = process.argv[1] && import.meta.url === `file://${process.argv[1].replace(/\\/g, '/')}`
-
-if (isEntrypoint) {
-  runMigrations({})
-    .then(() => {
-      console.log('migrations applied')
-      process.exit(0)
-    })
-    .catch((err: unknown) => {
-      console.error('migration failed:', err)
-      process.exit(1)
-    })
 }

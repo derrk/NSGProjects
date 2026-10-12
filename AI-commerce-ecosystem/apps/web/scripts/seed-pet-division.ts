@@ -16,7 +16,8 @@
  */
 
 import { createDivision, reconcileDivisionAgents, registerModules } from '@acf/core/modules'
-import { createDatabase, ledger, runMigrations } from '@acf/db'
+import { createDatabase, ledger } from '@acf/db'
+import { runMigrations } from '@acf/db/migrate'
 import {
   agentStore,
   approvalRuleSeedStore,

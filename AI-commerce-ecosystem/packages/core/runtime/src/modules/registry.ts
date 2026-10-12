@@ -71,6 +71,14 @@ export interface AgentStore {
   insertMany(rows: Array<Omit<SeededAgent, 'id'>>): Promise<SeededAgent[]>
   /** Which module agent keys a division already has rows for. */
   listKeysForDivision?(divisionId: string): Promise<string[]>
+  /**
+   * Activate agents that are paused only because their module shipped them paused.
+   *
+   * Returns the keys actually changed. Implementations MUST restrict this to rows
+   * nobody has touched — never run, never edited — because the whole point is to
+   * distinguish a default from a decision. See `activateUntouched` below.
+   */
+  activateUntouched?(divisionId: string, keys: readonly string[]): Promise<string[]>
 }
 
 export interface ApprovalRuleSeedStore {
@@ -121,6 +129,30 @@ export interface RegistryDeps {
  * to make possible. So a key the division already has is left completely alone, even
  * when the module's defaults have moved on.
  */
+/**
+ * The context a module's setup hooks get. One builder, two call sites — create and
+ * reconcile — so the two cannot drift into giving a module different powers.
+ */
+function setupContext(
+  divisionId: string,
+  config: Record<string, unknown>,
+  deps: RegistryDeps,
+): DivisionCreateContext {
+  return {
+    divisionId,
+    config,
+    log: (message, level = 'info') =>
+      deps.events.emit({
+        divisionId,
+        kind: 'division.setup',
+        level,
+        message,
+        refTable: 'divisions',
+        refId: divisionId,
+      }),
+  }
+}
+
 export async function reconcileDivisionAgents(
   division: DivisionRow,
   mod: ModuleDefinition,
@@ -158,6 +190,60 @@ export async function reconcileDivisionAgents(
         kind: 'division.never_auto_tightened',
         level: 'warn',
         message: `${tightened} rule(s) in ${division.name} are now never-auto: ${nowNeverAuto.join(', ')}`,
+        refTable: 'divisions',
+        refId: division.id,
+      })
+    }
+  }
+
+  /*
+   * Reference data next, and unconditionally — including when no agent is missing.
+   *
+   * Same lesson as the approval rules above, learned the same way. The pod module's
+   * IP gate reads `blocked_phrases`, and nothing had ever written that table except a
+   * one-off seed script that ran for one division. Three divisions therefore had an
+   * empty blocklist, and `checkIpRisk` against zero phrases returns zero findings —
+   * so the gate reported every design clean, which is exactly what it reports when a
+   * design IS clean. A guardrail you cannot tell from the absence of one is not a
+   * guardrail.
+   *
+   * Declared idempotent in the type, so this is safe to run on every boot.
+   */
+  if (mod.seedReferenceData) {
+    await mod.seedReferenceData(
+      setupContext(division.id, (division.config ?? {}) as Record<string, unknown>, deps),
+    )
+  }
+
+  /*
+   * An agent paused by its module, once its module stops saying so.
+   *
+   * A module seeds an agent PAUSED when it has no runner, because the scheduler must
+   * not queue work nothing can take. When the runner lands, every division created
+   * before that day keeps the paused row — so the feature ships, the tests pass, the
+   * station renders, and the agent never runs anywhere that already existed. The
+   * Trend scout was exactly this: a runner, a station, an approval kind, and three
+   * divisions whose row said paused.
+   *
+   * Strictly one direction, and only for a row nobody has touched. A pause an
+   * operator chose is a decision and this must never undo it, which is why the store
+   * is required to check `last_run_at IS NULL AND updated_at = created_at` rather
+   * than being trusted to mean well — an agent that has ever run has had its
+   * `updated_at` stamped, so "untouched" has to mean both.
+   */
+  const nowActive = mod.agents
+    .filter((spec) => (spec.defaultStatus ?? 'active') === 'active')
+    .map((spec) => spec.key)
+  if (nowActive.length > 0 && deps.agents.activateUntouched) {
+    const woken = await deps.agents.activateUntouched(division.id, nowActive)
+    if (woken.length > 0) {
+      await deps.events.emit({
+        divisionId: division.id,
+        kind: 'division.agents_activated',
+        level: 'info',
+        message:
+          `${woken.length} agent(s) in ${division.name} were paused because their module ` +
+          `had no runner for them; it does now, so they are active: ${woken.join(', ')}`,
         refTable: 'divisions',
         refId: division.id,
       })
@@ -340,20 +426,7 @@ export async function createDivision(
   })
 
   if (mod.onDivisionCreate) {
-    const ctx: DivisionCreateContext = {
-      divisionId: division.id,
-      config: input.config ?? {},
-      log: (message, level = 'info') =>
-        deps.events.emit({
-          divisionId: division.id,
-          kind: 'division.setup',
-          level,
-          message,
-          refTable: 'divisions',
-          refId: division.id,
-        }),
-    }
-    await mod.onDivisionCreate(ctx)
+    await mod.onDivisionCreate(setupContext(division.id, input.config ?? {}, deps))
   }
 
   return { division, agents }

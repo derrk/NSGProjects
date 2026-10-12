@@ -37,6 +37,7 @@ export * from './fulfillment'
 export * from './publish'
 export * from './counters'
 export * from './ip-risk'
+export * from './reference-data'
 export * from './integrations'
 export * from './walkthrough'
 export * as podSchema from './schema/index'
@@ -105,6 +106,23 @@ export const podModule: ModuleDefinition = {
       thresholdCount: 50,
     },
     { kind: 'product', label: 'Listing', cardComponent: 'pod/ProductCard' },
+    {
+      kind: 'niche',
+      label: 'Niche',
+      cardComponent: 'pod/NicheCard',
+      /*
+       * This one CAN graduate, and it is the only research output in the module that
+       * should. Approving a niche commits to nothing outside the system — no listing,
+       * no spend, no message to anybody. It writes a row that the Designer then has
+       * to clear a second gate to act on.
+       *
+       * The threshold is high for a reason that is not caution: the scores on a niche
+       * card are a model's read of some pages, and the operator's early decisions are
+       * what calibrate whether that read is worth anything. Graduating at twenty
+       * would mean graduating before anyone could know.
+       */
+      thresholdCount: 40,
+    },
     {
       kind: 'reply',
       label: 'Customer reply',
@@ -177,6 +195,8 @@ export const podModule: ModuleDefinition = {
   ],
 
   async onDivisionCreate(ctx) {
+    // Reference data is NOT seeded here; see `seedReferenceData`, attached at the
+    // composition root, which runs on every reconcile rather than once.
     // Week 1 seeds nothing external. Validating the Printify and Shopify tokens and
     // registering Shopify webhooks lands in week 2 with those clients; doing it here
     // now would mean a half-written setup that silently no-ops.

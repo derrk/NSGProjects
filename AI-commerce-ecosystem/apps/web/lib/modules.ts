@@ -9,11 +9,13 @@ import {
   createDesignerAgent,
   createFinanceAgent,
   createPodCounters,
+  createScoutAgent,
   createStoreOpsAgent,
   createSupplierScoutAgent,
   createSupportAgent,
   podModule,
 } from '@acf/pod'
+import { createPodReferenceSeeder } from '@acf/pod/seed-reference'
 import { createIntakeAgent, templateModule } from '@acf/template'
 
 /**
@@ -27,7 +29,26 @@ import { createIntakeAgent, templateModule } from '@acf/template'
  * the app is where the two meet. Adding a division means adding one import here and
  * one entry to the array.
  */
-export const MODULES: ModuleDefinition[] = [podModule, templateModule]
+export const MODULES: ModuleDefinition[] = [
+  {
+    ...podModule,
+    /*
+     * Attached here rather than declared in module.ts, because this one needs a
+     * database and module.ts must stay readable at boot without one.
+     *
+     * It runs on every reconcile. The reason is in registry.ts, and it is not
+     * theoretical: the blocked-phrase list had been written by a one-off script for
+     * one division, so three divisions were running an IP gate against zero phrases
+     * — which reports every design clean, exactly as it does when a design is clean.
+     *
+     * `db()` is called inside the closure, not beside it. MODULES is a top-level
+     * const, so resolving the handle here would open a connection the moment anything
+     * imported this file — including a test that only wanted the approval kinds.
+     */
+    seedReferenceData: (ctx) => createPodReferenceSeeder(db() as never)(ctx),
+  },
+  templateModule,
+]
 
 /**
  * Run agents against mocks instead of paid APIs.
@@ -109,8 +130,22 @@ export function resolveAgentDefinition(
     }) as unknown as AgentDefinition<never, never>
   }
 
-  // The Trend scout is the one still declared without a runner. Its station shows on
-  // the floor in red, which is the honest rendering of "nobody can work this post".
+  if (agentKey === 'scout') {
+    /*
+     * The front of the pipeline. Takes an idea the operator typed, or nothing at all,
+     * and turns it into sourced niches with an approval behind them.
+     *
+     * Its judgement is in niche-score.ts and in the vet in its runner, not in the
+     * prompt. A niche is thrown out for having an uncheckable quote by code that was
+     * written to be evaded, because the prompt asking for verbatim quotes is a
+     * request and this is where it becomes a rule.
+     */
+    return createScoutAgent({
+      db: db() as never,
+      model: useMocks ? createOfflineModelClient() : createModelClient(),
+    }) as unknown as AgentDefinition<never, never>
+  }
+
   return null
 }
 

@@ -56,8 +56,11 @@ class FakeDivisionStore implements DivisionStore {
   }
 }
 
+/** `touched` stands in for `updated_at > created_at`: somebody edited this row. */
+type FakeAgentRow = SeededAgent & { lastRunAt?: Date | null; touched?: boolean }
+
 class FakeAgentStore implements AgentStore {
-  readonly rows: SeededAgent[] = []
+  readonly rows: FakeAgentRow[] = []
   private seq = 0
 
   async insertMany(rows: Array<Omit<SeededAgent, 'id'>>): Promise<SeededAgent[]> {
@@ -68,6 +71,25 @@ class FakeAgentStore implements AgentStore {
 
   async listKeysForDivision(divisionId: string): Promise<string[]> {
     return this.rows.filter((r) => r.divisionId === divisionId).map((r) => r.moduleAgentKey)
+  }
+
+  /**
+   * Models the real adapter's three conditions, including the two that exist to tell
+   * a module default from an operator's decision. A fake that only checked `status`
+   * would pass the tests below while the real query undid a deliberate pause.
+   */
+  async activateUntouched(divisionId: string, keys: readonly string[]): Promise<string[]> {
+    const woken: string[] = []
+    for (const row of this.rows) {
+      if (row.divisionId !== divisionId) continue
+      if (!keys.includes(row.moduleAgentKey)) continue
+      if (row.status !== 'paused') continue
+      if (row.lastRunAt != null) continue
+      if (row.touched) continue
+      row.status = 'active'
+      woken.push(row.moduleAgentKey)
+    }
+    return woken
   }
 }
 
@@ -585,6 +607,130 @@ describe('reconcileDivisionAgents', () => {
 
     expect(added.map((a) => a.moduleAgentKey)).toEqual(['finance'])
     expect(agents.rows).toHaveLength(2)
+  })
+
+  it('seeds reference data on every reconcile, not only at creation', async () => {
+    /*
+     * The failure this protects against is the one the pod module actually shipped.
+     * Its IP gate reads a `blocked_phrases` table that nothing but a one-off script
+     * had ever written, for one division — so three divisions ran that gate against
+     * an empty list. `checkIpRisk` with zero phrases returns zero findings, which is
+     * exactly what it returns for a clean design. The operator could not tell, from
+     * anything on the screen, a check that passed from a check that never ran.
+     *
+     * So this runs on every reconcile, like the approval rules above it, rather than
+     * once at creation where a division older than the data never gets it.
+     */
+    const seeded: string[] = []
+    const mod = makeModule()
+    const { division } = await createDivision(
+      { name: 'Deadstock', slug: 'pod-store', moduleName: 'pod' },
+      [mod],
+      deps,
+    )
+
+    const withData = makeModule({
+      seedReferenceData: async (ctx) => {
+        seeded.push(ctx.divisionId)
+      },
+    })
+
+    await reconcileDivisionAgents(division, withData, deps)
+    expect(seeded).toEqual([division.id])
+
+    // And again, because it is declared idempotent and runs on every boot.
+    await reconcileDivisionAgents(division, withData, deps)
+    expect(seeded).toHaveLength(2)
+  })
+
+  it('seeds reference data even when no agent is missing', async () => {
+    // The early return on `missing.length === 0` is below this call, deliberately.
+    let called = false
+    const mod = makeModule({ seedReferenceData: async () => { called = true } })
+    const { division } = await createDivision(
+      { name: 'Deadstock', slug: 'pod-store', moduleName: 'pod' },
+      [mod],
+      deps,
+    )
+    called = false
+
+    expect(await reconcileDivisionAgents(division, mod, deps)).toEqual([])
+    expect(called).toBe(true)
+  })
+
+  describe('waking an agent its module stopped shipping paused', () => {
+    /*
+     * The failure: a module seeds an agent PAUSED while it has no runner, because the
+     * scheduler must not queue work nothing can take. The runner lands, the tests go
+     * green, the station renders — and every division that already existed keeps the
+     * paused row, so the feature runs nowhere. That is what happened to the Trend
+     * scout, on all three pod divisions.
+     */
+    async function pausedScout() {
+      const mod = makeModule({
+        agents: [{ ...makeModule().agents[0]!, key: 'scout', defaultStatus: 'paused' }],
+      })
+      const { division } = await createDivision(
+        { name: 'Deadstock', slug: 'pod-store', moduleName: 'pod' },
+        [mod],
+        deps,
+      )
+      const withRunner = makeModule({
+        agents: [{ ...makeModule().agents[0]!, key: 'scout', defaultStatus: 'active' }],
+      })
+      return { division, withRunner }
+    }
+
+    it('activates a row nobody has touched', async () => {
+      const { division, withRunner } = await pausedScout()
+      expect(agents.rows[0]!.status).toBe('paused')
+
+      await reconcileDivisionAgents(division, withRunner, deps)
+
+      expect(agents.rows[0]!.status).toBe('active')
+      expect(events.kinds()).toContain('division.agents_activated')
+    })
+
+    it('leaves a pause the operator chose exactly as they chose it', async () => {
+      // The one thing this must never do. A pause is a decision, and undoing it on
+      // the next boot would mean the stop button does not hold.
+      const { division, withRunner } = await pausedScout()
+      agents.rows[0]!.touched = true
+
+      await reconcileDivisionAgents(division, withRunner, deps)
+
+      expect(agents.rows[0]!.status).toBe('paused')
+      expect(events.kinds()).not.toContain('division.agents_activated')
+    })
+
+    it('leaves an agent that has run and since been paused alone', async () => {
+      /*
+       * `stampAgentRun` writes updated_at on every run, so "never edited" alone is
+       * not enough to tell a default from a decision — an agent that ran once and was
+       * then stood down has a bumped timestamp for a reason that is not an edit.
+       */
+      const { division, withRunner } = await pausedScout()
+      agents.rows[0]!.lastRunAt = new Date('2026-10-01T00:00:00Z')
+
+      await reconcileDivisionAgents(division, withRunner, deps)
+
+      expect(agents.rows[0]!.status).toBe('paused')
+    })
+
+    it('does not wake an agent its module still ships paused', async () => {
+      const mod = makeModule({
+        agents: [{ ...makeModule().agents[0]!, key: 'scout', defaultStatus: 'paused' }],
+      })
+      const { division } = await createDivision(
+        { name: 'Deadstock', slug: 'pod-store', moduleName: 'pod' },
+        [mod],
+        deps,
+      )
+
+      await reconcileDivisionAgents(division, mod, deps)
+
+      expect(agents.rows[0]!.status).toBe('paused')
+    })
   })
 
   it('adds nothing when the module has not changed', async () => {
