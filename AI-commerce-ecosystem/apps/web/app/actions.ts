@@ -5,6 +5,7 @@ import { executeTask, inngest } from '@acf/jobs'
 import { and, eq, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 
+import { describeIdeaOutcome } from '@/lib/idea-outcome'
 import { resolveAgentDefinition } from '@/lib/modules'
 import { requireOperator } from '@/lib/auth'
 
@@ -94,7 +95,11 @@ export async function submitIdea(_prev: IdeaState, formData: FormData): Promise<
   if (result.status !== 'ok') {
     return { error: `${target.name} could not take it: ${result.reason}`, taskId: task.id }
   }
-  return { ok: `${target.name} recorded it. It is waiting in Quarantine.`, taskId: task.id }
+
+  // Report what the agent DID, not that it finished. The rule, and the bug it
+  // comes from, are in lib/idea-outcome.ts.
+  const { message } = describeIdeaOutcome(target.name, result.output)
+  return { ok: message, taskId: task.id }
 }
 
 /**
