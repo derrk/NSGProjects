@@ -860,3 +860,62 @@ code {
 .verdict.is-clear {
   border-left-color: var(--toxic);
 }
+
+/* ------------------------------------------------------------------ *
+ * Division settings
+ *
+ * The screen that did not exist for printifyShopId, which is why the first
+ * anyone heard of that field was an agent failing on it.
+ * ------------------------------------------------------------------ */
+
+.config-form {
+  display: grid;
+  gap: 1.1rem;
+}
+
+.config-field {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.config-field label {
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.config-field input {
+  background: var(--panel);
+  border: 1px solid var(--edge);
+  color: var(--fg);
+  padding: 0.55rem 0.7rem;
+  font: inherit;
+  font-size: 0.95rem;
+}
+
+.config-field input:focus-visible {
+  outline: 2px solid var(--toxic);
+  outline-offset: 1px;
+}
+
+/* An unset field that stops an agent is not a blank, it is a broken pipeline. */
+.config-blocked {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--amber);
+  border-left: 2px solid var(--amber);
+  padding-left: 0.6rem;
+}
+
+.config-error {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--rust);
+}
+
+.config-note {
+  margin: 0;
+  border-left: 2px solid var(--edge-bright);
+  padding-left: 0.6rem;
+}

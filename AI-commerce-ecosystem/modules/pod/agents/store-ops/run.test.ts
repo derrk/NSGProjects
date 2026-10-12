@@ -19,6 +19,7 @@ import { createMockPrintifyClient, type MockPrintifyClient } from '@acf/integrat
 
 import { concepts, designs, pricingRules, products } from '../../schema/index'
 import { createStoreOpsAgent, validateCopy } from './run'
+import { designIdFrom } from './schema'
 
 let h: TestDatabase
 const sentEvents: Array<{ name: string }> = []
@@ -432,5 +433,66 @@ describe('Store ops refusals and idempotency', () => {
     expect(second.output.status).toBe('already_requested')
     expect(second.printify.calls.createProduct).toHaveLength(0)
     expect(await h.db.select().from(products)).toHaveLength(1)
+  })
+})
+
+/* ------------------------------------------------------------------ *
+ * Which design, which is where the whole pipeline used to stop
+ * ------------------------------------------------------------------ */
+
+describe('designIdFrom', () => {
+  /**
+   * The exact shape `dispatchInput` builds, copied from a real task row rather than
+   * imagined. That is the point: this function was written against a shape
+   * (`approval.payload`) that nothing in the dispatch path produces, there was no
+   * test for it, and the pipeline died one step after the operator chose a variant.
+   */
+  const dispatched = (over: Record<string, unknown> = {}) => ({
+    kind: 'design',
+    refId: 'concept-uuid',
+    refTable: 'pod.concepts',
+    category: 'flat-vector',
+    decision: 'edited',
+    payload: { chosenDesignId: 'design-uuid', chosenVariantNo: 1 },
+    ...over,
+  })
+
+  it('takes the variant the operator actually picked', () => {
+    expect(designIdFrom(dispatched())).toBe('design-uuid')
+  })
+
+  it('does NOT fall back to the refId of a design approval, which is a concept', () => {
+    /*
+     * The bug. The pick was missed, this fell through to refId, and Store ops looked
+     * up a concept id in the designs table. Loud, so it was recoverable — but a
+     * version that happened to find a row would have built a listing for artwork
+     * nobody chose.
+     */
+    expect(designIdFrom(dispatched({ payload: {} }))).toBeNull()
+    expect(designIdFrom(dispatched({ payload: undefined }))).toBeNull()
+  })
+
+  it('still reads the nested shape, for a task that carries its own decision', () => {
+    expect(
+      designIdFrom({ approval: { payload: { chosenDesignId: 'design-uuid' } } }),
+    ).toBe('design-uuid')
+  })
+
+  it('takes an explicit designId from a manual run', () => {
+    expect(designIdFrom({ designId: 'design-uuid' })).toBe('design-uuid')
+  })
+
+  it('accepts a refId that really is a design', () => {
+    expect(designIdFrom({ refId: 'design-uuid', refTable: 'pod.designs' })).toBe('design-uuid')
+  })
+
+  it('ignores a blank or non-string pick rather than passing it on', () => {
+    for (const chosenDesignId of ['', '   ', 42, null, {}, []]) {
+      expect(designIdFrom(dispatched({ payload: { chosenDesignId } }))).toBeNull()
+    }
+  })
+
+  it('prefers the pick over an explicit designId, because three variants were on the card', () => {
+    expect(designIdFrom({ ...dispatched(), designId: 'some-other-design' })).toBe('design-uuid')
   })
 })

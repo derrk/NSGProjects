@@ -149,6 +149,35 @@ export interface DivisionCreateContext {
   log(message: string, level?: 'info' | 'warn' | 'error'): Promise<void>
 }
 
+/**
+ * One editable setting on a division.
+ *
+ * Declared by the module so core never learns what a Printify shop is, and so the
+ * screen that edits them is generated rather than written per module.
+ *
+ * NOT FOR SECRETS. Division config is an ordinary jsonb column: it is read back to
+ * the browser on the settings screen, it goes into the archive export, and it is not
+ * encrypted at rest. Tokens and keys belong in environment variables, which is where
+ * every integration already looks for them. A module that declares a field for an
+ * API token is declaring a leak.
+ */
+export interface ConfigFieldSpec {
+  key: string
+  label: string
+  /** What it is for, in the operator's terms. Rendered under the input. */
+  help: string
+  kind: 'text' | 'list'
+  /** Shown in the empty input. Never used as a value. */
+  placeholder?: string
+  /**
+   * What breaks while this is unset, in one line.
+   *
+   * Rendered on the field when it is empty. The alternative is an operator finding
+   * out from a failed agent run, which is how `printifyShopId` was discovered.
+   */
+  requiredFor?: string
+}
+
 export interface ModuleDefinition {
   name: string
   version: string
@@ -166,6 +195,14 @@ export interface ModuleDefinition {
    * that silently never appears reads as zero — and zero is a claim.
    */
   counterNames?: string[]
+  /**
+   * Division settings this module reads, so the app can render a form for them.
+   *
+   * Without this they are set by editing a jsonb column by hand — which is how
+   * `printifyShopId` worked until the Loading bay started failing on it, with the
+   * error message serving as the only documentation that the field existed.
+   */
+  configFields?: ConfigFieldSpec[]
   /**
    * Validate tokens, register webhooks, write the first tasks.
    * Runs ONCE, after the division row and its agents exist.

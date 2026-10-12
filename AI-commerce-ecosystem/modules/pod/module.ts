@@ -214,6 +214,37 @@ export const podModule: ModuleDefinition = {
   // for the same reason: this file must be readable at boot without a database.
   counterNames: POD_COUNTER_NAMES,
 
+  /*
+   * Settings, not secrets. Every token this module needs comes from an environment
+   * variable; nothing here is sensitive, and nothing here should become sensitive —
+   * division config is plain jsonb that is read back to the browser and included in
+   * the archive export.
+   */
+  configFields: [
+    {
+      key: 'printifyShopId',
+      label: 'Printify shop id',
+      kind: 'text',
+      placeholder: '12345678',
+      help:
+        'The numeric id of the shop in your Printify account, from the URL when you open ' +
+        'it. Not the shop name, and not an API token — the token is PRINTIFY_API_TOKEN in ' +
+        'the environment.',
+      requiredFor:
+        'The Loading bay cannot publish anything: there is nowhere to publish it to, and ' +
+        'the Listing dock stops before it drafts.',
+    },
+    {
+      key: 'productTypes',
+      label: 'What this division prints on',
+      kind: 'list',
+      placeholder: 'mug_11oz, tee, hoodie',
+      help:
+        'Comma separated. The Concept bench will only propose designs for these, and the ' +
+        'Listing dock only prices these. Leaving it empty falls back to the module default.',
+    },
+  ],
+
   screens: [
     { path: 'concepts', label: 'Concepts' },
     { path: 'products', label: 'Products' },

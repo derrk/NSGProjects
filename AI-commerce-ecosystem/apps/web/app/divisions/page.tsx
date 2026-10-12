@@ -4,6 +4,7 @@ import { eq, sql } from 'drizzle-orm'
 import { MODULES } from '@/lib/modules'
 
 import { setDivisionStatus } from './actions'
+import { ConfigForm } from './config-form'
 import { NewDivisionForm, type ModuleOption } from './new-division-form'
 
 export const dynamic = 'force-dynamic'
@@ -102,6 +103,47 @@ export default async function DivisionsPage() {
           </tbody>
         </table>
       )}
+
+      <h2 className="section-title">Settings</h2>
+      <p className="screen-sub">
+        What each division needs before its agents can finish a job. An empty setting that
+        stops an agent says so here rather than in a failed run.
+      </p>
+      {rows.map((d) => {
+        const mod = MODULES.find((m) => m.name === d.type)
+        const fields = mod?.configFields ?? []
+        if (fields.length === 0) return null
+        const config = (d.config ?? {}) as Record<string, unknown>
+        const values: Record<string, string> = {}
+        for (const field of fields) {
+          const value = config[field.key]
+          // Arrays come back as a comma list, which is how they went in. Anything
+          // else is shown as the JSON it is rather than as [object Object].
+          values[field.key] = Array.isArray(value)
+            ? value.join(', ')
+            : value === undefined || value === null
+              ? ''
+              : typeof value === 'string'
+                ? value
+                : JSON.stringify(value)
+        }
+        return (
+          <div className="crate" key={d.id}>
+            <div className="crate-head">
+              <strong>{d.name}</strong>
+              <span className="hash">{mod?.name ?? d.type}</span>
+            </div>
+            <div className="crate-body">
+              <ConfigForm
+                divisionId={d.id}
+                divisionName={d.name}
+                fields={fields}
+                values={values}
+              />
+            </div>
+          </div>
+        )
+      })}
 
       <h2 className="section-title">Raise a new division</h2>
       <div className="crate" style={{ borderLeftColor: 'var(--toxic)' }}>

@@ -116,3 +116,85 @@ export async function setDivisionStatus(formData: FormData): Promise<void> {
   revalidatePath('/divisions')
   revalidatePath('/')
 }
+
+export interface ConfigState {
+  error?: string
+  ok?: string
+}
+
+/**
+ * Save the settings a module declared.
+ *
+ * MERGED into the existing config rather than replacing it. The form only renders the
+ * fields the module declares TODAY, so a replace would silently drop anything written
+ * by an older version of the module or by hand — and the operator would have no way
+ * to know, because the screen never showed those keys in the first place.
+ *
+ * Nothing here is a secret and the form says so. This action does not enforce that —
+ * it cannot know what somebody types — but it does refuse values long enough to be a
+ * token pasted by mistake, which is the common way that goes wrong.
+ */
+export async function setDivisionConfig(
+  _prev: ConfigState,
+  formData: FormData,
+): Promise<ConfigState> {
+  // A server action is a POST endpoint with its own id, reachable without any page
+  // ever rendering. The layout gate does not cover it; this does.
+  await requireOperator()
+
+  const divisionId = String(formData.get('divisionId') ?? '').trim()
+  if (!divisionId) return { error: 'divisionId is required' }
+
+  const database = db()
+  const [division] = await database
+    .select()
+    .from(divisions)
+    .where(eq(divisions.id, divisionId))
+    .limit(1)
+  if (!division) return { error: 'That division no longer exists.' }
+
+  const mod = MODULES.find((m) => m.name === division.type)
+  const fields = mod?.configFields ?? []
+  if (fields.length === 0) {
+    return { error: `The ${division.type} module declares no settings.` }
+  }
+
+  const next: Record<string, unknown> = { ...((division.config ?? {}) as object) }
+
+  for (const field of fields) {
+    const raw = formData.get(field.key)
+    // A field the form did not submit is left alone, not cleared. Absent and empty
+    // are different answers and only one of them is the operator's.
+    if (raw === null) continue
+    const value = String(raw).trim()
+
+    if (value.length > 400) {
+      return {
+        error:
+          `"${field.label}" is ${value.length} characters, which is too long to be a setting. ` +
+          'If that is an API token it must not go here — tokens are environment variables.',
+      }
+    }
+
+    if (value === '') {
+      delete next[field.key]
+      continue
+    }
+
+    next[field.key] =
+      field.kind === 'list'
+        ? [...new Set(value.split(',').map((p) => p.trim()).filter(Boolean))]
+        : value
+  }
+
+  await database
+    .update(divisions)
+    .set({ config: next, updatedAt: new Date() })
+    .where(eq(divisions.id, divisionId))
+
+  revalidatePath('/divisions')
+  revalidatePath('/supply')
+  revalidatePath('/floor')
+
+  return { ok: `Saved. ${division.name} picks these up on its next run.` }
+}
