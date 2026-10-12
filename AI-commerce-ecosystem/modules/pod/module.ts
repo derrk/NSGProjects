@@ -16,6 +16,7 @@
 
 import type { ModuleDefinition } from '@acf/core/modules'
 
+import { conceptBenchAgentSpec } from './agents/concept-bench/index'
 import { designerAgentSpec } from './agents/designer/index'
 import { POD_COUNTER_NAMES } from './counters'
 import { financeAgentSpec } from './agents/finance/index'
@@ -26,6 +27,7 @@ import { supportAgentSpec } from './agents/support/index'
 
 export { createDesignerAgent, designerAgentSpec } from './agents/designer/index'
 export { createStoreOpsAgent, storeOpsAgentSpec } from './agents/store-ops/index'
+export * from './agents/concept-bench/index'
 export * from './agents/finance/index'
 export * from './agents/scout/index'
 export * from './agents/supplier-scout/index'
@@ -52,6 +54,16 @@ export const podModule: ModuleDefinition = {
       key: 'scout',
       label: 'Trend scout',
       agentKey: 'scout',
+      // Niches, not concepts. This station counted concepts, which the scout does
+      // not produce — so a scout that found nothing all day read as busy on the
+      // strength of work the bench downstream had done.
+      counter: 'pod.niches_today',
+      counterLabel: 'niches today',
+    },
+    {
+      key: 'concept_bench',
+      label: 'Concept bench',
+      agentKey: 'concept_bench',
       counter: 'pod.concepts_today',
       counterLabel: 'concepts today',
     },
@@ -176,6 +188,7 @@ export const podModule: ModuleDefinition = {
   ],
 
   agents: [
+    conceptBenchAgentSpec,
     designerAgentSpec,
     storeOpsAgentSpec,
     scoutAgentSpec,

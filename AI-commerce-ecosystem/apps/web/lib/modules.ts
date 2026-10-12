@@ -8,6 +8,7 @@ import { createPrintifyClient, createMockPrintifyClient } from '@acf/integration
 import {
   createDesignerAgent,
   createFinanceAgent,
+  createConceptBenchAgent,
   createPodCounters,
   createScoutAgent,
   createStoreOpsAgent,
@@ -125,6 +126,22 @@ export function resolveAgentDefinition(
 
   if (agentKey === 'finance') {
     return createFinanceAgent({
+      db: db() as never,
+      model: useMocks ? createOfflineModelClient() : createModelClient(),
+    }) as unknown as AgentDefinition<never, never>
+  }
+
+  if (agentKey === 'concept_bench') {
+    /*
+     * The link between research and design. Triggers on `niche.approved`, reads the
+     * niche row and the evidence the scout stored on it, and files concepts the
+     * Designer can actually render.
+     *
+     * No image client and no search: it writes words, and the two things it is not
+     * allowed to get wrong — the design style enum and the IP check — are decided in
+     * code either side of the model call.
+     */
+    return createConceptBenchAgent({
       db: db() as never,
       model: useMocks ? createOfflineModelClient() : createModelClient(),
     }) as unknown as AgentDefinition<never, never>

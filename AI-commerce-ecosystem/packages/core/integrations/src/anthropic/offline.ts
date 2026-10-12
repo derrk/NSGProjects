@@ -75,7 +75,48 @@ function candidates(request: StructuredRequest<unknown>): unknown[] {
     })),
   }
 
-  return [textCheck, plan, { ok: true }]
+  /*
+   * A concept batch, for the Concept bench.
+   *
+   * Derived from the prompt rather than invented freely, because every field here is
+   * re-checked in code the moment it comes back: `style` is a Postgres enum, the
+   * products have to be ones the division sells, and the brief has a minimum length
+   * because the Designer renders from that field alone. A canned answer that fails
+   * its own vet is worse than none — it sends the agent round a correction pass and
+   * then reports that nothing survived.
+   *
+   * It says OFFLINE DEVELOPMENT CONCEPT in the brief on purpose. These rows reach the
+   * concepts table like any other, and the operator should be able to tell one that
+   * came from a model from one that came from this file.
+   */
+  const niche = field(text, 'The niche, already approved by the operator') ?? 'the niche'
+  const audience = field(text, 'Who buys') ?? 'the buyer'
+  const allowed = (field(text, 'Products must come from') ?? '')
+    .replace(/\.$/, '')
+    .split(',')
+    .map((p) => p.trim())
+    .filter(Boolean)
+
+  const conceptBatch = {
+    concepts: [
+      {
+        title: `${niche}: the obvious one`.slice(0, 90),
+        promptBrief:
+          `OFFLINE DEVELOPMENT CONCEPT — written by the offline model client, not by a ` +
+          `model. A simple centred composition about ${niche}, aimed at ${audience}. ` +
+          'Bold lettering, generous margins, no background scene.',
+        style: 'flat-vector',
+        // Two if the division sells two, one if it sells one, and the vet rejects the
+        // whole concept if this ends up empty — so fall back to a type every POD
+        // division has rather than to nothing.
+        products: allowed.length > 0 ? allowed.slice(0, 2) : ['mug_11oz'],
+        whyThisOne: 'Offline development concept. It is not an argument, it is a placeholder.',
+      },
+    ],
+    skipped: [],
+  }
+
+  return [textCheck, plan, conceptBatch, { ok: true }]
 }
 
 export function createOfflineModelClient(): ModelClient {

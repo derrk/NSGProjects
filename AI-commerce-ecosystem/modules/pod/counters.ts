@@ -15,7 +15,7 @@ import { and, count, eq, gte, lt } from 'drizzle-orm'
 
 import type { CounterContext, CounterResolvers } from '@acf/core/modules'
 
-import { concepts, designs, orders, products, replies, suppliers } from './schema/index'
+import { concepts, designs, niches, orders, products, replies, suppliers } from './schema/index'
 
 type Db = Record<string, unknown>
 
@@ -43,7 +43,17 @@ async function countInWindow(
 
 export function createPodCounters(db: Db): CounterResolvers {
   return {
-    /** Concepts the scout proposed today. */
+    /**
+     * Niches the Trend scout proposed today.
+     *
+     * The scout's station used to count CONCEPTS, which it does not produce and
+     * never did — so the number under Trend scout was whatever the Design bay's
+     * upstream had managed, and a scout that found nothing all day could still read
+     * as busy because a concept approved yesterday produced work today.
+     */
+    'pod.niches_today': async (ctx) => countInWindow(db, niches, ctx),
+
+    /** Concepts the bench proposed today. */
     'pod.concepts_today': async (ctx) => countInWindow(db, concepts, ctx),
 
     /** Design variants produced today. Three per approved concept. */
@@ -143,6 +153,7 @@ export function createPodCounters(db: Db): CounterResolvers {
 
 /** Every counter this module can resolve. Declared on the module, validated at boot. */
 export const POD_COUNTER_NAMES = [
+  'pod.niches_today',
   'pod.concepts_today',
   'pod.designs_today',
   'pod.published_today',
