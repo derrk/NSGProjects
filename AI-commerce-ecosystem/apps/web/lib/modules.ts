@@ -10,6 +10,7 @@ import {
   createFinanceAgent,
   createConceptBenchAgent,
   createPodCounters,
+  createPublisherAgent,
   createScoutAgent,
   createStoreOpsAgent,
   createSupplierScoutAgent,
@@ -144,6 +145,21 @@ export function resolveAgentDefinition(
     return createConceptBenchAgent({
       db: db() as never,
       model: useMocks ? createOfflineModelClient() : createModelClient(),
+    }) as unknown as AgentDefinition<never, never>
+  }
+
+  if (agentKey === 'publisher') {
+    /*
+     * The last step, and the last orphan: `publishProduct` was written, tested and
+     * called by nothing, so approving a listing did nothing at all and the product
+     * sat at pending_approval while the card cleared.
+     *
+     * No model client, because there is no judgement left here. Every decision was
+     * made upstream and written down.
+     */
+    return createPublisherAgent({
+      db: db() as never,
+      printify: useMocks ? createMockPrintifyClient() : createPrintifyClient(),
     }) as unknown as AgentDefinition<never, never>
   }
 

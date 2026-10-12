@@ -60,6 +60,15 @@ export function createPodCounters(db: Db): CounterResolvers {
     'pod.designs_today': async (ctx) => countInWindow(db, designs, ctx),
 
     /**
+     * Listings the dock drafted today.
+     *
+     * Separate from published, because they are two stations' work and two different
+     * questions. A dock that drafted ten listings nobody has approved yet is busy;
+     * counting it on publishedAt reported it as idle.
+     */
+    'pod.products_drafted_today': async (ctx) => countInWindow(db, products, ctx),
+
+    /**
      * Listings that went public today.
      *
      * Counted on `publishedAt`, not `createdAt`: a product drafted last week and
@@ -155,6 +164,7 @@ export function createPodCounters(db: Db): CounterResolvers {
 export const POD_COUNTER_NAMES = [
   'pod.niches_today',
   'pod.concepts_today',
+  'pod.products_drafted_today',
   'pod.designs_today',
   'pod.published_today',
   'pod.replies_today',

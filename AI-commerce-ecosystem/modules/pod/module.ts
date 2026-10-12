@@ -21,6 +21,7 @@ import { designerAgentSpec } from './agents/designer/index'
 import { POD_COUNTER_NAMES } from './counters'
 import { financeAgentSpec } from './agents/finance/index'
 import { scoutAgentSpec } from './agents/scout/index'
+import { publisherAgentSpec } from './agents/publisher/index'
 import { storeOpsAgentSpec } from './agents/store-ops/index'
 import { supplierScoutAgentSpec } from './agents/supplier-scout/index'
 import { supportAgentSpec } from './agents/support/index'
@@ -29,6 +30,7 @@ export { createDesignerAgent, designerAgentSpec } from './agents/designer/index'
 export { createStoreOpsAgent, storeOpsAgentSpec } from './agents/store-ops/index'
 export * from './agents/concept-bench/index'
 export * from './agents/finance/index'
+export * from './agents/publisher/index'
 export * from './agents/scout/index'
 export * from './agents/supplier-scout/index'
 export * from './agents/support/index'
@@ -78,6 +80,16 @@ export const podModule: ModuleDefinition = {
       key: 'listing_dock',
       label: 'Listing dock',
       agentKey: 'store_ops',
+      // Drafted, not published. This station counted PUBLISHED listings, which it
+      // does not produce — it drafts them and the Loading bay pushes them live, so
+      // a dock that drafted ten today read as zero until somebody approved them.
+      counter: 'pod.products_drafted_today',
+      counterLabel: 'listings drafted',
+    },
+    {
+      key: 'loading_bay',
+      label: 'Loading bay',
+      agentKey: 'publisher',
       counter: 'pod.published_today',
       counterLabel: 'published today',
     },
@@ -190,6 +202,7 @@ export const podModule: ModuleDefinition = {
   agents: [
     conceptBenchAgentSpec,
     designerAgentSpec,
+    publisherAgentSpec,
     storeOpsAgentSpec,
     scoutAgentSpec,
     supportAgentSpec,

@@ -11,7 +11,7 @@
  * dying between the publish and either callback.
  */
 
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 
 import type { PrintifyClient } from '@acf/integrations/printify'
 
@@ -21,6 +21,16 @@ export interface PublishDeps {
   db: Record<string, unknown>
   printify: PrintifyClient
   shopId: string
+  /**
+   * Whose products these are.
+   *
+   * Required by `reconcileStuckPublishes`, which without it swept EVERY division's
+   * pending products and called them against THIS division's shop id. The usual
+   * outcome was a wasted lookup that threw and was skipped — but two divisions
+   * sharing a Printify shop would have each one releasing the other's locks, and the
+   * cost grew with the whole table rather than with one division's work.
+   */
+  divisionId?: string
   log?: (kind: string, message: string, level?: 'info' | 'warn' | 'error') => Promise<void>
 }
 
@@ -105,10 +115,17 @@ export async function reconcileStuckPublishes(deps: PublishDeps): Promise<number
   const db = deps.db as any
   const log = deps.log ?? (async () => {})
 
+  // Scoped to one division when the caller says which, because a sweep is not a
+  // reason to touch another division's shop. Unscoped is kept only so the existing
+  // callers that predate the field keep compiling; it is the wrong way to run this.
   const pending = await db
     .select()
     .from(products)
-    .where(eq(products.status, 'pending_approval'))
+    .where(
+      deps.divisionId
+        ? and(eq(products.status, 'pending_approval'), eq(products.divisionId, deps.divisionId))
+        : eq(products.status, 'pending_approval'),
+    )
 
   let released = 0
   for (const product of pending) {
