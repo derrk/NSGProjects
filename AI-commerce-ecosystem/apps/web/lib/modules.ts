@@ -8,6 +8,7 @@ import { createPrintifyClient, createMockPrintifyClient } from '@acf/integration
 import {
   createDesignerAgent,
   createFinanceAgent,
+  createFulfillmentAgent,
   createConceptBenchAgent,
   createPodCounters,
   createPublisherAgent,
@@ -146,6 +147,15 @@ export function resolveAgentDefinition(
       db: db() as never,
       model: useMocks ? createOfflineModelClient() : createModelClient(),
     }) as unknown as AgentDefinition<never, never>
+  }
+
+  if (agentKey === 'fulfillment') {
+    /*
+     * Queued by the Shopify webhook once an order is recorded. No model and no
+     * outside client: it reads the order, applies `mayRouteOrder`, and files a
+     * proof card for anything a person has to read.
+     */
+    return createFulfillmentAgent({ db: db() as never }) as unknown as AgentDefinition<never, never>
   }
 
   if (agentKey === 'publisher') {

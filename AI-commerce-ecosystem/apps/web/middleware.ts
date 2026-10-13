@@ -36,6 +36,22 @@ function isPublic(pathname: string): boolean {
    * anywhere but your own machine.
    */
   if (pathname === '/api/inngest' || pathname.startsWith('/api/inngest/')) return true
+
+  /*
+   * Channel webhooks, for the same reason and with the same shape of credential.
+   *
+   * Shopify is not a person and has no cookie. Left behind the operator gate it
+   * gets a 403 on every delivery, and Shopify disables a webhook that keeps
+   * failing — so the orders would stop arriving and the only symptom would be a
+   * quiet shop.
+   *
+   * The credential that belongs here is the per-shop HMAC over the request body,
+   * checked in the route against a secret from the environment. That check FAILS
+   * CLOSED: no secret configured means every request is refused, rather than an
+   * unauthenticated endpoint that writes customer orders.
+   */
+  if (pathname.startsWith('/api/webhooks/')) return true
+
   return false
 }
 

@@ -303,6 +303,17 @@ export const orders = pod.table(
     customerEmail: text('customer_email'),
     totalCents: integer('total_cents').notNull().default(0),
     costCents: integer('cost_cents').notNull().default(0),
+    /**
+     * The two facts that decide whether this system may spend money on a line.
+     *
+     * `mayRouteOrder` refuses an unpaid order and refuses one with no address, and
+     * until now neither was stored — `ingestOrder` was handed both and dropped
+     * them, so a worker picking the order up later had no way to know. Defaults are
+     * false because the safe direction for a value that gates spending is the one
+     * that holds the line. See drizzle/0005.
+     */
+    paid: boolean('paid').notNull().default(false),
+    hasValidAddress: boolean('has_valid_address').notNull().default(false),
     status: orderStatus('status').notNull().default('received'),
     trackingUrl: text('tracking_url'),
     trackingNumber: text('tracking_number'),

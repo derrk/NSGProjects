@@ -20,6 +20,7 @@ import { conceptBenchAgentSpec } from './agents/concept-bench/index'
 import { designerAgentSpec } from './agents/designer/index'
 import { POD_COUNTER_NAMES } from './counters'
 import { financeAgentSpec } from './agents/finance/index'
+import { fulfillmentAgentSpec } from './agents/fulfillment/index'
 import { scoutAgentSpec } from './agents/scout/index'
 import { publisherAgentSpec } from './agents/publisher/index'
 import { storeOpsAgentSpec } from './agents/store-ops/index'
@@ -30,6 +31,7 @@ export { createDesignerAgent, designerAgentSpec } from './agents/designer/index'
 export { createStoreOpsAgent, storeOpsAgentSpec } from './agents/store-ops/index'
 export * from './agents/concept-bench/index'
 export * from './agents/finance/index'
+export * from './agents/fulfillment/index'
 export * from './agents/publisher/index'
 export * from './agents/scout/index'
 export * from './agents/supplier-scout/index'
@@ -41,6 +43,7 @@ export * from './fulfillment'
 export * from './publish'
 export * from './counters'
 export * from './ip-risk'
+export * from './channels/shopify-order'
 export * from './reference-data'
 export * from './integrations'
 export * from './walkthrough'
@@ -92,6 +95,13 @@ export const podModule: ModuleDefinition = {
       agentKey: 'publisher',
       counter: 'pod.published_today',
       counterLabel: 'published today',
+    },
+    {
+      key: 'fulfilment_desk',
+      label: 'Fulfilment desk',
+      agentKey: 'fulfillment',
+      counter: 'pod.orders_today',
+      counterLabel: 'orders taken today',
     },
     {
       key: 'support_deck',
@@ -202,6 +212,7 @@ export const podModule: ModuleDefinition = {
   agents: [
     conceptBenchAgentSpec,
     designerAgentSpec,
+    fulfillmentAgentSpec,
     publisherAgentSpec,
     storeOpsAgentSpec,
     scoutAgentSpec,

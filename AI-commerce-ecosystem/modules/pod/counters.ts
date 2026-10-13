@@ -56,6 +56,16 @@ export function createPodCounters(db: Db): CounterResolvers {
     /** Concepts the bench proposed today. */
     'pod.concepts_today': async (ctx) => countInWindow(db, concepts, ctx),
 
+    /**
+     * Orders that arrived today.
+     *
+     * Counted on `createdAt`, which for an order is when this system first heard
+     * about it rather than when the buyer placed it. Those differ when a webhook
+     * was down and a sync caught up later, and the honest thing for a floor
+     * counter is the day the work landed here.
+     */
+    'pod.orders_today': async (ctx) => countInWindow(db, orders, ctx),
+
     /** Design variants produced today. Three per approved concept. */
     'pod.designs_today': async (ctx) => countInWindow(db, designs, ctx),
 
@@ -165,6 +175,7 @@ export const POD_COUNTER_NAMES = [
   'pod.niches_today',
   'pod.concepts_today',
   'pod.products_drafted_today',
+  'pod.orders_today',
   'pod.designs_today',
   'pod.published_today',
   'pod.replies_today',

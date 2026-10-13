@@ -13,7 +13,7 @@
  *     is told their parcel shipped three days before anyone printed it.
  */
 
-import { and, eq, sql } from 'drizzle-orm'
+import { and, eq, inArray, sql } from 'drizzle-orm'
 
 import { mayRouteOrder, type OrderRoutingCandidate } from './channel-rules'
 import { orderLines, orders, products, supplierOrders, suppliers } from './schema/index'
@@ -23,6 +23,16 @@ type Db = Record<string, unknown>
 export interface IncomingOrderLine {
   channelLineItemId: string
   sku?: string | null
+  /**
+   * The product id as the CHANNEL numbers it, when the caller knows it.
+   *
+   * Resolved to our own `productId` during ingestion, because only a database can
+   * do that and a webhook handler has no business doing it twice. Without this
+   * every webhook line arrives unlinked, and an unlinked line has no cost and no
+   * approved SKU — so `mayRouteOrder` holds every single order for approval and
+   * the reason it gives is misleading.
+   */
+  channelProductId?: string | null
   productId?: string | null
   quantity: number
   unitPriceCents: number
@@ -91,6 +101,29 @@ export async function ingestOrder(db: Db, divisionId: string, incoming: Incoming
 
   if (existing[0]) {
     orderId = existing[0].id
+    /*
+     * A redelivery may carry NEWER facts than the first one did.
+     *
+     * `orders/updated` fires when an order is paid or its address is corrected, and
+     * the whole point of recording these two is that routing reads them later. An
+     * ingest that only ever inserted would leave an order that has since been paid
+     * looking unpaid forever.
+     *
+     * Only ever toward true. A later webhook claiming an order is no longer paid is
+     * a refund or a cancellation, which is a different event with different
+     * consequences than quietly un-paying a line that may already be at a printer.
+     */
+    const promote: Record<string, unknown> = {}
+    if (incoming.paid && !existing[0].paid) promote['paid'] = true
+    if (incoming.hasValidAddress && !existing[0].hasValidAddress) {
+      promote['hasValidAddress'] = true
+    }
+    if (Object.keys(promote).length > 0) {
+      await database
+        .update(orders)
+        .set({ ...promote, updatedAt: new Date() })
+        .where(eq(orders.id, orderId))
+    }
   } else {
     const [row] = await database
       .insert(orders)
@@ -101,6 +134,9 @@ export async function ingestOrder(db: Db, divisionId: string, incoming: Incoming
         orderNumber: incoming.orderNumber ?? null,
         customerEmail: incoming.customerEmail ?? null,
         totalCents: incoming.totalCents,
+        // Stored, not just accepted. These gate every routing decision.
+        paid: incoming.paid,
+        hasValidAddress: incoming.hasValidAddress,
         status: 'received',
         placedAt: incoming.placedAt ?? new Date(),
         actor: 'system',
@@ -132,8 +168,37 @@ export async function ingestOrder(db: Db, divisionId: string, incoming: Incoming
     }
   }
 
+  /*
+   * Link each line to the product it is actually for, once, before the loop.
+   *
+   * Matched on the CHANNEL's product id rather than the sku: `products` has no sku
+   * column, and a free-text field a shop owner can retype is not an identity. One
+   * query for the whole order rather than one per line.
+   */
+  const channelProductIds = [
+    ...new Set(
+      incoming.lines
+        .map((l) => (l.channelProductId ?? '').trim())
+        .filter((id) => id !== ''),
+    ),
+  ]
+  const productIdByChannelId = new Map<string, string>()
+  if (channelProductIds.length > 0) {
+    const column = incoming.channel === 'etsy' ? products.etsyListingId : products.shopifyProductId
+    const rows = await database
+      .select({ id: products.id, channelId: column })
+      .from(products)
+      .where(and(eq(products.divisionId, divisionId), inArray(column, channelProductIds)))
+    for (const row of rows) {
+      if (row.channelId) productIdByChannelId.set(String(row.channelId), String(row.id))
+    }
+  }
+
   let linesCreated = 0
   for (const line of incoming.lines) {
+    const resolvedProductId =
+      line.productId ??
+      (line.channelProductId ? (productIdByChannelId.get(line.channelProductId) ?? null) : null)
     const [row] = await database
       .insert(orderLines)
       .values({
@@ -142,7 +207,7 @@ export async function ingestOrder(db: Db, divisionId: string, incoming: Incoming
         channel: incoming.channel,
         channelOrderId: incoming.channelOrderId,
         channelLineItemId: line.channelLineItemId,
-        productId: line.productId ?? null,
+        productId: resolvedProductId,
         sku: line.sku ?? null,
         quantity: line.quantity,
         unitPriceCents: line.unitPriceCents,
