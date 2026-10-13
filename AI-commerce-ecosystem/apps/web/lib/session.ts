@@ -34,6 +34,8 @@
  * credential.
  */
 
+import { constantTimeEqual, hmacSha256, toBase64Url } from './webcrypto'
+
 export const SESSION_COOKIE = 'acf_operator'
 
 /** Eight hours: a working day, short enough that a left-open laptop expires. */
@@ -83,54 +85,27 @@ export function readGateConfig(env: Record<string, string | undefined> = process
 
 const encoder = new TextEncoder()
 
-async function hmac(keyMaterial: ArrayBuffer | Uint8Array, data: string): Promise<Uint8Array> {
-  const key = await crypto.subtle.importKey(
-    'raw',
-    keyMaterial as BufferSource,
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign'],
-  )
-  return new Uint8Array(await crypto.subtle.sign('HMAC', key, encoder.encode(data)))
-}
-
-function toBase64Url(bytes: Uint8Array): string {
-  let binary = ''
-  for (const b of bytes) binary += String.fromCharCode(b)
-  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
-}
+/*
+ * The HMAC, the base64 and the constant-time compare now live in ./webcrypto, which
+ * the Shopify webhook also needs. A second copy of a constant-time compare is the
+ * thing that quietly becomes a `===` during a refactor by somebody who did not know
+ * why it was written that way.
+ */
 
 async function signingKey(passphrase: string): Promise<Uint8Array> {
   // Domain-separated, so this key can never collide with the passphrase itself in a
   // log, a comparison, or some later use of the same secret.
-  return hmac(encoder.encode('acf.operator.session.v1'), passphrase)
+  return hmacSha256(encoder.encode('acf.operator.session.v1'), passphrase)
 }
 
 async function sign(payload: string, passphrase: string): Promise<string> {
-  return toBase64Url(await hmac(await signingKey(passphrase), payload))
-}
-
-/**
- * Constant-time string compare.
- *
- * Both sides are HMAC'd to a fixed width first. That removes the length-mismatch
- * problem — comparing different-length strings would otherwise either throw or
- * return early, and both leak length — and the final loop has no early exit.
- */
-async function equal(a: string, b: string): Promise<boolean> {
-  const key = encoder.encode('acf.compare')
-  const ah = await hmac(key, a)
-  const bh = await hmac(key, b)
-
-  let diff = ah.length ^ bh.length
-  for (let i = 0; i < ah.length; i += 1) diff |= (ah[i] ?? 0) ^ (bh[i] ?? 0)
-  return diff === 0
+  return toBase64Url(await hmacSha256(await signingKey(passphrase), payload))
 }
 
 /** True when the supplied passphrase is the configured one. */
 export async function passphraseMatches(supplied: string, config: GateConfig): Promise<boolean> {
   if (!config.passphrase) return false
-  return equal(supplied.trim(), config.passphrase)
+  return constantTimeEqual(supplied.trim(), config.passphrase)
 }
 
 export interface IssuedCookie {
@@ -185,7 +160,7 @@ export async function checkSession(
   const [issuedAtRaw, nonce, signature] = parts as [string, string, string]
   const payload = `${issuedAtRaw}.${nonce}`
 
-  if (!(await equal(signature, await sign(payload, config.passphrase)))) {
+  if (!(await constantTimeEqual(signature, await sign(payload, config.passphrase)))) {
     return { status: 'invalid', reason: 'bad signature' }
   }
 

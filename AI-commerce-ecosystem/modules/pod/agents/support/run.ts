@@ -192,7 +192,7 @@ export async function buildOrderFacts(db: Db, orderId: string | null): Promise<F
    * Better to hand the whole message to a human than to file a draft whose safety rail
    * has quietly stopped working.
    */
-  const orderNumber: string | null = order.orderNumber ?? order.shopifyOrderId ?? null
+  const orderNumber: string | null = order.orderNumber ?? order.channelOrderId ?? null
   if (!orderNumber) {
     return {
       facts: null,

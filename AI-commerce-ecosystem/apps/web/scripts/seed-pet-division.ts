@@ -225,7 +225,8 @@ async function main() {
     .insert(orders)
     .values({
       divisionId: d,
-      shopifyOrderId: 'DEMO-ETSY-ORDER-1',
+      channelOrderId: 'DEMO-ETSY-ORDER-1',
+      channel: 'etsy' as const,
       orderNumber: '3001',
       customerEmail: 'buyer@example.test',
       totalCents: 2999,
@@ -242,7 +243,8 @@ async function main() {
     .insert(orders)
     .values({
       divisionId: d,
-      shopifyOrderId: 'DEMO-SHOP-ORDER-1',
+      channelOrderId: 'DEMO-SHOP-ORDER-1',
+      channel: 'shopify' as const,
       orderNumber: '1001',
       customerEmail: 'buyer2@example.test',
       totalCents: 1899,

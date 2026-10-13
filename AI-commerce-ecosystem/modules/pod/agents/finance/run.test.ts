@@ -184,7 +184,7 @@ async function addOrder(divisionId: string, spec: OrderSpec) {
     .insert(orders)
     .values({
       divisionId,
-      shopifyOrderId: spec.ref,
+      channelOrderId: spec.ref,
       orderNumber: spec.ref,
       totalCents: spec.unitPriceCents * quantity,
       status: 'shipped',
@@ -878,7 +878,7 @@ describe('Counting house: a period becomes a report', () => {
       .insert(orders)
       .values({
         divisionId: division.id,
-        shopifyOrderId: 'SHOP-TWO',
+        channelOrderId: 'SHOP-TWO',
         totalCents: 4000,
         status: 'shipped',
         placedAt: INSIDE,
@@ -1010,7 +1010,7 @@ describe('Counting house: a period becomes a report', () => {
       .insert(orders)
       .values({
         divisionId: division.id,
-        shopifyOrderId: 'SHOP-MIXED',
+        channelOrderId: 'SHOP-MIXED',
         totalCents: 4000,
         status: 'shipped',
         placedAt: INSIDE,

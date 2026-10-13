@@ -360,3 +360,41 @@ describe('staleSuppliers', () => {
     expect(await staleSuppliers(h.db as never, divisionId)).toHaveLength(0)
   })
 })
+
+/* ------------------------------------------------------------------ *
+ * Collisions — established against the real indexes, not argued about
+ * ------------------------------------------------------------------ */
+
+describe('ingestOrder: whose order is it', () => {
+  async function otherDivision() {
+    const [d] = await h.db
+      .insert(divisions)
+      .values({ name: 'Paw Order', slug: 'paw-order', type: 'pod', status: 'active' })
+      .returning()
+    return d!.id
+  }
+
+  it('does not hand one division\u2019s order to another with the same channel order id', async () => {
+    const theirs = await otherDivision()
+
+    await ingestOrder(h.db as never, divisionId, incoming({ channelOrderId: 'SHOP-1001' }))
+    await ingestOrder(h.db as never, theirs, incoming({ channelOrderId: 'SHOP-1001' }))
+
+    const mine = await h.db.select().from(orders).where(eq(orders.divisionId, divisionId))
+    const other = await h.db.select().from(orders).where(eq(orders.divisionId, theirs))
+
+    // Two divisions, two orders. One row shared between them means one shop's
+    // customer data is filed under the other's, and the lines follow the order.
+    expect(mine).toHaveLength(1)
+    expect(other).toHaveLength(1)
+  })
+
+  it('keeps an Etsy order and a Shopify order with the same id apart', async () => {
+    // Platforms do not coordinate their id spaces. The existing two-channel test
+    // uses DIFFERENT ids, so it never asked this question.
+    await ingestOrder(h.db as never, divisionId, incoming({ channel: 'shopify', channelOrderId: '1001' }))
+    await ingestOrder(h.db as never, divisionId, incoming({ channel: 'etsy', channelOrderId: '1001' }))
+
+    expect(await h.db.select().from(orders)).toHaveLength(2)
+  })
+})

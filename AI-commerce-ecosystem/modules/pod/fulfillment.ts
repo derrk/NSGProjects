@@ -61,11 +61,30 @@ export async function ingestOrder(db: Db, divisionId: string, incoming: Incoming
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- structural db type
   const database = db as any
 
-  const existing = await database
-    .select()
-    .from(orders)
-    .where(and(eq(orders.divisionId, divisionId), eq(orders.shopifyOrderId, incoming.channelOrderId)))
-    .limit(1)
+  /*
+   * One order is identified by DIVISION, CHANNEL and the channel's own id.
+   *
+   * All three, in the read, in the conflict target and in the lost-race re-read, and
+   * the three of them agreeing is the whole correctness argument. They did not agree
+   * before: the read filtered on division and order id, the conflict target was the
+   * order id alone, and the re-read dropped the division. Two reproducible failures
+   * came out of that, both now tests —
+   *
+   *   Another division ingesting the same order id got NO row of its own and was
+   *   handed the FIRST division's order by the re-read, so its lines were written
+   *   against another business's order.
+   *
+   *   An Etsy order and a Shopify order with the same number became one order,
+   *   because `shopify_order_id` was holding both and the index knew nothing about
+   *   the channel.
+   */
+  const identity = and(
+    eq(orders.divisionId, divisionId),
+    eq(orders.channel, incoming.channel),
+    eq(orders.channelOrderId, incoming.channelOrderId),
+  )
+
+  const existing = await database.select().from(orders).where(identity).limit(1)
 
   let orderId: string
   let created = false
@@ -77,7 +96,8 @@ export async function ingestOrder(db: Db, divisionId: string, incoming: Incoming
       .insert(orders)
       .values({
         divisionId,
-        shopifyOrderId: incoming.channelOrderId,
+        channel: incoming.channel,
+        channelOrderId: incoming.channelOrderId,
         orderNumber: incoming.orderNumber ?? null,
         customerEmail: incoming.customerEmail ?? null,
         totalCents: incoming.totalCents,
@@ -85,19 +105,29 @@ export async function ingestOrder(db: Db, divisionId: string, incoming: Incoming
         placedAt: incoming.placedAt ?? new Date(),
         actor: 'system',
       })
-      .onConflictDoNothing({ target: orders.shopifyOrderId })
+      .onConflictDoNothing({
+        target: [orders.divisionId, orders.channel, orders.channelOrderId],
+      })
       .returning()
 
     if (row) {
       orderId = row.id
       created = true
     } else {
-      // Lost the race to another worker; read what it wrote.
-      const [raced] = await database
-        .select()
-        .from(orders)
-        .where(eq(orders.shopifyOrderId, incoming.channelOrderId))
-        .limit(1)
+      // Lost the race to another worker; read what it wrote — by the SAME identity
+      // the insert conflicted on, so this cannot return somebody else's order.
+      const [raced] = await database.select().from(orders).where(identity).limit(1)
+      if (!raced) {
+        /*
+         * Neither inserted nor found. That means the conflict was on some other
+         * constraint, and continuing would attach these lines to whatever `orderId`
+         * happened to hold. There is no safe guess here.
+         */
+        throw new Error(
+          `could not record ${incoming.channel} order ${incoming.channelOrderId}: the insert ` +
+            'conflicted but no matching order exists',
+        )
+      }
       orderId = raced.id
     }
   }
@@ -121,8 +151,15 @@ export async function ingestOrder(db: Db, divisionId: string, incoming: Incoming
         actor: 'system',
       })
       // The constraint, not a check. A webhook delivered three times inserts once.
+      // Division first, matching the index: a line is unique within one division's
+      // channel order, not across every division that ever saw that id.
       .onConflictDoNothing({
-        target: [orderLines.channel, orderLines.channelOrderId, orderLines.channelLineItemId],
+        target: [
+          orderLines.divisionId,
+          orderLines.channel,
+          orderLines.channelOrderId,
+          orderLines.channelLineItemId,
+        ],
       })
       .returning()
 

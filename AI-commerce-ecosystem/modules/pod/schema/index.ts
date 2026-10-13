@@ -90,6 +90,15 @@ export const productType = pgEnum('pod_product_type', [
   'other',
 ])
 
+/**
+ * Where an order came from.
+ *
+ * Declared up here with the other enums rather than beside the commerce tables that
+ * came later, because `orders` now carries it and a `pgEnum` is a const — used
+ * above its declaration it throws at module load, which is every query.
+ */
+export const salesChannel = pgEnum('pod_sales_channel', ['etsy', 'shopify'])
+
 export const orderStatus = pgEnum('pod_order_status', [
   'received',
   /**
@@ -275,7 +284,20 @@ export const orders = pod.table(
     id: uuid('id').primaryKey().defaultRandom(),
     /** The core entities row for the customer. */
     customerEntityId: uuid('customer_entity_id'),
-    shopifyOrderId: text('shopify_order_id'),
+    /**
+     * Which channel this order came from. NULL only on a row that predates the
+     * column and had no lines to derive it from.
+     */
+    channel: salesChannel('channel'),
+    /**
+     * The order id as the CHANNEL numbers it.
+     *
+     * Called `shopify_order_id` until it was holding Etsy ids too, under a unique
+     * index on this column alone — so one division's order and another's collided,
+     * and so did an Etsy order and a Shopify order that happened to share a number.
+     * See drizzle/0004.
+     */
+    channelOrderId: text('channel_order_id'),
     printifyOrderId: text('printify_order_id'),
     orderNumber: text('order_number'),
     customerEmail: text('customer_email'),
@@ -293,7 +315,9 @@ export const orders = pod.table(
   },
   (t) => [
     index('pod_orders_division_status_idx').on(t.divisionId, t.status),
-    uniqueIndex('pod_orders_shopify_idx').on(t.shopifyOrderId),
+    // Per division AND per channel. Neither of those was true before, and both
+    // failures were reproducible. See drizzle/0004.
+    uniqueIndex('pod_orders_channel_ref_idx').on(t.divisionId, t.channel, t.channelOrderId),
     index('pod_orders_email_idx').on(t.customerEmail),
   ],
 )
@@ -387,8 +411,6 @@ export const pricingRules = pod.table(
  * stays as the channel-level record; these carry what routing and fulfilment need.
  * ------------------------------------------------------------------ */
 
-export const salesChannel = pgEnum('pod_sales_channel', ['etsy', 'shopify'])
-
 export const fulfillmentKind = pgEnum('pod_fulfillment_kind', ['pod', 'dropship', 'in_house'])
 
 /** Where an item physically comes from. POD partners and dropship suppliers both. */
@@ -444,6 +466,9 @@ export const orderLines = pod.table(
   },
   (t) => [
     uniqueIndex('pod_order_lines_channel_ref_idx').on(
+      // Division first, for the same reason as the orders index above. This one was
+      // already channel-scoped, which is why the line-level collision never bit.
+      t.divisionId,
       t.channel,
       t.channelOrderId,
       t.channelLineItemId,
