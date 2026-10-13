@@ -13,7 +13,7 @@
  *     is told their parcel shipped three days before anyone printed it.
  */
 
-import { and, eq, inArray, sql } from 'drizzle-orm'
+import { and, eq, inArray, isNull, sql } from 'drizzle-orm'
 
 import { mayRouteOrder, type OrderRoutingCandidate } from './channel-rules'
 import { orderLines, orders, products, supplierOrders, suppliers } from './schema/index'
@@ -94,7 +94,43 @@ export async function ingestOrder(db: Db, divisionId: string, incoming: Incoming
     eq(orders.channelOrderId, incoming.channelOrderId),
   )
 
-  const existing = await database.select().from(orders).where(identity).limit(1)
+  let existing = await database.select().from(orders).where(identity).limit(1)
+
+  if (!existing[0]) {
+    /*
+     * Adopt a row that predates the channel column.
+     *
+     * Migration 0004 backfills `channel` from the order's lines and leaves it NULL
+     * when there were none to derive it from — which is exactly the order whose
+     * line inserts failed, and therefore exactly the order most likely to be
+     * redelivered. The identity above filters on `channel`, NULL never equals
+     * 'shopify', so the read misses it; and the unique index agrees, because NULL
+     * is distinct from everything in Postgres. The insert would then succeed and
+     * the shop would have the same order twice.
+     *
+     * Claiming the row is the migration completing itself on the first delivery
+     * that can say what the channel was.
+     */
+    const legacy = await database
+      .select()
+      .from(orders)
+      .where(
+        and(
+          eq(orders.divisionId, divisionId),
+          isNull(orders.channel),
+          eq(orders.channelOrderId, incoming.channelOrderId),
+        ),
+      )
+      .limit(1)
+
+    if (legacy[0]) {
+      await database
+        .update(orders)
+        .set({ channel: incoming.channel, updatedAt: new Date() })
+        .where(and(eq(orders.id, legacy[0].id), isNull(orders.channel)))
+      existing = await database.select().from(orders).where(identity).limit(1)
+    }
+  }
 
   let orderId: string
   let created = false
@@ -394,6 +430,19 @@ export function customerVisibleStatus(
   if (supplierOrderStatuses.every((s) => s.status === 'delivered')) return 'delivered'
   if (shipped.length === supplierOrderStatuses.length) return 'shipped'
   if (shipped.length > 0) return 'partially_shipped'
+
+  /*
+   * `ready_to_route` is NOT being made.
+   *
+   * It means a line was staged for a supplier nobody has contacted yet — the row
+   * exists, and that is all. Falling through to `in_production` told a customer
+   * their item was in production while it sat in a queue, which is the same family
+   * of lie as reporting a parcel shipped because a supplier was emailed.
+   *
+   * Harmless while nothing created those rows. The Fulfilment desk creates exactly
+   * those rows, so this now decides what a real buyer is told.
+   */
+  if (supplierOrderStatuses.every((s) => s.status === 'ready_to_route')) return 'received'
 
   // Submitted and in_production both read as "being made" to a customer. Neither is
   // "shipped", and the absence of that mapping is the point.

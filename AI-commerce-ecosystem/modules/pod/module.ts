@@ -22,6 +22,7 @@ import { POD_COUNTER_NAMES } from './counters'
 import { financeAgentSpec } from './agents/finance/index'
 import { fulfillmentAgentSpec } from './agents/fulfillment/index'
 import { scoutAgentSpec } from './agents/scout/index'
+import { orderSyncAgentSpec } from './agents/order-sync/index'
 import { publisherAgentSpec } from './agents/publisher/index'
 import { storeOpsAgentSpec } from './agents/store-ops/index'
 import { supplierScoutAgentSpec } from './agents/supplier-scout/index'
@@ -32,6 +33,7 @@ export { createStoreOpsAgent, storeOpsAgentSpec } from './agents/store-ops/index
 export * from './agents/concept-bench/index'
 export * from './agents/finance/index'
 export * from './agents/fulfillment/index'
+export * from './agents/order-sync/index'
 export * from './agents/publisher/index'
 export * from './agents/scout/index'
 export * from './agents/supplier-scout/index'
@@ -97,11 +99,21 @@ export const podModule: ModuleDefinition = {
       counterLabel: 'published today',
     },
     {
+      key: 'receiving',
+      label: 'Receiving',
+      agentKey: 'order_sync',
+      counter: 'pod.orders_today',
+      counterLabel: 'orders taken today',
+    },
+    {
       key: 'fulfilment_desk',
       label: 'Fulfilment desk',
       agentKey: 'fulfillment',
-      counter: 'pod.orders_today',
-      counterLabel: 'orders taken today',
+      // What it has actually queued for a supplier, not what arrived — arrivals
+      // are Receiving's number, and a desk that routed nothing all day should not
+      // read as busy because orders came in.
+      counter: 'pod.lines_queued_today',
+      counterLabel: 'lines queued today',
     },
     {
       key: 'support_deck',
@@ -213,6 +225,7 @@ export const podModule: ModuleDefinition = {
     conceptBenchAgentSpec,
     designerAgentSpec,
     fulfillmentAgentSpec,
+    orderSyncAgentSpec,
     publisherAgentSpec,
     storeOpsAgentSpec,
     scoutAgentSpec,
@@ -244,6 +257,28 @@ export const podModule: ModuleDefinition = {
       requiredFor:
         'The Loading bay cannot publish anything: there is nowhere to publish it to, and ' +
         'the Listing dock stops before it drafts.',
+    },
+    {
+      key: 'channels',
+      label: 'Sales channels',
+      kind: 'list',
+      placeholder: 'shopify, etsy',
+      help:
+        'Comma separated, from: shopify, etsy. Receiving polls each of these hourly for ' +
+        'orders a webhook may not have delivered. A channel listed here with no adapter ' +
+        'built yet is reported rather than silently skipped.',
+      requiredFor:
+        'Receiving has nowhere to poll, so an order lost by a webhook stays lost.',
+    },
+    {
+      key: 'maxFulfillmentCostCents',
+      label: 'Per-order fulfilment ceiling, in cents',
+      kind: 'text',
+      placeholder: '3000',
+      help:
+        'A line costing more than this is held for you instead of being queued for a ' +
+        'supplier. Left empty, a default is used and the Fulfilment desk says so on every ' +
+        'run rather than letting it look like your decision.',
     },
     {
       key: 'productTypes',

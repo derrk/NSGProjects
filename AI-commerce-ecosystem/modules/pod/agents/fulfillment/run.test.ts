@@ -19,7 +19,7 @@ import { agentRuns, approvalRules, approvals, divisions, events } from '@acf/db'
 import { createTestDatabase, POD_MIGRATIONS, type TestDatabase } from '@acf/db/testing'
 
 import { ingestOrder } from '../../fulfillment'
-import { orderLines, products, supplierOrders } from '../../schema/index'
+import { orderLines, orders as ordersTable, products, supplierOrders } from '../../schema/index'
 import {
   createFulfillmentAgent,
   DEFAULT_MAX_FULFILLMENT_CENTS,
@@ -430,5 +430,39 @@ describe('the fulfilment desk', () => {
     expect(output['linesQueued']).toBe(1)
     expect((output['proofApprovalIds'] as string[])).toHaveLength(1)
     expect(await h.db.select().from(orderLines).where(and(eq(orderLines.divisionId, divisionId)))).toHaveLength(2)
+  })
+})
+
+describe('what the desk says is still missing', () => {
+  it('warns that a staged line has no supplier and cannot be sent', async () => {
+    /*
+     * routeOrder stages a supplier order without choosing a supplier, because
+     * choosing one is a decision with an approval behind it. The row is real,
+     * correct and unsendable, and the support agent quoting a lead time off it
+     * gets null for both ends of the range.
+     */
+    const { orderId } = await recordOrder()
+    const { logged } = await runDesk(orderId)
+    expect(logged.some((l) => l.kind === 'pod.queued_without_supplier')).toBe(true)
+  })
+
+  it('moves the order to needs_review when a proof is waiting on a person', async () => {
+    // needs_review existed and nothing set it. An order left at `received` while a
+    // card waits is invisible to every screen that counts work in progress.
+    const { orderId } = await recordOrder({}, {
+      personalization: { Name: 'Rex' },
+      personalized: true,
+    })
+    await runDesk(orderId)
+
+    const [row] = await h.db.select().from(ordersTable).where(eq(ordersTable.id, orderId))
+    expect(row!.status).toBe('needs_review')
+  })
+
+  it('does not advance an order nobody has to look at', async () => {
+    const { orderId } = await recordOrder()
+    await runDesk(orderId)
+    const [row] = await h.db.select().from(ordersTable).where(eq(ordersTable.id, orderId))
+    expect(row!.status).toBe('received')
   })
 })

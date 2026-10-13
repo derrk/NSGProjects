@@ -23,10 +23,9 @@
  * consequential thing downstream still passes a gate.
  */
 
-import { db, tasks, divisions, agents } from '@acf/db'
-import { inngest } from '@acf/jobs'
+import { db, divisions } from '@acf/db'
 import { ingestOrder, shopifyOrderPayloadSchema, toIncomingOrder } from '@acf/pod'
-import { and, eq } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 
 import {
   MAX_WEBHOOK_BODY_BYTES,
@@ -36,6 +35,7 @@ import {
   verifyShopifySignature,
   webhookSecretFor,
 } from '@/lib/webhook-auth'
+import { queueFulfillment } from '@/lib/queue-fulfillment'
 import { logWebhook } from '@/lib/webhook-log'
 
 /** Needs the database driver, so Node rather than Edge. */
@@ -226,68 +226,35 @@ export async function POST(
 
   if (result.created && division.status === 'active') {
     /*
-     * Only on the FIRST delivery, and only through the ordinary task queue.
+     * Only on the FIRST delivery, and through the ordinary task queue.
      *
      * `result.created` is the idempotency signal — a redelivered webhook reports
      * false and queues nothing, so Shopify's retries cannot pile up duplicate
      * routing runs against one order.
+     *
+     * The queueing itself is shared with Receiving, which finds the orders no
+     * webhook delivered. Two copies of "find the desk, write a task, send the
+     * event" is how one of them stops checking that the desk is active.
      */
-    const [fulfiller] = await database
-      .select()
-      .from(agents)
-      .where(
-        and(
-          eq(agents.divisionId, division.id),
-          eq(agents.moduleAgentKey, 'fulfillment'),
-          eq(agents.status, 'active'),
-        ),
-      )
-      .limit(1)
+    const queued = await queueFulfillment(
+      database,
+      division.id,
+      result.orderId,
+      `Order ${mapped.order.orderNumber ?? mapped.order.channelOrderId}`,
+    )
 
-    if (fulfiller) {
-      const [task] = await database
-        .insert(tasks)
-        .values({
-          divisionId: division.id,
-          agentId: fulfiller.id,
-          title: `Order ${mapped.order.orderNumber ?? mapped.order.channelOrderId}`,
-          input: { orderId: result.orderId },
-          // 'event' rather than a new enum value: the task_source enum is
-          // schedule/event/operator/agent, and an order arriving from outside is an
-          // event by any reading of it.
-          source: 'event' as const,
-          priority: 90,
-          actor: 'system',
-        })
-        .returning()
-
-      if (task) {
-        // Sent after the row exists. The reverse order has the worker arrive before
-        // the task it was told about.
-        await inngest.send({ name: 'task.created', data: { taskId: task.id } }).catch(async (err) => {
-          // The order and the task are both saved; only the nudge failed. The
-          // scheduler will not pick this up on its own, so it has to be visible.
-          await logWebhook(database, {
-            divisionId: division.id,
-            kind: 'pod.order_dispatch_failed',
-            level: 'error',
-            message:
-              `order ${mapped.order.channelOrderId} is recorded and a task is queued, but the ` +
-              `event bus could not be reached (${err instanceof Error ? err.message : String(err)}); ` +
-              'nothing will route it until that task is run',
-            refTable: 'pod.orders',
-            refId: result.orderId,
-          })
-        })
-      }
-    } else {
+    if (queued.status !== 'queued') {
+      /*
+       * Still a 200. The order IS recorded, and asking Shopify to redeliver would
+       * not fix a missing agent or an unreachable event bus — it would just
+       * re-record the same order. The operator needs to see it, which is what this
+       * line is for.
+       */
       await logWebhook(database, {
         divisionId: division.id,
-        kind: 'pod.order_unrouted',
-        level: 'warn',
-        message:
-          `order ${mapped.order.channelOrderId} is recorded, but ${division.name} has no active ` +
-          'Fulfilment desk, so nothing will route it',
+        kind: queued.status === 'no_agent' ? 'pod.order_unrouted' : 'pod.order_dispatch_failed',
+        level: queued.status === 'no_agent' ? 'warn' : 'error',
+        message: `order ${mapped.order.channelOrderId} is recorded, but ${queued.reason}`,
         refTable: 'pod.orders',
         refId: result.orderId,
       })

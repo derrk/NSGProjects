@@ -3,6 +3,12 @@ import type { AgentDefinition } from '@acf/core/runtime'
 import { createModelClient, createOfflineModelClient } from '@acf/integrations/anthropic'
 import { createFalPipeline, createMockFalPipeline } from '@acf/integrations/fal'
 import { createMockStorage, createSupabaseStorage } from '@acf/integrations/storage'
+import {
+  createDemoEtsyChannel,
+  createDemoShopifyChannel,
+  type ChannelKey,
+  type SalesChannel,
+} from '@acf/integrations/channels'
 import { db } from '@acf/db'
 import { createPrintifyClient, createMockPrintifyClient } from '@acf/integrations/printify'
 import {
@@ -10,6 +16,7 @@ import {
   createFinanceAgent,
   createFulfillmentAgent,
   createConceptBenchAgent,
+  createOrderSyncAgent,
   createPodCounters,
   createPublisherAgent,
   createScoutAgent,
@@ -20,6 +27,8 @@ import {
 } from '@acf/pod'
 import { createPodReferenceSeeder } from '@acf/pod/seed-reference'
 import { createIntakeAgent, templateModule } from '@acf/template'
+
+import { queueFulfillment } from './queue-fulfillment'
 
 /**
  * The composition root.
@@ -146,6 +155,45 @@ export function resolveAgentDefinition(
     return createConceptBenchAgent({
       db: db() as never,
       model: useMocks ? createOfflineModelClient() : createModelClient(),
+    }) as unknown as AgentDefinition<never, never>
+  }
+
+  if (agentKey === 'order_sync') {
+    /*
+     * The pull half of ingestion, and the first thing in this app to use the
+     * channel adapters at all — they existed, were tested, and were wired only
+     * into Dry Run.
+     *
+     * In demo mode the adapters return orders marked `simulated`, and the agent
+     * drops every one rather than writing demo money into the same tables a real
+     * sale uses. That is the whole reason the provenance field is on the type.
+     */
+    const channels: Partial<Record<ChannelKey, SalesChannel>> = useMocks
+      ? { shopify: createDemoShopifyChannel(), etsy: createDemoEtsyChannel() }
+      : {
+          /*
+           * Deliberately EMPTY when the mocks are off.
+           *
+           * There is no live Etsy or Shopify adapter yet. Falling back to the demo
+           * ones here would have a production deployment quietly syncing invented
+           * orders, and the agent reports a configured channel with no adapter
+           * rather than pretending it asked.
+           */
+        }
+
+    return createOrderSyncAgent({
+      db: db() as never,
+      channels,
+      async onNewOrder({ orderId, divisionId, label }) {
+        const result = await queueFulfillment(db() as never, divisionId, orderId, label)
+        /*
+         * Thrown so the agent logs it against the order. The order itself is
+         * already saved; what failed is the nudge, and an order recorded with
+         * nothing coming to route it is exactly the silence this agent exists to
+         * prevent, so it must not pass quietly.
+         */
+        if (result.status !== 'queued') throw new Error(result.reason ?? 'could not queue')
+      },
     }) as unknown as AgentDefinition<never, never>
   }
 

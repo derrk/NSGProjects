@@ -398,3 +398,85 @@ describe('ingestOrder: whose order is it', () => {
     expect(await h.db.select().from(orders)).toHaveLength(2)
   })
 })
+
+describe('customerVisibleStatus: staged is not being made', () => {
+  const unpersonalised = [{ personalized: false, personalizationReviewedAt: null }]
+
+  it('does NOT tell a customer a staged line is in production', () => {
+    /*
+     * `ready_to_route` means a row exists and nobody has contacted a supplier. It
+     * fell through to `in_production`, which was harmless while nothing created
+     * those rows — the Fulfilment desk creates exactly those rows.
+     */
+    expect(
+      customerVisibleStatus([{ status: 'ready_to_route' }], unpersonalised),
+    ).toBe('received')
+  })
+
+  it('still reports in production once something was actually submitted', () => {
+    expect(customerVisibleStatus([{ status: 'submitted' }], unpersonalised)).toBe('in_production')
+    expect(
+      customerVisibleStatus([{ status: 'ready_to_route' }, { status: 'submitted' }], unpersonalised),
+    ).toBe('in_production')
+  })
+})
+
+describe('ingestOrder: orders that predate the channel column', () => {
+  it('adopts a NULL-channel row instead of recording the order twice', async () => {
+    /*
+     * Migration 0004 derives `channel` from the lines and leaves it NULL when an
+     * order has none — which is the order whose line inserts failed, and therefore
+     * the one most likely to be redelivered. NULL never equals 'shopify', in the
+     * read or in the unique index, so without this the redelivery inserts a second
+     * row and the shop has the order twice.
+     */
+    const [legacy] = await h.db
+      .insert(orders)
+      .values({
+        divisionId,
+        channelOrderId: 'SHOP-LEGACY',
+        orderNumber: '#legacy',
+        totalCents: 1499,
+        status: 'received',
+        actor: 'system',
+      })
+      .returning()
+    expect(legacy!.channel).toBeNull()
+
+    const result = await ingestOrder(
+      h.db as never,
+      divisionId,
+      incoming({ channelOrderId: 'SHOP-LEGACY' }),
+    )
+
+    expect(result.created).toBe(false)
+    expect(result.orderId).toBe(legacy!.id)
+
+    const rows = await h.db.select().from(orders).where(eq(orders.divisionId, divisionId))
+    expect(rows).toHaveLength(1)
+    expect(rows[0]!.channel).toBe('shopify')
+  })
+
+  it('does not adopt a NULL-channel row belonging to another division', async () => {
+    const [theirs] = await h.db
+      .insert(divisions)
+      .values({ name: 'Other', slug: 'other', type: 'pod', status: 'active' })
+      .returning()
+    await h.db.insert(orders).values({
+      divisionId: theirs!.id,
+      channelOrderId: 'SHOP-LEGACY',
+      totalCents: 1499,
+      status: 'received',
+      actor: 'system',
+    })
+
+    const result = await ingestOrder(
+      h.db as never,
+      divisionId,
+      incoming({ channelOrderId: 'SHOP-LEGACY' }),
+    )
+
+    expect(result.created).toBe(true)
+    expect(await h.db.select().from(orders)).toHaveLength(2)
+  })
+})

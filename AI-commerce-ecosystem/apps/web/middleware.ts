@@ -50,7 +50,18 @@ function isPublic(pathname: string): boolean {
    * CLOSED: no secret configured means every request is refused, rather than an
    * unauthenticated endpoint that writes customer orders.
    */
-  if (pathname.startsWith('/api/webhooks/')) return true
+  /*
+   * Pinned to the one route, not to the prefix.
+   *
+   * `startsWith('/api/webhooks/')` was the first version, and it is the exact thing
+   * the matcher comment below says not to do: every webhook route anybody adds
+   * later becomes public the moment the file exists, including one written by
+   * somebody who never read this. Inngest is pinned the same way. The next channel
+   * costs one deliberate line here, which is the point.
+   */
+  if (pathname === '/api/webhooks/shopify' || pathname.startsWith('/api/webhooks/shopify/')) {
+    return true
+  }
 
   return false
 }

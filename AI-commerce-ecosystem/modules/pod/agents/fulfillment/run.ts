@@ -238,6 +238,47 @@ export function createFulfillmentAgent(
         proofApprovalIds.push(outcome.approval.id)
       }
 
+      /* ---------------- say what is still missing ---------------- */
+
+      if (queued.length > 0) {
+        /*
+         * `routeOrder` stages a supplier order without choosing a SUPPLIER, because
+         * choosing one is a decision with an approval behind it and this agent does
+         * not make decisions. The row is therefore real, correct, and unsendable.
+         *
+         * Said out loud every time rather than left for somebody to discover from a
+         * null join: the support agent reads supplier lead times to answer "when
+         * will it arrive", and with no supplier attached it gets null for both ends
+         * of the range.
+         */
+        await ctx.log(
+          'pod.queued_without_supplier',
+          `${queued.length} line(s) are staged with no supplier attached, so nothing can be ` +
+            'submitted and no lead time can be quoted. Approving a supplier for this division ' +
+            'is what unblocks them.',
+          { level: 'warn', refTable: 'pod.orders', refId: orderId },
+        )
+      }
+
+      /*
+       * Advance the order's own status when a person is now holding it.
+       *
+       * `needs_review` exists for exactly this and nothing was setting it. An order
+       * left at `received` while a proof card waits is invisible to every query
+       * that filters on status, which is how the division's own screens count work
+       * in progress.
+       *
+       * Nothing here advances it toward production: `ready_to_route` is a staged
+       * row and not a thing being made, and saying otherwise is what
+       * `customerVisibleStatus` refuses to do.
+       */
+      if (proofApprovalIds.length > 0 && order.status === 'received') {
+        await db
+          .update(orders)
+          .set({ status: 'needs_review', updatedAt: new Date() })
+          .where(and(eq(orders.id, orderId), eq(orders.status, 'received')))
+      }
+
       const status: FulfillmentOutput['status'] =
         routings.length === 0 ? 'nothing_to_do' : queued.length > 0 ? 'queued' : 'all_held'
 

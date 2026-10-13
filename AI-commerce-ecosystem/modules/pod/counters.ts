@@ -15,7 +15,16 @@ import { and, count, eq, gte, lt } from 'drizzle-orm'
 
 import type { CounterContext, CounterResolvers } from '@acf/core/modules'
 
-import { concepts, designs, niches, orders, products, replies, suppliers } from './schema/index'
+import {
+  concepts,
+  designs,
+  niches,
+  orders,
+  products,
+  replies,
+  supplierOrders,
+  suppliers,
+} from './schema/index'
 
 type Db = Record<string, unknown>
 
@@ -65,6 +74,15 @@ export function createPodCounters(db: Db): CounterResolvers {
      * counter is the day the work landed here.
      */
     'pod.orders_today': async (ctx) => countInWindow(db, orders, ctx),
+
+    /**
+     * Lines the Fulfilment desk queued for a supplier today.
+     *
+     * Not orders that arrived — that is Receiving's number. A desk that routed
+     * nothing all day because every line was held should not read as busy on the
+     * strength of orders somebody else took.
+     */
+    'pod.lines_queued_today': async (ctx) => countInWindow(db, supplierOrders, ctx),
 
     /** Design variants produced today. Three per approved concept. */
     'pod.designs_today': async (ctx) => countInWindow(db, designs, ctx),
@@ -176,6 +194,7 @@ export const POD_COUNTER_NAMES = [
   'pod.concepts_today',
   'pod.products_drafted_today',
   'pod.orders_today',
+  'pod.lines_queued_today',
   'pod.designs_today',
   'pod.published_today',
   'pod.replies_today',
