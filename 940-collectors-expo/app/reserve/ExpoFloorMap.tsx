@@ -2,7 +2,15 @@
 
 import { useEffect, useState, type CSSProperties } from "react";
 import { ZoomIn, ZoomOut, Maximize2, Minimize2, X, AtSign } from "lucide-react";
-import { TABLE_LAYOUT, CANVAS, ENTRANCES } from "./tables";
+import {
+  TABLE_LAYOUT,
+  CANVAS,
+  ENTRANCES,
+  TICKETING_COUNTER,
+  PRIVATE_ROOM,
+  TABLE_GROUPS,
+  tableAccessibleName,
+} from "./tables";
 import { instagramHandle, instagramUrl } from "../lib/instagram";
 
 export type FloorStatus = Record<number, "held" | "confirmed">;
@@ -45,7 +53,16 @@ const COLORS = {
   soldStroke: "#3F9E1E",
 };
 
-const ROOM = { l: 3, r: 94, t: 1.5, b: 97 };
+// Perimeter wall of the new venue plan, in % of CANVAS. Sized so every wall
+// table sits just inside its wall.
+const ROOM = { l: 6.3, r: 92.8, t: 2.6, b: 94.2 };
+
+const STATUS_KEY = [
+  { label: "Available", fill: COLORS.tableFill, stroke: COLORS.tableStroke },
+  { label: "In your cart", fill: COLORS.selFill, stroke: COLORS.selStroke },
+  { label: "Pending payment", fill: COLORS.heldFill, stroke: COLORS.heldStroke },
+  { label: "Booked", fill: COLORS.soldFill, stroke: COLORS.soldStroke },
+];
 
 export default function ExpoFloorMap({
   status,
@@ -70,9 +87,17 @@ export default function ExpoFloorMap({
     return () => document.removeEventListener("keydown", onKey);
   }, [expanded]);
 
-  const topEnt = ENTRANCES.find((e) => e.side === "top");
-  const rightEnt = ENTRANCES.find((e) => e.side === "right");
+  const bottomEnt = ENTRANCES.find((e) => e.side === "bottom");
   const L = px(ROOM.l, CANVAS.w), R = px(ROOM.r, CANVAS.w), T = px(ROOM.t, CANVAS.h), B = px(ROOM.b, CANVAS.h);
+
+  // Ticketing Counter octagon (a fixed venue feature, never bookable).
+  const tcX = px(TICKETING_COUNTER.cx, CANVAS.w);
+  const tcY = px(TICKETING_COUNTER.cy, CANVAS.h);
+  const tcR = px(TICKETING_COUNTER.r, CANVAS.w);
+  const octagon = Array.from({ length: 8 }, (_, i) => {
+    const a = (Math.PI / 4) * i + Math.PI / 8;
+    return `${tcX + tcR * Math.cos(a)},${tcY + tcR * Math.sin(a)}`;
+  }).join(" ");
 
   // Tables sharing the spotlighted vendor's reservation.
   const spotlightTables = spotlight
@@ -85,22 +110,36 @@ export default function ExpoFloorMap({
   // Walls + tables — shared by the inline map and the full-screen view.
   const svgChildren = (
     <>
-      {topEnt ? (
-        <>
-          <line x1={L} y1={T} x2={px(topEnt.a, CANVAS.w)} y2={T} stroke={COLORS.wall} strokeWidth={4} />
-          <line x1={px(topEnt.b, CANVAS.w)} y1={T} x2={R} y2={T} stroke={COLORS.wall} strokeWidth={4} />
-          <text x={px((topEnt.a + topEnt.b) / 2, CANVAS.w)} y={T + 22} fill={COLORS.wall} fontSize={15} fontWeight={700} textAnchor="middle" style={{ letterSpacing: 1 }}>ENTRANCE</text>
-        </>
-      ) : <line x1={L} y1={T} x2={R} y2={T} stroke={COLORS.wall} strokeWidth={4} />}
+      {/* Perimeter: top, both sides, and the bottom wall broken by the main
+          entrance / roll-up. */}
+      <line x1={L} y1={T} x2={R} y2={T} stroke={COLORS.wall} strokeWidth={4} />
       <line x1={L} y1={T} x2={L} y2={B} stroke={COLORS.wall} strokeWidth={4} />
-      <line x1={L} y1={B} x2={R} y2={B} stroke={COLORS.wall} strokeWidth={4} />
-      {rightEnt ? (
+      <line x1={R} y1={T} x2={R} y2={B} stroke={COLORS.wall} strokeWidth={4} />
+      {bottomEnt ? (
         <>
-          <line x1={R} y1={T} x2={R} y2={px(rightEnt.a, CANVAS.h)} stroke={COLORS.wall} strokeWidth={4} />
-          <line x1={R} y1={px(rightEnt.b, CANVAS.h)} x2={R} y2={B} stroke={COLORS.wall} strokeWidth={4} />
-          <text x={R - 16} y={px((rightEnt.a + rightEnt.b) / 2, CANVAS.h)} fill={COLORS.wall} fontSize={15} fontWeight={700} textAnchor="middle" transform={`rotate(90 ${R - 16} ${px((rightEnt.a + rightEnt.b) / 2, CANVAS.h)})`} style={{ letterSpacing: 1 }}>ENTRANCE</text>
+          <line x1={L} y1={B} x2={px(bottomEnt.a, CANVAS.w)} y2={B} stroke={COLORS.wall} strokeWidth={4} />
+          <line x1={px(bottomEnt.b, CANVAS.w)} y1={B} x2={R} y2={B} stroke={COLORS.wall} strokeWidth={4} />
+          <text x={px((bottomEnt.a + bottomEnt.b) / 2, CANVAS.w)} y={B - 14} fill={COLORS.wall} fontSize={20} fontWeight={700} textAnchor="middle" style={{ letterSpacing: 1 }}>MAIN ENTRANCE</text>
         </>
-      ) : <line x1={R} y1={T} x2={R} y2={B} stroke={COLORS.wall} strokeWidth={4} />}
+      ) : <line x1={L} y1={B} x2={R} y2={B} stroke={COLORS.wall} strokeWidth={4} />}
+
+      {/* Private room across the top (tables 31-34 sit inside it). */}
+      <rect
+        x={px(PRIVATE_ROOM.l, CANVAS.w)}
+        y={px(PRIVATE_ROOM.t, CANVAS.h)}
+        width={px(PRIVATE_ROOM.r - PRIVATE_ROOM.l, CANVAS.w)}
+        height={px(PRIVATE_ROOM.b - PRIVATE_ROOM.t, CANVAS.h)}
+        fill="none"
+        stroke={COLORS.wall}
+        strokeWidth={3}
+        strokeDasharray="8 6"
+      />
+      <text x={px((PRIVATE_ROOM.l + PRIVATE_ROOM.r) / 2, CANVAS.w)} y={px(PRIVATE_ROOM.t, CANVAS.h) - 8} fill={COLORS.wall} fontSize={17} fontWeight={700} textAnchor="middle" style={{ letterSpacing: 1 }}>{PRIVATE_ROOM.label}</text>
+
+      {/* Ticketing Counter — patrons come in, buy here, then pass either side. */}
+      <polygon points={octagon} fill="#2A1B4D" stroke={COLORS.wall} strokeWidth={3} />
+      <text x={tcX} y={tcY - 6} fill={COLORS.wall} fontSize={14} fontWeight={700} textAnchor="middle" dominantBaseline="central" style={{ letterSpacing: 0.5 }}>TICKETING</text>
+      <text x={tcX} y={tcY + 12} fill={COLORS.wall} fontSize={14} fontWeight={700} textAnchor="middle" dominantBaseline="central" style={{ letterSpacing: 0.5 }}>COUNTER</text>
 
       {TABLE_LAYOUT.map((t) => {
         const live = status?.[t.id];
@@ -123,20 +162,45 @@ export default function ExpoFloorMap({
           ? () => (doSpotlight ? setSpotlight({ id: t.id, v: vendor! }) : onTableClick?.(t.id))
           : undefined;
 
+        // Spoken state — colour alone must never carry the status.
+        const state = isSel
+          ? "selected"
+          : live === "confirmed"
+          ? "booked"
+          : live === "held"
+          ? "held"
+          : "available";
+
         return (
-          <g key={t.id} onClick={onClick}
-             style={{ cursor: clickable ? "pointer" : "default", opacity: isBusy ? 0.45 : 1 }}>
+          <g
+            key={t.id}
+            onClick={onClick}
+            onKeyDown={
+              clickable
+                ? (e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      onClick?.();
+                    }
+                  }
+                : undefined
+            }
+            tabIndex={clickable ? 0 : undefined}
+            role={clickable ? "button" : "img"}
+            aria-label={tableAccessibleName(t, state)}
+            className={clickable ? "focus:outline-none [&:focus-visible>rect]:stroke-white [&:focus-visible>rect]:stroke-[4]" : undefined}
+            style={{ cursor: clickable ? "pointer" : "default", opacity: isBusy ? 0.45 : 1 }}>
             {logo ? (
               <>
                 <image href={logo} x={x} y={y} width={w} height={h} preserveAspectRatio="xMidYMid slice" />
-                <rect x={x} y={y} width={w} height={h} rx={1.5} fill="none" stroke={stroke} strokeWidth={2} />
+                <rect x={x} y={y} width={w} height={h} rx={2} fill="none" stroke={stroke} strokeWidth={2} />
               </>
             ) : (
               <>
-                <rect x={x} y={y} width={w} height={h} rx={1.5} fill={fill} stroke={stroke} strokeWidth={isSel || live ? 2 : 1} />
-                <text x={cx} y={cy} fill={text} fontSize={9} fontWeight={700} textAnchor="middle" dominantBaseline="central"
+                <rect x={x} y={y} width={w} height={h} rx={2} fill={fill} stroke={stroke} strokeWidth={isSel || live ? 3 : 1.5} />
+                <text x={cx} y={cy} fill={text} fontSize={16} fontWeight={700} textAnchor="middle" dominantBaseline="central"
                       transform={rot ? `rotate(-90 ${cx} ${cy})` : undefined}
-                      style={{ pointerEvents: "none", userSelect: "none" }}>{t.id}</text>
+                      style={{ pointerEvents: "none", userSelect: "none" }}>{String(t.id).padStart(2, "0")}</text>
               </>
             )}
           </g>
@@ -171,6 +235,35 @@ export default function ExpoFloorMap({
           {mapSvg({ display: "block", width: "100%", height: "auto" })}
         </div>
       </div>
+
+      {/* Status key — every state is named in text, never colour alone. */}
+      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-[#E5E7EB]/70">
+        {STATUS_KEY.map((s) => (
+          <span key={s.label} className="inline-flex items-center gap-1.5">
+            <span
+              className="inline-block w-3 h-3 rounded-sm border"
+              style={{ background: s.fill, borderColor: s.stroke }}
+              aria-hidden="true"
+            />
+            {s.label}
+          </span>
+        ))}
+      </div>
+
+      {/* Where the numbers live, so a vendor can find a spot by range. */}
+      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[#E5E7EB]/50">
+        {TABLE_GROUPS.map((g) => (
+          <span key={g.group}>
+            <span className="text-[#E5E7EB]/75">{g.label}:</span> {g.rangeLabel}
+          </span>
+        ))}
+      </div>
+
+      <p className="mt-2 text-xs text-[#E5E7EB]/45">
+        Enter through the main entrance at the bottom, stop at the Ticketing Counter, then take
+        either side of it into the hall. Every table is 8&prime; &times; 2.5&prime;. Consecutive
+        numbers aren&apos;t always side by side — check the map before booking a run of tables.
+      </p>
 
       {expanded && (
         <div className="fixed inset-0 z-[75] bg-black/90 backdrop-blur-sm flex flex-col p-3 sm:p-5" onClick={() => setExpanded(false)}>
