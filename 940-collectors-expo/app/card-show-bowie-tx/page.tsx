@@ -29,7 +29,7 @@ const faqs: Faq[] = [
   },
   {
     q: "Can I get a vendor table?",
-    a: "Yes — reserve your exact table online on the interactive floor map. Tables start at $99.99, with an early-bird discount for the first vendors.",
+    a: "Yes — reserve your exact table online on the interactive floor map. Tables are $75 each.",
   },
 ];
 

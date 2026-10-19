@@ -7,7 +7,6 @@ import {
   CANVAS,
   ENTRANCES,
   TICKETING_COUNTER,
-  PRIVATE_ROOM,
   TABLE_GROUPS,
   tableAccessibleName,
 } from "./tables";
@@ -122,19 +121,6 @@ export default function ExpoFloorMap({
           <text x={px((bottomEnt.a + bottomEnt.b) / 2, CANVAS.w)} y={B - 14} fill={COLORS.wall} fontSize={20} fontWeight={700} textAnchor="middle" style={{ letterSpacing: 1 }}>MAIN ENTRANCE</text>
         </>
       ) : <line x1={L} y1={B} x2={R} y2={B} stroke={COLORS.wall} strokeWidth={4} />}
-
-      {/* Private room across the top (tables 31-34 sit inside it). */}
-      <rect
-        x={px(PRIVATE_ROOM.l, CANVAS.w)}
-        y={px(PRIVATE_ROOM.t, CANVAS.h)}
-        width={px(PRIVATE_ROOM.r - PRIVATE_ROOM.l, CANVAS.w)}
-        height={px(PRIVATE_ROOM.b - PRIVATE_ROOM.t, CANVAS.h)}
-        fill="none"
-        stroke={COLORS.wall}
-        strokeWidth={3}
-        strokeDasharray="8 6"
-      />
-      <text x={px((PRIVATE_ROOM.l + PRIVATE_ROOM.r) / 2, CANVAS.w)} y={px(PRIVATE_ROOM.t, CANVAS.h) - 8} fill={COLORS.wall} fontSize={17} fontWeight={700} textAnchor="middle" style={{ letterSpacing: 1 }}>{PRIVATE_ROOM.label}</text>
 
       {/* Ticketing Counter — patrons come in, buy here, then pass either side. */}
       <polygon points={octagon} fill="#2A1B4D" stroke={COLORS.wall} strokeWidth={3} />

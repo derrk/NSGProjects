@@ -21,7 +21,7 @@ export const metadata: Metadata = {
 const faqs: Faq[] = [
   {
     q: "Where can I find comic books in Wichita Falls?",
-    a: "At the 940 Collector's Expo — a recurring collectibles show at the Ray Clymer Exhibit Hall in Wichita Falls, TX, with vendors selling back-issue bins, key issues, graded slabs, and modern comics.",
+    a: "At the 940 Collector's Expo — a recurring collectibles show at Sikes Senter in Wichita Falls, TX, with vendors selling back-issue bins, key issues, graded slabs, and modern comics.",
   },
   {
     q: "Can I sell or trade my comics?",

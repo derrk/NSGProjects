@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import { Calendar, MapPin, Clock } from "lucide-react";
-import { EVENT_DATE_LABEL, VENUE } from "../lib/site";
+import { EVENT_DATE_LABEL, EVENT_DATE_SHORT, EVENT_HOURS_LABEL, VENUE } from "../lib/site";
 
 const events: {
   title: string;
@@ -13,12 +13,12 @@ const events: {
   badge: string;
 }[] = [
   {
-    title: "940 Collectors Expo — Halloween Show 🎃",
+    title: "940 Collectors Expo — November Show",
     date: EVENT_DATE_LABEL,
-    time: "10 AM – 6 PM · VIP 9 AM",
-    location: `${VENUE.name} · Wichita Falls, TX`,
+    time: `${EVENT_HOURS_LABEL} · VIP 9 AM`,
+    location: `${VENUE.name} · ${VENUE.city}, ${VENUE.region}`,
     status: "open",
-    badge: "🎃 Oct 10",
+    badge: EVENT_DATE_SHORT,
   },
 ];
 

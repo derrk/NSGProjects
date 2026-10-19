@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { ArrowRight, CheckCircle } from "lucide-react";
+import { EVENT, formatUSD } from "../reserve/tables";
 
 const benefits = [
   "Access to hundreds of passionate collectors",
@@ -69,7 +70,8 @@ export default function VendorSection() {
               <div className="mb-8">
                 <p className="text-[#E5E7EB]/50 text-sm font-medium uppercase tracking-widest mb-1">Table Pricing</p>
                 <p className="text-white text-5xl font-black">
-                  $99.99<span className="text-xl text-[#E5E7EB]/50 font-bold"> / table</span>
+                  {formatUSD(EVENT.standardPriceCents)}
+                  <span className="text-xl text-[#E5E7EB]/50 font-bold"> / table</span>
                 </p>
                 <p className="text-[#E5E7EB]/50 text-sm mt-1">One flat rate — reserve online in minutes</p>
               </div>
@@ -78,7 +80,7 @@ export default function VendorSection() {
                 {[
                   { label: "Pick Your Spot", note: "Choose your exact table on the floor map" },
                   { label: "Reserve Multiple", note: "Add as many tables as you need" },
-                  { label: "20-Minute Hold", note: "Tables held while you check out" },
+                  { label: `${EVENT.holdMinutes}-Minute Hold`, note: "Tables held while you check out" },
                 ].map((tier) => (
                   <div key={tier.label} className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/5">
                     <div>

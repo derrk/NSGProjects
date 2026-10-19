@@ -6,15 +6,13 @@
 export type TableType = "standard" | "endcap";
 
 // Location groups on the floor plan. Numbering runs wall tables first (bottom
-// to top, so #1 on each side is nearest the main entrance), then the corners,
-// rear wall and private room, then the centre islands from the entrance back
-// toward the private room.
+// to top, so #1 on each side is nearest the main entrance), then the corners
+// and rear wall, then the centre islands working back from the entrance.
 export type TableGroup =
   | "left-wall"
   | "right-wall"
   | "front-wall"
   | "rear-wall"
-  | "private-room"
   | "center-1"
   | "center-2"
   | "center-3"
@@ -69,10 +67,10 @@ export const CANVAS = { w: 1030, h: 1690 };
 // ---------------------------------------------------------------------------
 export const EVENT = {
   name: "940 Collector Expo",
-  venueName: "Ray Clymer Exhibit Hall",
+  venueName: "Sikes Senter",
   roomFt: { w: 90, h: 42 },
-  standardPriceCents: 10000, // $100 per 8' table
-  endcapPriceCents: 10000, // $100 (no end-cap tables this show)
+  standardPriceCents: 7500, // $75 per 8' table (Nov 2026 show)
+  endcapPriceCents: 7500, // $75 (no end-cap tables this show)
   bundle: {
     enabled: false, // no 6' end-cap bundles this show — all tables are uniform 8'
     type: "fixed" as "fixed" | "percent",
@@ -104,9 +102,9 @@ export interface PromoCode {
 // the DB (migration 0007).
 export const PROMO_CODES: PromoCode[] = [];
 
-// All 87 tables are sellable 8' x 2.5' vendor tables, private room included.
-// The Ticketing Counter and the old plan's gray markers are NOT inventory —
-// any table here can still be held for a vendor or blocked from /admin.
+// All 83 tables are sellable 8' x 2.5' vendor tables. The Ticketing Counter
+// and the old plan's gray markers are NOT inventory — any table here can
+// still be held for a vendor or blocked from /admin.
 export const FOUNDER_TABLES: number[] = [];
 export const TICKET_TABLES: number[] = [];
 export const SEATING_TABLES: number[] = [];
@@ -125,18 +123,18 @@ export const ENTRANCES: { side: "top" | "right" | "bottom" | "left"; a: number; 
 // Fixed venue features — NOT bookable inventory. Percentages of the same canvas.
 export const TICKETING_COUNTER = { cx: 50, cy: 90.5, r: 4.2, label: "TICKETING COUNTER" };
 
-// The private room sits across the top of the plan and holds tables 31-34.
-export const PRIVATE_ROOM = { l: 24, r: 60.5, t: 2.2, b: 6.5, label: "PRIVATE ROOM" };
-
 // ---------------------------------------------------------------------------
-// Authoritative table layout — new venue plan. 87 uniform 8' x 2.5' vendor
-// tables numbered 1-87. Coordinates are percentages of the 1030 x 1690
+// Authoritative table layout — Sikes Senter plan. 83 uniform 8' x 2.5' vendor
+// tables numbered 1-83. Coordinates are percentages of the 1030 x 1690
 // floor-plan reference. THIS is the single source of truth: the map, the list
 // view and server-side validation all read from it.
 //
 // Ranges: Left wall 01-12 · Right wall 13-26 · Front corners 27-28 ·
-// Rear wall 29-30 · Private room 31-34 · Center 1 35-44 · Center 2 45-56 ·
-// Center 3 57-68 · Center 4 69-80 · Center 5 81-87.
+// Rear wall 29-30 · Center 1 31-40 · Center 2 41-52 · Center 3 53-64 ·
+// Center 4 65-76 · Center 5 77-83.
+//
+// The private room and its four tables were dropped from this show's plan;
+// everything from the old #35 onward shifted down by 4 so the run has no gap.
 //
 // Consecutive numbers are NOT always physically adjacent — corners, island
 // ends and gaps break the run. Don't infer neighbours from the number.
@@ -172,63 +170,59 @@ export const TABLE_LAYOUT: TableDef[] = [
   { id: 28, zone: "Front Corner", group: "front-wall", x: 81.3592, y: 91.6568, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
   { id: 29, zone: "Rear Wall", group: "rear-wall", x: 67.2816, y: 5.0296, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
   { id: 30, zone: "Rear Wall", group: "rear-wall", x: 76.6019, y: 5.0296, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
-  { id: 31, zone: "Private Room", group: "private-room", x: 27.6699, y: 3.6095, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
-  { id: 32, zone: "Private Room", group: "private-room", x: 36.9903, y: 3.6095, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
-  { id: 33, zone: "Private Room", group: "private-room", x: 46.3107, y: 3.6095, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
-  { id: 34, zone: "Private Room", group: "private-room", x: 55.6311, y: 3.6095, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
-  { id: 35, zone: "Center 1", group: "center-1", x: 20.7767, y: 86.6864, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
-  { id: 36, zone: "Center 1", group: "center-1", x: 30.0971, y: 86.6864, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
-  { id: 37, zone: "Center 1", group: "center-1", x: 58.835, y: 86.6864, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
-  { id: 38, zone: "Center 1", group: "center-1", x: 68.1553, y: 86.6864, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
-  { id: 39, zone: "Center 1", group: "center-1", x: 20.7767, y: 78.8757, w: 2.9126, h: 5.6805, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
-  { id: 40, zone: "Center 1", group: "center-1", x: 74.9515, y: 78.5207, w: 2.9126, h: 5.6805, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
-  { id: 41, zone: "Center 1", group: "center-1", x: 26.5049, y: 77.7515, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
-  { id: 42, zone: "Center 1", group: "center-1", x: 43.4951, y: 77.7515, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
-  { id: 43, zone: "Center 1", group: "center-1", x: 52.8155, y: 77.7515, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
-  { id: 44, zone: "Center 1", group: "center-1", x: 62.1359, y: 77.7515, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
-  { id: 45, zone: "Center 2", group: "center-2", x: 23.301, y: 69.7633, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
-  { id: 46, zone: "Center 2", group: "center-2", x: 32.6214, y: 69.7633, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
-  { id: 47, zone: "Center 2", group: "center-2", x: 41.9417, y: 69.7633, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
-  { id: 48, zone: "Center 2", group: "center-2", x: 56.3107, y: 69.7633, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
-  { id: 49, zone: "Center 2", group: "center-2", x: 65.6311, y: 69.7633, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
-  { id: 50, zone: "Center 2", group: "center-2", x: 20.7767, y: 63.9645, w: 2.9126, h: 5.6805, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
-  { id: 51, zone: "Center 2", group: "center-2", x: 74.9515, y: 63.9645, w: 2.9126, h: 5.6805, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
-  { id: 52, zone: "Center 2", group: "center-2", x: 23.5922, y: 61.1834, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
-  { id: 53, zone: "Center 2", group: "center-2", x: 32.9126, y: 61.1834, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
-  { id: 54, zone: "Center 2", group: "center-2", x: 45.0485, y: 61.1834, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
-  { id: 55, zone: "Center 2", group: "center-2", x: 54.3689, y: 61.1834, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
-  { id: 56, zone: "Center 2", group: "center-2", x: 63.6893, y: 61.1834, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
-  { id: 57, zone: "Center 3", group: "center-3", x: 21.5534, y: 52.4852, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
-  { id: 58, zone: "Center 3", group: "center-3", x: 30.8738, y: 52.4852, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
-  { id: 59, zone: "Center 3", group: "center-3", x: 40.4854, y: 52.4852, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
-  { id: 60, zone: "Center 3", group: "center-3", x: 49.8058, y: 52.4852, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
-  { id: 61, zone: "Center 3", group: "center-3", x: 65.2427, y: 52.4852, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
-  { id: 62, zone: "Center 3", group: "center-3", x: 20.7767, y: 44.7929, w: 2.9126, h: 5.6805, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
-  { id: 63, zone: "Center 3", group: "center-3", x: 74.5631, y: 46.1538, w: 2.9126, h: 5.6805, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
-  { id: 64, zone: "Center 3", group: "center-3", x: 25.4369, y: 43.9645, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
-  { id: 65, zone: "Center 3", group: "center-3", x: 34.7573, y: 43.9645, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
-  { id: 66, zone: "Center 3", group: "center-3", x: 44.0777, y: 43.9645, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
-  { id: 67, zone: "Center 3", group: "center-3", x: 55.9223, y: 43.9645, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
-  { id: 68, zone: "Center 3", group: "center-3", x: 65.2427, y: 43.9645, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
-  { id: 69, zone: "Center 4", group: "center-4", x: 21.5534, y: 34.8521, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
-  { id: 70, zone: "Center 4", group: "center-4", x: 30.8738, y: 34.8521, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
-  { id: 71, zone: "Center 4", group: "center-4", x: 40.1942, y: 34.8521, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
-  { id: 72, zone: "Center 4", group: "center-4", x: 49.8058, y: 34.8521, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
-  { id: 73, zone: "Center 4", group: "center-4", x: 59.1262, y: 34.8521, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
-  { id: 74, zone: "Center 4", group: "center-4", x: 68.4466, y: 34.8521, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
-  { id: 75, zone: "Center 4", group: "center-4", x: 20.7767, y: 27.7515, w: 2.9126, h: 5.6805, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
-  { id: 76, zone: "Center 4", group: "center-4", x: 74.9515, y: 25.6213, w: 2.9126, h: 5.6805, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
-  { id: 77, zone: "Center 4", group: "center-4", x: 25.3398, y: 25.6213, w: 9.4175, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
-  { id: 78, zone: "Center 4", group: "center-4", x: 40.3883, y: 25.6213, w: 9.4175, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
-  { id: 79, zone: "Center 4", group: "center-4", x: 49.8058, y: 25.6213, w: 8.1553, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
-  { id: 80, zone: "Center 4", group: "center-4", x: 57.9612, y: 25.6213, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
-  { id: 81, zone: "Center 5", group: "center-5", x: 19.8058, y: 15.6805, w: 9.4175, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
-  { id: 82, zone: "Center 5", group: "center-5", x: 30.0971, y: 15.6805, w: 9.4175, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
-  { id: 83, zone: "Center 5", group: "center-5", x: 58.2524, y: 15.1479, w: 9.2233, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
-  { id: 84, zone: "Center 5", group: "center-5", x: 18.6408, y: 9.645, w: 2.9126, h: 5.6805, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
-  { id: 85, zone: "Center 5", group: "center-5", x: 39.8058, y: 10.7101, w: 2.9126, h: 5.6805, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
-  { id: 86, zone: "Center 5", group: "center-5", x: 54.9515, y: 11.2426, w: 2.9126, h: 5.6805, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
-  { id: 87, zone: "Center 5", group: "center-5", x: 67.4757, y: 10.7101, w: 2.9126, h: 5.6805, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 31, zone: "Center 1", group: "center-1", x: 20.7767, y: 86.6864, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 32, zone: "Center 1", group: "center-1", x: 30.0971, y: 86.6864, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 33, zone: "Center 1", group: "center-1", x: 58.835, y: 86.6864, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 34, zone: "Center 1", group: "center-1", x: 68.1553, y: 86.6864, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 35, zone: "Center 1", group: "center-1", x: 20.7767, y: 78.8757, w: 2.9126, h: 5.6805, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 36, zone: "Center 1", group: "center-1", x: 74.9515, y: 78.5207, w: 2.9126, h: 5.6805, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 37, zone: "Center 1", group: "center-1", x: 26.5049, y: 77.7515, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 38, zone: "Center 1", group: "center-1", x: 43.4951, y: 77.7515, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 39, zone: "Center 1", group: "center-1", x: 52.8155, y: 77.7515, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 40, zone: "Center 1", group: "center-1", x: 62.1359, y: 77.7515, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 41, zone: "Center 2", group: "center-2", x: 23.301, y: 69.7633, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 42, zone: "Center 2", group: "center-2", x: 32.6214, y: 69.7633, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 43, zone: "Center 2", group: "center-2", x: 41.9417, y: 69.7633, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 44, zone: "Center 2", group: "center-2", x: 56.3107, y: 69.7633, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 45, zone: "Center 2", group: "center-2", x: 65.6311, y: 69.7633, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 46, zone: "Center 2", group: "center-2", x: 20.7767, y: 63.9645, w: 2.9126, h: 5.6805, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 47, zone: "Center 2", group: "center-2", x: 74.9515, y: 63.9645, w: 2.9126, h: 5.6805, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 48, zone: "Center 2", group: "center-2", x: 23.5922, y: 61.1834, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 49, zone: "Center 2", group: "center-2", x: 32.9126, y: 61.1834, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 50, zone: "Center 2", group: "center-2", x: 45.0485, y: 61.1834, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 51, zone: "Center 2", group: "center-2", x: 54.3689, y: 61.1834, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 52, zone: "Center 2", group: "center-2", x: 63.6893, y: 61.1834, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 53, zone: "Center 3", group: "center-3", x: 21.5534, y: 52.4852, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 54, zone: "Center 3", group: "center-3", x: 30.8738, y: 52.4852, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 55, zone: "Center 3", group: "center-3", x: 40.4854, y: 52.4852, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 56, zone: "Center 3", group: "center-3", x: 49.8058, y: 52.4852, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 57, zone: "Center 3", group: "center-3", x: 65.2427, y: 52.4852, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 58, zone: "Center 3", group: "center-3", x: 20.7767, y: 44.7929, w: 2.9126, h: 5.6805, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 59, zone: "Center 3", group: "center-3", x: 74.5631, y: 46.1538, w: 2.9126, h: 5.6805, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 60, zone: "Center 3", group: "center-3", x: 25.4369, y: 43.9645, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 61, zone: "Center 3", group: "center-3", x: 34.7573, y: 43.9645, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 62, zone: "Center 3", group: "center-3", x: 44.0777, y: 43.9645, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 63, zone: "Center 3", group: "center-3", x: 55.9223, y: 43.9645, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 64, zone: "Center 3", group: "center-3", x: 65.2427, y: 43.9645, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 65, zone: "Center 4", group: "center-4", x: 21.5534, y: 34.8521, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 66, zone: "Center 4", group: "center-4", x: 30.8738, y: 34.8521, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 67, zone: "Center 4", group: "center-4", x: 40.1942, y: 34.8521, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 68, zone: "Center 4", group: "center-4", x: 49.8058, y: 34.8521, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 69, zone: "Center 4", group: "center-4", x: 59.1262, y: 34.8521, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 70, zone: "Center 4", group: "center-4", x: 68.4466, y: 34.8521, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 71, zone: "Center 4", group: "center-4", x: 20.7767, y: 27.7515, w: 2.9126, h: 5.6805, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 72, zone: "Center 4", group: "center-4", x: 74.9515, y: 25.6213, w: 2.9126, h: 5.6805, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 73, zone: "Center 4", group: "center-4", x: 25.3398, y: 25.6213, w: 9.4175, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 74, zone: "Center 4", group: "center-4", x: 40.3883, y: 25.6213, w: 9.4175, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 75, zone: "Center 4", group: "center-4", x: 49.8058, y: 25.6213, w: 8.1553, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 76, zone: "Center 4", group: "center-4", x: 57.9612, y: 25.6213, w: 9.3204, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 77, zone: "Center 5", group: "center-5", x: 19.8058, y: 15.6805, w: 9.4175, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 78, zone: "Center 5", group: "center-5", x: 30.0971, y: 15.6805, w: 9.4175, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 79, zone: "Center 5", group: "center-5", x: 58.2524, y: 15.1479, w: 9.2233, h: 1.7751, orientation: "horizontal", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 80, zone: "Center 5", group: "center-5", x: 18.6408, y: 9.645, w: 2.9126, h: 5.6805, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 81, zone: "Center 5", group: "center-5", x: 39.8058, y: 10.7101, w: 2.9126, h: 5.6805, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 82, zone: "Center 5", group: "center-5", x: 54.9515, y: 11.2426, w: 2.9126, h: 5.6805, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
+  { id: 83, zone: "Center 5", group: "center-5", x: 67.4757, y: 10.7101, w: 2.9126, h: 5.6805, orientation: "vertical", lengthFt: 8, depthFt: 2.5, tableType: "standard", bundleEligible: false, adjacentTableIds: [], category: "vendor", shape: "rect" },
 ];
 
 export const TABLE_BY_ID: Record<number, TableDef> = Object.fromEntries(
@@ -240,13 +234,12 @@ export function getTable(id: number): TableDef | undefined {
 }
 
 // Display order for the legend and the grouped list view (entrance first,
-// working back toward the private room).
+// working back toward the rear of the hall).
 export const GROUP_ORDER: TableGroup[] = [
   "left-wall",
   "right-wall",
   "front-wall",
   "rear-wall",
-  "private-room",
   "center-1",
   "center-2",
   "center-3",
@@ -259,7 +252,6 @@ export const GROUP_LABELS: Record<TableGroup, string> = {
   "right-wall": "Right Wall",
   "front-wall": "Front Corner",
   "rear-wall": "Rear Wall",
-  "private-room": "Private Room",
   "center-1": "Center 1 — Entrance",
   "center-2": "Center 2",
   "center-3": "Center 3",

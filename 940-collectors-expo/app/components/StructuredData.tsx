@@ -53,7 +53,7 @@ export default function StructuredData() {
         image: [`${SITE_URL}/hero-backdrop.jpg`],
         location: {
           "@type": "Place",
-          name: `${VENUE.name} — ${VENUE.room}`,
+          name: VENUE.room ? `${VENUE.name} — ${VENUE.room}` : VENUE.name,
           address,
         },
         organizer: { "@type": "Organization", name: SITE_NAME, url: SITE_URL },
