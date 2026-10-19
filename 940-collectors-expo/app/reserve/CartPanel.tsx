@@ -70,7 +70,7 @@ export default function CartPanel({ onCheckout }: { onCheckout: () => void }) {
           <p className="text-sm text-[#E5E7EB]/40">
             No tables selected yet.
             <br />
-            Tap a table on the map to begin.
+            Pick a table on the map or in the list to begin.
           </p>
         </div>
       ) : (
