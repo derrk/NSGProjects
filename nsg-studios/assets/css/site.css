@@ -72,6 +72,7 @@
     }
 
     .nav-links a {
+      white-space: nowrap;
       color: var(--gray-mid);
       text-decoration: none;
       font-size: 0.875rem;
@@ -951,6 +952,16 @@
     }
 
     .footer-bottom p { font-size: 0.78rem; color: rgba(156,163,175,0.45); }
+
+    /* Nav collapses before the links wrap. The sticky call button and the
+       body padding that makes room for it come up to the same breakpoint so
+       the phone number is never hidden on tablets and small laptops. */
+    @media (max-width: 1100px) {
+      .nav-links { display: none; }
+      .hamburger { display: flex; }
+      .mobile-call-btn { display: flex; }
+      body { padding-bottom: 80px; }
+    }
 
     /* ── RESPONSIVE ─────────────────────────────────── */
     @media (max-width: 1024px) {
