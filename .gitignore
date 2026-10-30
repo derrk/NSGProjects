@@ -46,3 +46,6 @@ yarn-error.log*
 
 # Claude temp files
 .claude/
+
+# ESU store has its own standalone repo (github.com/derrk/esu-store)
+esu-store/
