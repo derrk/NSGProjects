@@ -137,7 +137,7 @@ export async function getReportData(): Promise<ReportData> {
 
   // Inventory breakdown by game.
   const inStock = await prisma.asset.findMany({
-    where: { status: "InStock", quantity: { gt: 0 }, isPersonal: false },
+    where: { status: "InStock", quantity: { gt: 0 }, isPersonal: false, isInvestment: false },
     select: {
       id: true,
       name: true,

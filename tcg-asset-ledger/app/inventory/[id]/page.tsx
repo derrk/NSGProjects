@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 import { AssetActions } from "./asset-actions";
 import { SendToGrading, GradingReturned } from "./grading-panel";
 import { BrickControls } from "./brick-toggle";
+import { InvestmentControls } from "./investment-toggle";
 
 export const dynamic = "force-dynamic";
 
@@ -90,6 +91,11 @@ export default async function AssetDetailPage({
           .join(" · ")}
         actions={
           <div className="flex items-center gap-2">
+            {asset.isInvestment ? (
+              <Badge variant="outline" className="border-sky-500/40 text-sky-600 dark:text-sky-400">
+                Investment
+              </Badge>
+            ) : null}
             <StatusBadge status={asset.status} />
             <Link
               href={`/inventory/${asset.id}/edit`}
@@ -139,6 +145,11 @@ export default async function AssetDetailPage({
           daysHeld={metrics.daysHeld}
           suggest={metrics.suggestBrick}
         />
+      ) : null}
+
+      {/* Investment hold toggle (owned stock only) */}
+      {owned ? (
+        <InvestmentControls assetId={asset.id} isInvestment={asset.isInvestment} />
       ) : null}
 
       {/* Asset metrics */}

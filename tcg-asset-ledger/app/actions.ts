@@ -22,6 +22,7 @@ import {
   type GivenLine,
 } from "@/lib/ledger";
 import { enterShowMode, endShowMode } from "@/lib/shows";
+import { captureInvestmentSnapshot } from "@/lib/investments";
 import { reconcileAssetSync } from "@/lib/sync-backlog";
 import { upsertReconcileTask } from "@/lib/reconcile-tasks";
 import { gradeToMarketCents, playDedupeKey } from "@/lib/grading-play";
@@ -146,6 +147,7 @@ const assetSchema = z.object({
   marketValueCents: z.number().int().nonnegative(),
   status: z.string().min(1),
   isPersonal: z.boolean().optional(),
+  isInvestment: z.boolean().optional(),
 });
 
 export async function createAsset(input: unknown): Promise<ActionResult> {
@@ -163,10 +165,16 @@ export async function createAsset(input: unknown): Promise<ActionResult> {
     };
   }
   const asset = await prisma.asset.create({
-    data: { ...d, naturalKey, acquiredAt: new Date() },
+    data: {
+      ...d,
+      naturalKey,
+      acquiredAt: new Date(),
+      investmentMarkedAt: d.isInvestment ? new Date() : null,
+    },
   });
   // Manual creates change ownership state — keep the Collectr backlog honest.
   await reconcileAssetSync(prisma, asset.id);
+  if (asset.isInvestment) await captureInvestmentSnapshot();
   revalidateAll();
   return { ok: true, id: asset.id };
 }
@@ -180,12 +188,21 @@ export async function updateAsset(id: string, input: unknown): Promise<ActionRes
   if (!current) return { ok: false, error: "Asset not found" };
   const merged = { ...current, ...parsed.data };
   const naturalKey = buildNaturalKey(merged);
+  // Keep investmentMarkedAt in step with the flag: stamp it when a card first
+  // becomes an investment, clear it when it stops being one, leave it otherwise.
+  let markedPatch: { investmentMarkedAt?: Date | null } = {};
+  if (parsed.data.isInvestment === true && !current.isInvestment) {
+    markedPatch = { investmentMarkedAt: new Date() };
+  } else if (parsed.data.isInvestment === false && current.isInvestment) {
+    markedPatch = { investmentMarkedAt: null };
+  }
   await prisma.asset.update({
     where: { id },
-    data: { ...parsed.data, naturalKey },
+    data: { ...parsed.data, ...markedPatch, naturalKey },
   });
   // Manual edits can change status/quantity/basis — re-derive the sync task.
   await reconcileAssetSync(prisma, id);
+  if (current.isInvestment || parsed.data.isInvestment) await captureInvestmentSnapshot();
   revalidateAll();
   revalidatePath(`/inventory/${id}`);
   return { ok: true, id };
@@ -210,6 +227,7 @@ function revalidateAll() {
   revalidatePath("/", "layout"); // layout carries the backlog badges
   revalidatePath("/");
   revalidatePath("/inventory");
+  revalidatePath("/investments");
   revalidatePath("/transactions");
   revalidatePath("/reports");
   revalidatePath("/sync");
@@ -1283,6 +1301,40 @@ export async function setBrickStatus(assetId: string, isBrick: boolean): Promise
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to update brick status" };
+  }
+}
+
+/**
+ * Flag / unflag an owned asset as an investment hold. Marking it moves the card
+ * out of the show-available/sell aggregations and into the investment portfolio
+ * (its cash + cost basis were already recorded when it was acquired). Records a
+ * portfolio snapshot so the value curve picks up the change.
+ */
+export async function setInvestmentStatus(
+  assetId: string,
+  isInvestment: boolean,
+): Promise<ActionResult> {
+  try {
+    const asset = await prisma.asset.findUnique({ where: { id: assetId } });
+    if (!asset) return { ok: false, error: "Asset not found" };
+    const owned =
+      (asset.status === "InStock" || asset.status === "Grading") && asset.quantity > 0;
+    if (isInvestment && !owned) {
+      return { ok: false, error: "Only owned inventory can be held as an investment." };
+    }
+    await prisma.asset.update({
+      where: { id: assetId },
+      data: {
+        isInvestment,
+        investmentMarkedAt: isInvestment ? (asset.investmentMarkedAt ?? new Date()) : null,
+      },
+    });
+    await captureInvestmentSnapshot();
+    revalidateAll();
+    revalidatePath(`/inventory/${assetId}`);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to update investment status" };
   }
 }
 

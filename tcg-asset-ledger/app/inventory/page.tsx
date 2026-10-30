@@ -18,7 +18,7 @@ export const dynamic = "force-dynamic";
 
 type SP = Record<string, string | undefined>;
 
-const HEALTH_FILTERS = ["Healthy", "Aging", "Slow Moving", "Brick", "Normal", "Personal"] as const;
+const HEALTH_FILTERS = ["Healthy", "Aging", "Slow Moving", "Brick", "Normal", "Investment", "Personal"] as const;
 
 export default async function InventoryPage({
   searchParams,
@@ -43,6 +43,8 @@ export default async function InventoryPage({
       if (!owned) return false;
       if (health === "Personal") return a.isPersonal;
       if (a.isPersonal) return false; // business health views exclude personal
+      if (health === "Investment") return a.isInvestment;
+      if (a.isInvestment) return false; // investments live in their own portfolio
       if (health === "Brick") return a.isBrick;
       if (health === "Normal") return !a.isBrick;
       const bucket = agingBucket(daysHeld(a.acquiredAt));
@@ -174,11 +176,19 @@ export default async function InventoryPage({
                               Personal
                             </Badge>
                           ) : null}
-                          {owned && !a.isPersonal && a.isBrick ? (
+                          {a.isInvestment ? (
+                            <Badge
+                              variant="outline"
+                              className="border-sky-500/40 px-1.5 py-0 text-[10px] text-sky-600 dark:text-sky-400"
+                            >
+                              Investment
+                            </Badge>
+                          ) : null}
+                          {owned && !a.isPersonal && !a.isInvestment && a.isBrick ? (
                             <Badge variant="destructive" className="px-1.5 py-0 text-[10px]">
                               Brick
                             </Badge>
-                          ) : owned && !a.isPersonal && bucket !== "Healthy" ? (
+                          ) : owned && !a.isPersonal && !a.isInvestment && bucket !== "Healthy" ? (
                             <Badge
                               variant={bucket === "Aging" ? "muted" : "warning"}
                               className="px-1.5 py-0 text-[10px]"

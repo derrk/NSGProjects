@@ -11,7 +11,6 @@ import {
   Tags,
   ArrowLeftRight,
   PackageOpen,
-  Gift,
   Upload,
   Receipt,
   BarChart3,
@@ -25,6 +24,8 @@ import {
   Users,
   Gem,
   Landmark,
+  Banknote,
+  TrendingUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ShowModeProvider, type ActiveShowInfo } from "@/components/show-mode-context";
@@ -37,10 +38,12 @@ const NAV: { section: string; items: { href: string; label: string; icon: React.
       { href: "/", label: "Dashboard", icon: LayoutDashboard },
       { href: "/capital", label: "Capital", icon: Landmark },
       { href: "/inventory", label: "Inventory", icon: Boxes },
+      { href: "/investments", label: "Investments", icon: TrendingUp },
       { href: "/transactions", label: "Ledger", icon: Receipt },
       { href: "/shows", label: "Shows", icon: CalendarDays },
       { href: "/customers", label: "Customers", icon: Users },
       { href: "/grading-analyzer", label: "Grading Analyzer", icon: Gem },
+      { href: "/sell-planner", label: "Sell Planner", icon: Banknote },
       { href: "/reports", label: "Reports", icon: BarChart3 },
     ],
   },
@@ -49,9 +52,9 @@ const NAV: { section: string; items: { href: string; label: string; icon: React.
     items: [
       { href: "/buy", label: "Buy", icon: ShoppingCart },
       { href: "/sell", label: "Sell", icon: Tags },
+      { href: "/lots", label: "Lot Sale", icon: Layers },
       { href: "/trade", label: "Trade", icon: ArrowLeftRight },
-      { href: "/break", label: "Break", icon: PackageOpen },
-      { href: "/prize", label: "Prize", icon: Gift },
+      { href: "/break", label: "Break / Rip", icon: PackageOpen },
       { href: "/wheel", label: "Wheel", icon: Disc3 },
     ],
   },

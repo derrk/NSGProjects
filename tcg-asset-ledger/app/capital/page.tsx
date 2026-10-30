@@ -20,7 +20,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { formatUSD, toDollars } from "@/lib/money";
-import { getDashboardMetrics } from "@/lib/queries";
+import { getDashboardMetrics, getBusinessInventoryTotals } from "@/lib/queries";
 import {
   getCapitalSnapshot,
   getCapitalSettings,
@@ -98,8 +98,9 @@ export default async function CapitalPage() {
   }
 
   const now = new Date();
-  const [metrics, accounts, entries, settings, waterfall, commitments] = await Promise.all([
+  const [metrics, bizInventory, accounts, entries, settings, waterfall, commitments] = await Promise.all([
     getDashboardMetrics(),
+    getBusinessInventoryTotals(),
     listActiveAccounts(),
     listJournalEntries(20),
     getCapitalSettings(),
@@ -122,7 +123,9 @@ export default async function CapitalPage() {
     alerts.push(`${formatUSD(commitments.dueSoon)} in commitments (${commitments.dueSoonCount}) comes due within 2 weeks.`);
   if (snapshot.dueFromOwnerAging.d90plus > 0)
     alerts.push(`Owner has owed ${formatUSD(snapshot.dueFromOwnerAging.d90plus)} to the business for 90+ days.`);
-  const inventoryBasis = metrics.inventoryCostCents;
+  // Balance-sheet inventory INCLUDES investment holds (still business capital,
+  // at cost) — not the sell-only dashboard figure, which drops investments.
+  const inventoryBasis = bizInventory.costCents;
   const totalAssets = totalCash + inventoryBasis + snapshot.otherAssetsTotal;
   const netEquity = totalAssets - snapshot.liabilities;
 
@@ -175,7 +178,7 @@ export default async function CapitalPage() {
         <StatCard label="Realized profit" value={formatUSD(metrics.realizedProfitCents)} hint={`${formatUSD(metrics.salesProceedsCents)} in sales`} icon={DollarSign} tone={metrics.realizedProfitCents >= 0 ? "success" : "destructive"} />
         <StatCard label="Owner owes business" value={formatUSD(snapshot.dueFromOwner)} hint="Due from owner" icon={HandCoins} tone={snapshot.dueFromOwner > 0 ? "destructive" : undefined} />
         <StatCard label="Business owes you" value={formatUSD(snapshot.dueToOwner)} hint="Due to owner" icon={ArrowDownCircle} />
-        <StatCard label="Inventory cost basis" value={formatUSD(inventoryBasis)} hint={`Market ${formatUSD(metrics.inventoryValueCents)}`} icon={Boxes} />
+        <StatCard label="Inventory cost basis" value={formatUSD(inventoryBasis)} hint={`Market ${formatUSD(bizInventory.valueCents)}`} icon={Boxes} />
         <StatCard label="Equipment / assets" value={formatUSD(snapshot.equipment)} hint="Non-inventory business assets" icon={Landmark} />
         {commitments.totalRemaining > 0 ? (
           <StatCard label="Committed (upcoming)" value={formatUSD(commitments.totalRemaining)} hint={`${commitments.openCount} pre-order${commitments.openCount === 1 ? "" : "s"}/obligation${commitments.openCount === 1 ? "" : "s"}`} icon={CalendarClock} tone={commitments.overdue > 0 ? "destructive" : undefined} />

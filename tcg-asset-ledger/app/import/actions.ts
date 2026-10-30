@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { parseCollectrCsv } from "@/lib/collectr";
 import { planImport, applyPlan } from "@/lib/import-collectr";
+import { captureInvestmentSnapshot } from "@/lib/investments";
 
 export interface AnalyzeResult {
   ok: boolean;
@@ -92,8 +93,11 @@ export async function commitCollectr(
   try {
     const plan = await planImport(parsed.rows);
     const res = await applyPlan(plan, { fileName, asOfDate: parsed.asOfDate });
+    // Market prices just refreshed — record a point on the investment curve.
+    await captureInvestmentSnapshot();
     revalidatePath("/");
     revalidatePath("/inventory");
+    revalidatePath("/investments");
     revalidatePath("/reports");
     revalidatePath("/sync");
     return { ok: true, created: res.created, updated: res.updated, syncedCount: res.syncedCount };

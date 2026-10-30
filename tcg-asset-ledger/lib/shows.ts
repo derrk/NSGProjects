@@ -254,7 +254,7 @@ export async function enterShowMode(input: {
 
     // Inventory snapshot (owned stock: InStock + Grading).
     const owned = await tx.asset.findMany({
-      where: { status: { in: ["InStock", "Grading"] }, quantity: { gt: 0 }, isPersonal: false },
+      where: { status: { in: ["InStock", "Grading"] }, quantity: { gt: 0 }, isPersonal: false, isInvestment: false },
       select: {
         quantity: true,
         costBasisCents: true,

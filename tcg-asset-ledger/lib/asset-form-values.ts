@@ -21,6 +21,7 @@ export interface AssetFormValues {
   costBasisDollars: string;
   marketValueDollars: string;
   isPersonal: boolean;
+  isInvestment: boolean;
 }
 
 export const EMPTY_ASSET_FORM: AssetFormValues = {
@@ -41,6 +42,7 @@ export const EMPTY_ASSET_FORM: AssetFormValues = {
   costBasisDollars: "0",
   marketValueDollars: "0",
   isPersonal: false,
+  isInvestment: false,
 };
 
 export function assetToFormValues(a: {
@@ -62,6 +64,7 @@ export function assetToFormValues(a: {
   costBasisCents: number;
   marketValueCents: number;
   isPersonal: boolean;
+  isInvestment: boolean;
 }): AssetFormValues {
   return {
     id: a.id,
@@ -82,5 +85,6 @@ export function assetToFormValues(a: {
     costBasisDollars: String(toDollars(a.costBasisCents)),
     marketValueDollars: String(toDollars(a.marketValueCents)),
     isPersonal: a.isPersonal,
+    isInvestment: a.isInvestment,
   };
 }

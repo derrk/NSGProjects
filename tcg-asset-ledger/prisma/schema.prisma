@@ -46,6 +46,14 @@ model Asset {
   // value, cost basis, health, and brick metrics; still synced with Collectr.
   isPersonal Boolean @default(false)
 
+  // Investment hold — business capital parked in an appreciating asset, tracked
+  // as a portfolio separate from card-show sell inventory (the same "capital
+  // tied up" idea as Grading). Acquired normally (cash out + cost basis) and
+  // still sellable at any time; excluded from dashboard / health / reports /
+  // show-available aggregations. investmentMarkedAt = when it was flagged.
+  isInvestment       Boolean   @default(false)
+  investmentMarkedAt DateTime?
+
   // When the business acquired this asset (drives days-held / aging metrics).
   // Backfilled from Collectr's Date Added or the earliest IN ledger line.
   acquiredAt DateTime?
@@ -84,11 +92,32 @@ model Asset {
   wheelSpins         WheelSpin[]
   reconcileTasks     ReconcileTask[]
   gradingPlays       GradingPlay[]
+  saleLotItems       SaleLotItem[]
 
   @@index([game])
   @@index([status])
   @@index([set])
   @@index([inCollectr])
+  @@index([isInvestment])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// InvestmentSnapshot — one point on the investment portfolio's value curve.
+// One row per calendar day (upserted on `day`), so the portfolio can chart cost
+// basis and market value over time. Captured when the Investments page loads,
+// after a Collectr import refreshes market prices, and whenever an asset is
+// flagged or unflagged as an investment.
+// ─────────────────────────────────────────────────────────────────────────────
+model InvestmentSnapshot {
+  id               String   @id @default(cuid())
+  day              String   @unique // YYYY-MM-DD (calendar day)
+  date             DateTime @default(now())
+  costBasisCents   Int
+  marketValueCents Int
+  unitCount        Int
+  lotCount         Int
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -511,6 +540,67 @@ model ImportBatch {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// EV GRADING ANALYZER — cards tracked for grading plays, with price + gem/pop
+// snapshots. Verdicts (BUY/WATCH/PASS) are computed live from the latest snapshot
+// by the pure engine in lib/grading-ev.ts. Money in integer cents.
+// ─────────────────────────────────────────────────────────────────────────────
+model GradeCard {
+  id         String  @id @default(cuid())
+  name       String
+  game       String  @default("One Piece") // Pokemon | One Piece | Sports | Other
+  set        String?
+  cardNumber String?
+  language   String  @default("EN") // EN | JP  (never averaged across languages)
+  rarity     String?
+  notes      String?
+  targetRoiPct Int? // per-card ROI-floor override (whole percent)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  priceSnapshots PriceSnapshot[]
+  gemSnapshots   GemSnapshot[]
+
+  @@index([game])
+}
+
+model PriceSnapshot {
+  id          String    @id @default(cuid())
+  gradeCardId String
+  card        GradeCard @relation(fields: [gradeCardId], references: [id], onDelete: Cascade)
+  date        DateTime  @default(now())
+  rawCents    Int
+  psa10Cents  Int
+  psa9Cents   Int?
+  psa8Cents   Int?
+  sales30d    Int?
+  source      String    @default("manual")
+  createdAt   DateTime  @default(now())
+
+  @@index([gradeCardId])
+}
+
+model GemSnapshot {
+  id          String    @id @default(cuid())
+  gradeCardId String
+  card        GradeCard @relation(fields: [gradeCardId], references: [id], onDelete: Cascade)
+  date        DateTime  @default(now())
+  pop10       Int // PSA 10 population (or manual gem numerator)
+  popTotal    Int // total graded (or 100 for a manual %)
+  source      String    @default("manual")
+  createdAt   DateTime  @default(now())
+
+  @@index([gradeCardId])
+}
+
+// Single-row config (all §2 constants; stored as a JSON blob in dollars + rates).
+model GradingConfig {
+  id        Int      @id @default(1)
+  values    Json
+  updatedAt DateTime @updatedAt
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // CAPITAL / MONEY LAYER (Phase 1) — a double-entry journal that lives ALONGSIDE
 // the inventory ledger above. It is the source of truth for CASH and OWNER
 // CAPITAL (contributions, draws, money owed each way, expenses, transfers).
@@ -588,6 +678,48 @@ model JournalLine {
 
   @@index([journalEntryId])
   @@index([accountId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SaleLot — a batch of cards sold together for one lump sum (a Whatnot stream, a
+// percentage bulk deal, etc.). You stage the cards, then after the sale enter the
+// gross and the net payout after fees; profit = net − combined cost basis. On
+// settle it posts ONE SALE transaction for the whole lot.
+// ─────────────────────────────────────────────────────────────────────────────
+model SaleLot {
+  id     String @id @default(cuid())
+  name   String
+  source String @default("Whatnot") // Whatnot | Local | eBay | Show | ...
+  status String @default("Open") // Open | Sold | Cancelled
+
+  grossCents Int? // total sales before fees (entered at settle)
+  netCents   Int? // payout after fees (the cash you actually received)
+  // Combined cost basis SNAPSHOT at settle time — so a settled lot's profit never
+  // drifts if a card is later re-acquired at a different basis (matches the ledger).
+  totalBasisCents Int?
+  soldAt     DateTime?
+  saleTransactionId String? @unique // the SALE posted when settled (unique: one sale per lot)
+
+  notes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items SaleLotItem[]
+
+  @@index([status])
+}
+
+model SaleLotItem {
+  id        String  @id @default(cuid())
+  saleLotId String
+  lot       SaleLot @relation(fields: [saleLotId], references: [id], onDelete: Cascade)
+  assetId   String
+  asset     Asset   @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  quantity  Int     @default(1)
+
+  @@index([saleLotId])
+  @@index([assetId])
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

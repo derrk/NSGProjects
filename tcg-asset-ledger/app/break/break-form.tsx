@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { toCents, formatUSD, allocateByWeight } from "@/lib/money";
+import { cn } from "@/lib/utils";
 import { recordBreakAction } from "@/app/actions";
 import { FlowMeta, defaultMeta, type MetaState } from "@/components/flows/flow-meta";
 import { AssetCombobox } from "@/components/flows/asset-combobox";
@@ -35,6 +36,17 @@ export function BreakForm({ assets }: { assets: PickableAsset[] }) {
     );
     return allocateByWeight(parentBasis, weights);
   }, [received, parentBasis]);
+
+  // Rip economics — market value of the pulls vs what the sealed cost.
+  const pulledValue = useMemo(
+    () =>
+      received.reduce(
+        (s, r) => s + toCents(r.unitMarketValueDollars) * (Number(r.quantity) || 0),
+        0,
+      ),
+    [received],
+  );
+  const ripNet = pulledValue - parentBasis;
 
   function submit() {
     setError(null);
@@ -136,6 +148,28 @@ export function BreakForm({ assets }: { assets: PickableAsset[] }) {
                   ) : null,
                 )}
               </ul>
+            </div>
+          ) : null}
+
+          {sealed && received.some((r) => r.name.trim()) ? (
+            <div
+              className={cn(
+                "rounded-md border p-3",
+                ripNet >= 0 ? "border-success/40 bg-success/10" : "border-border bg-muted/50",
+              )}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Rip result</span>
+                <span className="text-sm text-muted-foreground tnum">
+                  Cost {formatUSD(parentBasis)} · Pulled {formatUSD(pulledValue)}
+                </span>
+              </div>
+              <div className={cn("mt-1 text-lg font-bold tnum", ripNet >= 0 ? "text-success" : "text-destructive")}>
+                {ripNet >= 0 ? "+" : "−"}{formatUSD(Math.abs(ripNet))}{" "}
+                <span className="text-xs font-normal text-muted-foreground">
+                  {ripNet >= 0 ? "— this one paid off! 🎉" : "— the fun tax (pulls worth less than the sealed)"}
+                </span>
+              </div>
             </div>
           ) : null}
         </CardContent>

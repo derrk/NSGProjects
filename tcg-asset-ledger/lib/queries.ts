@@ -97,7 +97,7 @@ export interface DashboardMetrics {
 
 export async function getDashboardMetrics(): Promise<DashboardMetrics> {
   const inStock = await prisma.asset.findMany({
-    where: { status: "InStock", quantity: { gt: 0 }, isPersonal: false },
+    where: { status: "InStock", quantity: { gt: 0 }, isPersonal: false, isInvestment: false },
     select: { quantity: true, marketValueCents: true, costBasisCents: true, priceOverrideCents: true },
   });
 
@@ -164,6 +164,35 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
   };
 }
 
+export interface BusinessInventoryTotals {
+  costCents: number;
+  valueCents: number;
+}
+
+/**
+ * Cost basis and market value of ALL owned business inventory — INCLUDING
+ * investment holds, which are still business capital (valued at cost on the
+ * balance sheet). Excludes only the personal collection. This is what the
+ * capital / balance-sheet layer must use: getDashboardMetrics deliberately
+ * drops investments for the "show-available" sell view, so reusing its
+ * inventoryCostCents on the balance sheet would make an investment's basis
+ * vanish from equity (a phantom loss). Mirrors the pre-investment dashboard
+ * scope: InStock, qty > 0, not personal.
+ */
+export async function getBusinessInventoryTotals(): Promise<BusinessInventoryTotals> {
+  const rows = await prisma.asset.findMany({
+    where: { status: "InStock", quantity: { gt: 0 }, isPersonal: false },
+    select: { quantity: true, costBasisCents: true, marketValueCents: true, priceOverrideCents: true },
+  });
+  let costCents = 0;
+  let valueCents = 0;
+  for (const a of rows) {
+    costCents += a.costBasisCents * a.quantity;
+    valueCents += (a.priceOverrideCents ?? a.marketValueCents) * a.quantity;
+  }
+  return { costCents, valueCents };
+}
+
 // ── Inventory health (v0.2) ──────────────────────────────────────────────────
 
 export interface InventoryHealth {
@@ -185,7 +214,7 @@ export interface InventoryHealth {
 
 export async function getInventoryHealth(now: Date = new Date()): Promise<InventoryHealth> {
   const owned = await prisma.asset.findMany({
-    where: { status: { in: ["InStock", "Grading"] }, quantity: { gt: 0 }, isPersonal: false },
+    where: { status: { in: ["InStock", "Grading"] }, quantity: { gt: 0 }, isPersonal: false, isInvestment: false },
     select: {
       status: true,
       quantity: true,

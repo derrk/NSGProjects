@@ -374,39 +374,40 @@ export async function recordBuy(input: CommonMeta & {
 }
 
 /** SALE: assets out, cash in. Realized profit = proceeds − basis. */
-export async function recordSale(input: CommonMeta & {
-  proceedsCents: number;
-  given: GivenLine[];
-}) {
+type SaleInput = CommonMeta & { proceedsCents: number; given: GivenLine[] };
+
+/** SALE body operating on a caller-provided transaction client, so other flows
+ *  (e.g. lot settle) can enlist the whole sale in one wider atomic transaction. */
+export async function recordSaleTx(tx: Tx, input: SaleInput) {
   if (input.given.length === 0) throw new Error("A sale needs at least one item.");
-  return prisma.$transaction(async (tx) => {
-    const txn = await tx.transaction.create({
-      data: {
-        type: "SALE",
-        date: input.date ?? new Date(),
-        counterparty: input.counterparty ?? null,
-        customerId: input.customerId ?? null,
-        cashDeltaCents: Math.abs(input.proceedsCents),
-        notes: input.notes ?? null,
-        ...(await showStamp(tx, input.source, input.showId)),
-      },
-    });
-
-    // Split proceeds across sold lines by their sale value so each line records
-    // a fair share (used for per-item realized P/L).
-    const weights = input.given.map(
-      (g) => (g.unitValueCents ?? 0) * g.quantity,
-    );
-    const proceedsPerLine = allocateByWeight(input.proceedsCents, weights);
-
-    for (let i = 0; i < input.given.length; i++) {
-      const g = input.given[i];
-      const unitProceeds = g.quantity > 0 ? Math.round(proceedsPerLine[i] / g.quantity) : 0;
-      await applyOut(tx, txn.id, { ...g, unitValueCents: unitProceeds }, "Sold");
-    }
-    await reconcileTouched(tx, txn.id);
-    return txn;
+  const txn = await tx.transaction.create({
+    data: {
+      type: "SALE",
+      date: input.date ?? new Date(),
+      counterparty: input.counterparty ?? null,
+      customerId: input.customerId ?? null,
+      cashDeltaCents: Math.abs(input.proceedsCents),
+      notes: input.notes ?? null,
+      ...(await showStamp(tx, input.source, input.showId)),
+    },
   });
+
+  // Split proceeds across sold lines by their sale value so each line records
+  // a fair share (used for per-item realized P/L).
+  const weights = input.given.map((g) => (g.unitValueCents ?? 0) * g.quantity);
+  const proceedsPerLine = allocateByWeight(input.proceedsCents, weights);
+
+  for (let i = 0; i < input.given.length; i++) {
+    const g = input.given[i];
+    const unitProceeds = g.quantity > 0 ? Math.round(proceedsPerLine[i] / g.quantity) : 0;
+    await applyOut(tx, txn.id, { ...g, unitValueCents: unitProceeds }, "Sold");
+  }
+  await reconcileTouched(tx, txn.id);
+  return txn;
+}
+
+export async function recordSale(input: SaleInput) {
+  return prisma.$transaction((tx) => recordSaleTx(tx, input));
 }
 
 /** TRADE: assets out + assets in + optional cash either way. The flagship

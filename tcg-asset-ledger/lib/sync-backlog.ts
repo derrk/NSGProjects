@@ -6,14 +6,17 @@
 // resolves those tasks automatically when a re-import confirms the change.
 //
 // Desired state per asset:
-//   • not in Collectr, still owned          → "add"    (create it in Collectr)
-//   • in Collectr, no longer owned           → "remove" (remove/zero it in Collectr)
-//   • in Collectr, owned, cost basis differs → "update" (fix its cost in Collectr)
-//   • otherwise                              → in sync (no task)
+//   • not in Collectr, still owned    → "add"    (create it in Collectr)
+//   • in Collectr, no longer owned    → "remove" (remove/zero it in Collectr)
+//   • in Collectr, quantity differs   → "update" (fix its count in Collectr)
+//   • otherwise                       → in sync (no task)
+//
+// Cost basis is deliberately NOT pushed to Collectr. The ledger is the source of
+// truth for cost and profit; re-entering cost in Collectr is redundant work.
+// Collectr only mirrors *presence* and *quantity* — what's in the collection.
 
 import { Prisma } from "@prisma/client";
 import { prisma } from "./db";
-import { formatUSD } from "./money";
 import { autoResolveReconcileTasks, upsertReconcileTask } from "./reconcile-tasks";
 
 type Db = Prisma.TransactionClient | typeof prisma;
@@ -39,32 +42,21 @@ export function desiredSyncKind(a: AssetSyncFields): SyncKind | null {
   if (!a.inCollectr) return owned ? "add" : null;
   if (!owned) return "remove";
   // Quantity drift: Collectr's last-known quantity no longer matches (e.g.
-  // sold 2 of 5) — Collectr needs its count fixed.
+  // sold 2 of 5) — Collectr needs its count fixed. Cost basis differences are
+  // ignored on purpose (the ledger owns cost/profit; Collectr just mirrors what
+  // you physically hold).
   if (a.collectrQuantity != null && a.collectrQuantity !== a.quantity) return "update";
-  // Cost drift: the app has a REAL computed basis (from a buy/trade/break) that
-  // Collectr doesn't reflect — push it so Collectr matches. Fires even when
-  // Collectr shows $0 (the common case after trading for a card). Skipped when
-  // Collectr's cost is unknown (null, e.g. just marked done) so it doesn't
-  // immediately re-nag, and when the app basis is $0 (nothing to tell Collectr).
-  if (a.collectrCostCents != null && a.costBasisCents > 0 && a.costBasisCents !== a.collectrCostCents)
-    return "update";
   return null;
 }
 
 /** Human-readable instruction for the backlog. */
 export function syncNote(a: AssetSyncFields, kind: SyncKind): string {
-  const market = a.priceOverrideCents ?? a.marketValueCents;
-  if (kind === "add")
-    return `Add to Collectr — qty ${a.quantity}, cost basis ${formatUSD(a.costBasisCents)}/u, market ${formatUSD(market)}.`;
+  if (kind === "add") return `Add to Collectr — qty ${a.quantity}.`;
   if (kind === "update") {
-    const parts: string[] = [];
+    // Only quantity drift reaches here now (cost basis lives in the ledger).
     if (a.collectrQuantity != null && a.collectrQuantity !== a.quantity)
-      parts.push(`set quantity to ${a.quantity} (Collectr shows ${a.collectrQuantity})`);
-    if (a.collectrCostCents != null && a.costBasisCents > 0 && a.costBasisCents !== a.collectrCostCents)
-      parts.push(
-        `set cost basis to ${formatUSD(a.costBasisCents)}/u (Collectr shows ${formatUSD(a.collectrCostCents)})`,
-      );
-    return `Update in Collectr — ${parts.join("; ")}.`;
+      return `Update in Collectr — set quantity to ${a.quantity} (Collectr shows ${a.collectrQuantity}).`;
+    return `Update in Collectr — set quantity to ${a.quantity}.`;
   }
   return `Remove or zero-out in Collectr — no longer in stock.`;
 }

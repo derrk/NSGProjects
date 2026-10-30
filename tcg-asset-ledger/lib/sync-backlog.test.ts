@@ -21,27 +21,25 @@ describe("desiredSyncKind — the Collectr backlog rules", () => {
     expect(desiredSyncKind({ ...base, status: "Sold", quantity: 0 })).toBe(null);
   });
 
-  it("a card in Collectr with matching cost is in sync", () => {
-    expect(desiredSyncKind({ ...base, inCollectr: true, collectrCostCents: 7000 })).toBe(null);
-  });
-
-  it("app has a real basis but Collectr shows $0 → update (push the cost)", () => {
-    // Trades/buys compute a basis Collectr can't know. Tell Collectr to set it.
-    expect(desiredSyncKind({ ...base, inCollectr: true, collectrCostCents: 0 })).toBe("update");
-  });
-
-  it("cost unknown (null, e.g. just marked done) → no re-nag", () => {
-    expect(desiredSyncKind({ ...base, inCollectr: true, collectrCostCents: null })).toBe(null);
-  });
-
-  it("both app basis and Collectr cost are $0 → nothing to push", () => {
+  it("a card in Collectr with matching qty is in sync", () => {
     expect(
-      desiredSyncKind({ ...base, inCollectr: true, costBasisCents: 0, collectrCostCents: 0 }),
+      desiredSyncKind({ ...base, inCollectr: true, collectrQuantity: 1, collectrCostCents: 7000 }),
     ).toBe(null);
   });
 
-  it("conflicting non-zero Collectr cost → update", () => {
-    expect(desiredSyncKind({ ...base, inCollectr: true, collectrCostCents: 6500 })).toBe("update");
+  it("cost basis differs but qty matches → in sync (ledger owns cost, not Collectr)", () => {
+    // The ledger is the source of truth for cost/profit; we never nag Collectr
+    // to match cost basis, even when it shows $0 or a conflicting number.
+    expect(
+      desiredSyncKind({ ...base, inCollectr: true, collectrQuantity: 1, collectrCostCents: 0 }),
+    ).toBe(null);
+    expect(
+      desiredSyncKind({ ...base, inCollectr: true, collectrQuantity: 1, collectrCostCents: 6500 }),
+    ).toBe(null);
+  });
+
+  it("cost unknown (null, e.g. just marked done) → no nag", () => {
+    expect(desiredSyncKind({ ...base, inCollectr: true, collectrCostCents: null })).toBe(null);
   });
 
   it("sold card still listed in Collectr → remove", () => {
@@ -107,5 +105,11 @@ describe("desiredSyncKind — the Collectr backlog rules", () => {
     );
     expect(note).toContain("set quantity to 3");
     expect(note).toContain("Collectr shows 5");
+  });
+
+  it("add note never mentions cost basis (ledger is the source of truth)", () => {
+    const note = syncNote({ ...base }, "add");
+    expect(note).toContain("qty 1");
+    expect(note.toLowerCase()).not.toContain("cost");
   });
 });

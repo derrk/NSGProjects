@@ -4,7 +4,8 @@
 //  2a. You add it to Collectr WITH the $70 cost → re-import → task auto-resolves
 //  2b. (variant) You add it but FORGET the cost → re-import → task resolves,
 //      app keeps its $70 basis (fills the gap), no nag
-//  2c. (variant) You enter the WRONG cost ($65) → re-import → "update" task
+//  2c. (variant) You enter the WRONG cost ($65) → re-import → still in sync
+//      (the ledger owns cost; Collectr is never nagged to match cost basis)
 //  3. Partial sale: sell 2 of a 10-lot → "update" task says fix Collectr's qty
 //  4. Sell a Collectr card entirely → "remove" task; removing it from the
 //     export resolves the task
@@ -102,13 +103,12 @@ async function main() {
   check("forgot-the-price: app keeps $70 basis (fills it in)", after2b?.costBasisCents === 7000,
     formatUSD(after2b?.costBasisCents ?? 0));
 
-  // ── 2c. Variant: wrong cost in Collectr ($65) → 'update' nudge ────────────
+  // ── 2c. Variant: wrong cost in Collectr ($65) → NO nag (ledger owns cost) ──
   const rowWrongCost = rowWithCost.replace(",70,1,100,", ",65,1,100,");
   await importCsv(baseCsv.trimEnd() + "\n" + rowWrongCost);
-  const updateTask = await prisma.syncTask.findFirst({ where: { status: "pending", kind: "update" } });
-  check("wrong cost in Collectr → 'update' task", !!updateTask, updateTask?.note ?? "");
-  await importCsv(baseCsv.trimEnd() + "\n" + rowWithCost);
-  check("corrected cost → update-task resolves", (await pendingCount()) === 0);
+  const costUpdateTask = await prisma.syncTask.findFirst({ where: { status: "pending", kind: "update" } });
+  check("cost mismatch no longer creates an 'update' task", !costUpdateTask, costUpdateTask?.note ?? "none");
+  check("cost mismatch leaves the backlog empty", (await pendingCount()) === 0);
 
   // ── 3. Partial sale: sell 2 of a 10-lot → quantity-drift 'update' task ────
   const lot = await prisma.asset.findFirst({

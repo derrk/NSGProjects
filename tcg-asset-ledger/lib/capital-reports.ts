@@ -4,7 +4,7 @@
 import { prisma } from "./db";
 import { ACCOUNT } from "./accounting-math";
 import { getCapitalSnapshot } from "./accounting";
-import { getDashboardMetrics } from "./queries";
+import { getBusinessInventoryTotals } from "./queries";
 
 export interface DateRange {
   from?: Date | null;
@@ -104,10 +104,10 @@ export interface StatementOfPosition {
 
 /** Balance sheet AS OF now — cash + inventory (engine) + equipment + due-from, less liabilities. */
 export async function getStatementOfPosition(now: Date): Promise<StatementOfPosition> {
-  const [snap, metrics] = await Promise.all([getCapitalSnapshot(now), getDashboardMetrics()]);
+  const [snap, bizInventory] = await Promise.all([getCapitalSnapshot(now), getBusinessInventoryTotals()]);
   const assets: LineItem[] = [
     { name: "Cash", cents: snap.cashTotal },
-    { name: "Inventory (cost basis)", cents: metrics.inventoryCostCents },
+    { name: "Inventory (cost basis)", cents: bizInventory.costCents },
     ...snap.otherAssets, // equipment, due-from, receivables, prepaid, …
   ].filter((x) => x.cents !== 0);
   const assetsTotal = assets.reduce((s, x) => s + x.cents, 0);
@@ -236,10 +236,10 @@ export interface AllocationRow { name: string; cents: number; pct: number }
 
 /** Where the business's capital currently sits (as % of total assets). */
 export async function getCapitalAllocation(now: Date): Promise<{ rows: AllocationRow[]; total: number }> {
-  const [snap, metrics] = await Promise.all([getCapitalSnapshot(now), getDashboardMetrics()]);
+  const [snap, bizInventory] = await Promise.all([getCapitalSnapshot(now), getBusinessInventoryTotals()]);
   const raw = [
     { name: "Cash", cents: snap.cashTotal },
-    { name: "Inventory (cost basis)", cents: metrics.inventoryCostCents },
+    { name: "Inventory (cost basis)", cents: bizInventory.costCents },
     ...snap.otherAssets, // equipment, due-from, receivables, prepaid, …
   ].filter((x) => x.cents > 0);
   const total = raw.reduce((s, x) => s + x.cents, 0);
