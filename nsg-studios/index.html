@@ -473,6 +473,90 @@
       margin: 2.5rem auto 0;
     }
 
+    /* ── Selected work ── */
+    .work-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1.5rem;
+    }
+
+    @media (min-width: 600px) {
+      .work-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    @media (min-width: 1100px) {
+      .work-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    }
+
+    .work-card {
+      display: flex;
+      flex-direction: column;
+      background: var(--card-bg);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 14px;
+      overflow: hidden;
+      text-decoration: none;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+
+    .work-card:hover,
+    .work-card:focus-visible {
+      border-color: var(--purple);
+      transform: translateY(-4px);
+    }
+
+    .work-shot {
+      display: block;
+      width: 100%;
+      height: auto;            /* beats the HTML height attribute so aspect-ratio drives the box */
+      aspect-ratio: 16 / 10;
+      object-fit: cover;
+      object-position: top center;
+      background: #0B0B0B;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .work-body {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      padding: 1.25rem 1.25rem 1.4rem;
+    }
+
+    .work-year {
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--purple-light);
+    }
+
+    .work-name {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--white);
+    }
+
+    .work-meta {
+      font-size: 0.85rem;
+      line-height: 1.5;
+      color: var(--gray-mid);
+    }
+
+    .work-visit {
+      margin-top: 0.55rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--purple-light);
+    }
+
+    .work-card:hover .work-visit { color: var(--white); }
+
+    @media (prefers-reduced-motion: reduce) {
+      .work-card { transition: border-color 0.2s; }
+      .work-card:hover, .work-card:focus-visible { transform: none; }
+    }
+
     .service-card {
       background: var(--card-bg);
       border: 1px solid rgba(255,255,255,0.06);
@@ -981,6 +1065,7 @@
   <ul class="nav-links">
     <li><a href="#home">Home</a></li>
     <li><a href="#services">Services</a></li>
+    <li><a href="#work">Work</a></li>
     <li><a href="#pricing">Pricing</a></li>
     <li><a href="#faq">FAQ</a></li>
     <li><a href="tel:+19402631327" class="nav-phone">📞 (940) 263-1327</a></li>
@@ -994,6 +1079,7 @@
 <div class="mobile-menu" id="mobileMenu">
   <a href="#home" onclick="closeMenu()">Home</a>
   <a href="#services" onclick="closeMenu()">Services</a>
+  <a href="#work" onclick="closeMenu()">Work</a>
   <a href="#pricing" onclick="closeMenu()">Pricing</a>
   <a href="#faq" onclick="closeMenu()">FAQ</a>
   <a href="tel:+19402631327" onclick="closeMenu()">📞 (940) 263-1327</a>
@@ -1120,6 +1206,59 @@
           <li>Technical SEO setup</li>
         </ul>
       </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ── SELECTED WORK ───────────────────────────────────── -->
+<section id="work">
+  <div class="container">
+    <span class="section-label">Selected Work</span>
+    <h2 class="section-title">Sites We've Built</h2>
+    <p class="section-sub">Every one of these is still live. The older two are shown on purpose — you can see for yourself how the work has moved on, and you can see that clients stay.</p>
+
+    <div class="work-grid">
+
+      <a class="work-card" href="https://www.940collectorsexpo.com/" target="_blank" rel="noopener noreferrer">
+        <img class="work-shot" src="assets/work/940-collectors-expo.jpg" width="800" height="461" loading="lazy" alt="Homepage of 940 Collector's Expo, a dark scroll-animated landing page for a Wichita Falls collectibles show">
+        <span class="work-body">
+          <span class="work-year">2026</span>
+          <span class="work-name">940 Collector's Expo</span>
+          <span class="work-meta">Collectibles show · Wichita Falls, TX<br>Ticketing, vendor table booking, scroll-driven hero</span>
+          <span class="work-visit">Visit site &rarr;</span>
+        </span>
+      </a>
+
+      <a class="work-card" href="https://www.secretstocktx.com/" target="_blank" rel="noopener noreferrer">
+        <img class="work-shot" src="assets/work/secret-stock-tx.jpg" width="800" height="460" loading="lazy" alt="Homepage of Secret Stock TX, a dark trading card shop site with a purple hero and inventory categories">
+        <span class="work-body">
+          <span class="work-year">2026</span>
+          <span class="work-name">Secret Stock TX</span>
+          <span class="work-meta">Trading card retailer · Wichita Falls, TX<br>Inventory browsing, buy-collection enquiry flow</span>
+          <span class="work-visit">Visit site &rarr;</span>
+        </span>
+      </a>
+
+      <a class="work-card" href="https://fp-healthinsurance.com/" target="_blank" rel="noopener noreferrer">
+        <img class="work-shot" src="assets/work/financial-partners.jpg" width="799" height="465" loading="lazy" alt="Homepage of Financial Partners, a health insurance agency site with a blue hero and illustrated banner">
+        <span class="work-body">
+          <span class="work-year">2023</span>
+          <span class="work-name">Financial Partners</span>
+          <span class="work-meta">Health insurance agency · Wichita Falls, TX<br>Still live and still in use today</span>
+          <span class="work-visit">Visit site &rarr;</span>
+        </span>
+      </a>
+
+      <a class="work-card" href="https://texanshealthandwellness.com/" target="_blank" rel="noopener noreferrer">
+        <img class="work-shot" src="assets/work/texans-health.jpg" width="800" height="457" loading="lazy" alt="Homepage of Texans Health and Wellness Center, a medical clinic site with a full-width photographic slider">
+        <span class="work-body">
+          <span class="work-year">2023</span>
+          <span class="work-name">Texans Health &amp; Wellness</span>
+          <span class="work-meta">Medical clinic · Rowlett, TX<br>Still live and still in use today</span>
+          <span class="work-visit">Visit site &rarr;</span>
+        </span>
+      </a>
 
     </div>
   </div>
@@ -1416,6 +1555,7 @@
         <ul>
           <li><a href="#home">Home</a></li>
           <li><a href="#services">Services</a></li>
+          <li><a href="#work">Work</a></li>
           <li><a href="#pricing">Pricing</a></li>
           <li><a href="#faq">FAQ</a></li>
           <li><a href="#contact">Contact</a></li>
