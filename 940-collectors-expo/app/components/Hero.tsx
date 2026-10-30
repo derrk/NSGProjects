@@ -23,13 +23,18 @@ export default function Hero() {
       id="home"
       className="relative flex min-h-[100svh] flex-col justify-end overflow-hidden"
     >
-      {/* Backdrop artwork */}
+      {/* Backdrop artwork. The art is a square logo lockup in a hero that runs
+          from ~0.46 (phone) to ~1.8 (desktop) aspect, so cover always crops it
+          somewhere — centring keeps the 940 mark in frame at every width. */}
       <div
         className="absolute inset-0 bg-cover bg-center"
         style={{ backgroundImage: "url(/hero-backdrop.jpg)" }}
       />
-      {/* Legibility overlays */}
-      <div className="absolute inset-0 bg-gradient-to-t from-[#0B0713] via-[#0B0713]/75 to-[#0B0713]/20" />
+      {/* Legibility overlays. The artwork is bright and high-contrast, so a
+          flat scrim sits under the gradient — without it the headline is
+          unreadable over the purple lettering. */}
+      <div className="absolute inset-0 bg-[#0B0713]/60" />
+      <div className="absolute inset-0 bg-gradient-to-t from-[#0B0713] via-[#0B0713]/85 to-[#0B0713]/30" />
       <div className="absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-[#0B0713]/90 to-transparent" />
       <div className="absolute inset-0 scanlines pointer-events-none" />
 

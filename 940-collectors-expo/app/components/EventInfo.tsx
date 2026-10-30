@@ -14,6 +14,7 @@ import {
   VENUE,
   VENUE_ADDRESS,
   EVENT_DATE_LABEL,
+  EVENT_DAY_LABEL,
   EVENT_HOURS_LABEL,
   EVENT_VIP_LABEL,
   VENDOR_SETUP_LABEL,
@@ -27,7 +28,7 @@ const details = [
     icon: Calendar,
     label: "Date",
     value: EVENT_DATE_LABEL,
-    sub: "Halloween show 🎃",
+    sub: EVENT_DAY_LABEL,
   },
   {
     icon: Clock,
@@ -87,7 +88,7 @@ export default function EventInfo() {
             Plan Your Visit
           </h2>
           <p className="text-lg text-[#E5E7EB]/60 max-w-xl mx-auto">
-            {`Saturday, ${EVENT_DATE_LABEL} at the ${VENUE.name} in Wichita Falls. Here's everything you need to plan your visit.`}
+            {`${EVENT_DAY_LABEL}, ${EVENT_DATE_LABEL} at ${VENUE.name} in ${VENUE.city}. Here's everything you need to plan your visit.`}
           </p>
         </motion.div>
 

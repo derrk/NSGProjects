@@ -24,27 +24,36 @@ export const RESERVATIONS_MODE: ReservationsMode = "open";
 export const RESERVATIONS_OPEN: boolean = (RESERVATIONS_MODE as string) === "open";
 
 export const VENUE = {
-  name: "Ray Clymer Exhibit Hall",
-  room: "Exhibit Hall",
+  name: "Sikes Senter",
+  // Specific space inside the mall (suite / former anchor unit). Left blank
+  // until the venue confirms what to call it — structured data omits it when
+  // empty rather than printing a dangling separator.
+  room: "",
   city: "Wichita Falls",
   region: "TX",
   country: "US",
-  streetAddress: "1000 Fifth St",
-  postalCode: "76301",
+  streetAddress: "3111 Midwestern Parkway",
+  postalCode: "76308",
 };
 
 // Full one-line address + Google Maps links (the embed needs no API key).
-export const VENUE_ADDRESS = "1000 Fifth St, Wichita Falls, TX 76301";
+export const VENUE_ADDRESS = "3111 Midwestern Parkway, Wichita Falls, TX 76308";
 const MAP_Q = encodeURIComponent(`${VENUE.name}, ${VENUE_ADDRESS}`);
 export const MAP_EMBED_SRC = `https://www.google.com/maps?q=${MAP_Q}&output=embed`;
 export const MAP_LINK = `https://www.google.com/maps/search/?api=1&query=${MAP_Q}`;
 
 // --- Next event ------------------------------------------------------------
-// Wichita Falls is US Central (CDT in October = -05:00).
-export const EVENT_DATE_ISO = "2026-10-10T09:00:00-05:00"; // set -> unlocks Event rich results
-export const EVENT_END_ISO = "2026-10-10T18:00:00-05:00";
-export const EVENT_DATE_LABEL = "October 10, 2026";
-export const EVENT_DATE_SHORT = "Oct 10, 2026";
+// Wichita Falls is US Central. DST ends 1 Nov 2026, so a November show is CST
+// = -06:00 (NOT the -05:00 an October show used).
+export const EVENT_DATE_ISO = "2026-11-14T09:00:00-06:00"; // set -> unlocks Event rich results
+export const EVENT_END_ISO = "2026-11-14T18:00:00-06:00";
+export const EVENT_DATE_LABEL = "November 14, 2026";
+export const EVENT_DATE_SHORT = "Nov 14, 2026";
+// Derived from the date above so the weekday can never contradict it.
+export const EVENT_DAY_LABEL = new Date(EVENT_DATE_ISO).toLocaleDateString("en-US", {
+  weekday: "long",
+  timeZone: "America/Chicago",
+});
 export const EVENT_HOURS_LABEL = "10 AM – 6 PM";
 export const EVENT_VIP_LABEL = "VIP early access at 9 AM";
 export const VENDOR_SETUP_LABEL = "7:30 AM – 10 AM";
@@ -154,7 +163,7 @@ export interface Faq {
 export const FAQS: Faq[] = [
   {
     q: "When is the 940 Collector's Expo?",
-    a: "Our debut show is Saturday, September 5, 2026. General admission runs 10 AM to 6 PM, with VIP early access starting at 9 AM.",
+    a: "Our next show is Saturday, November 14, 2026. General admission runs 10 AM to 6 PM, with VIP early access starting at 9 AM.",
   },
   {
     q: "How much is admission?",
@@ -166,7 +175,7 @@ export const FAQS: Faq[] = [
   },
   {
     q: "Where is the 940 Collector's Expo held?",
-    a: "The show is at the Ray Clymer Exhibit Hall, 1000 Fifth St, Wichita Falls, TX 76301 — easy to reach from Iowa Park, Burkburnett, Electra, Henrietta, Bowie, Nocona, Vernon, and Lawton, Oklahoma.",
+    a: "The show is at Sikes Senter, 3111 Midwestern Parkway, Wichita Falls, TX 76308 — easy to reach from Iowa Park, Burkburnett, Electra, Henrietta, Bowie, Nocona, Vernon, and Lawton, Oklahoma.",
   },
   {
     q: "Can I trade or sell as an attendee?",
@@ -174,7 +183,7 @@ export const FAQS: Faq[] = [
   },
   {
     q: "Can vendors reserve multiple tables?",
-    a: "Yes! Vendors can reserve multiple tables right on the interactive floor map. Bundle a 6-foot corner table with its adjacent 8-foot table for a discount.",
+    a: "Yes! Vendors can reserve multiple tables right on the interactive floor map — just add each one to your cart and check out together. Every table is the same 8' x 2.5' size at the same price.",
   },
   {
     q: "Are kids allowed?",
@@ -186,6 +195,6 @@ export const FAQS: Faq[] = [
   },
   {
     q: "How do I become a vendor?",
-    a: "Head to the reservation page, pick your table(s) on the floor map, and check out. Tables start at $99.99, with an early-bird discount code available for the first vendors.",
+    a: "Head to the reservation page, pick your table(s) on the floor map, and check out. Tables are $75 each for the November show.",
   },
 ];

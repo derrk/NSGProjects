@@ -29,7 +29,7 @@ const faqs: Faq[] = [
   },
   {
     q: "Can Lawton vendors reserve a table?",
-    a: "Absolutely. Reserve your exact table online on the interactive floor map — tables start at $99.99, with an early-bird discount for the first vendors.",
+    a: "Absolutely. Reserve your exact table online on the interactive floor map — tables are $75 each.",
   },
 ];
 

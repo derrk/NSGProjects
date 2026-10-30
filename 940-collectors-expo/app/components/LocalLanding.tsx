@@ -84,7 +84,7 @@ export default function LocalLanding({
           <div className="retro-panel p-8 mt-12 text-center">
             <h2 className="text-2xl font-black text-white mb-2">Want a table at the show?</h2>
             <p className="text-[#E5E7EB]/60 mb-6">
-              Pick your exact spot on the interactive floor map — tables start at $99.99.
+              Pick your exact spot on the interactive floor map — tables are $75 each.
             </p>
             <a href="/reserve" className="retro-btn group inline-flex">
               Reserve Your Table

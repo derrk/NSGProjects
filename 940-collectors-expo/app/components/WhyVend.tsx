@@ -51,8 +51,8 @@ const perks = [
   },
   {
     icon: CalendarDays,
-    title: "Recurring Annual Events",
-    desc: "Build your customer base show after show. Returning vendors get priority table placement.",
+    title: "Recurring Monthly Shows",
+    desc: "Build your customer base month after month. Returning vendors get priority table placement.",
     color: "#A855F7",
   },
   {

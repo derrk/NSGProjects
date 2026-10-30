@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Info, Tag, ShoppingCart, X } from "lucide-react";
+import { ArrowLeft, Info, Tag, ShoppingCart, X, Map as MapIcon, List } from "lucide-react";
 import { ReservationProvider, useReservation } from "./ReservationContext";
 import ExpoFloorMap, { type FloorStatus, type FloorVendor } from "./ExpoFloorMap";
+import TableListView from "./TableListView";
 import CartPanel from "./CartPanel";
 import CheckoutModal from "./CheckoutModal";
 import VendorDirectory from "./VendorDirectory";
@@ -45,6 +46,44 @@ function BookingMap() {
       }}
       maxHeight="74vh"
     />
+  );
+}
+
+// Map / list switch. Both views drive the SAME cart in ReservationContext, so
+// the list is a full equivalent of the map for keyboard, screen-reader and
+// small-screen use rather than a second, lesser way to book.
+function BookingView() {
+  const [view, setView] = useState<"map" | "list">("map");
+  const [query, setQuery] = useState("");
+
+  const tab = (v: "map" | "list") =>
+    `inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#D8B4FE] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0B0713] ${
+      view === v
+        ? "bg-[#A855F7] text-white"
+        : "text-[#E5E7EB]/60 hover:text-white"
+    }`;
+
+  return (
+    <div>
+      <div
+        role="group"
+        aria-label="Choose how to browse tables"
+        className="mb-3 inline-flex items-center gap-1 rounded-xl border border-white/10 bg-[#171022] p-1"
+      >
+        <button type="button" onClick={() => setView("map")} aria-pressed={view === "map"} className={tab("map")}>
+          <MapIcon size={14} aria-hidden="true" /> Map
+        </button>
+        <button type="button" onClick={() => setView("list")} aria-pressed={view === "list"} className={tab("list")}>
+          <List size={14} aria-hidden="true" /> List
+        </button>
+      </div>
+
+      {view === "map" ? (
+        <BookingMap />
+      ) : (
+        <TableListView query={query} onQueryChange={setQuery} />
+      )}
+    </div>
   );
 }
 
@@ -188,14 +227,15 @@ export default function ReserveClient() {
               <VendorDirectory />
             </motion.div>
 
-            {/* Floor map + desktop cart */}
+            {/* Floor map (or list) + desktop cart. min-w-0 keeps the list rows'
+                single-line labels from stretching the one-column mobile grid. */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.1 }}
-              className="order-1 lg:order-2 space-y-6"
+              className="order-1 lg:order-2 min-w-0 space-y-6"
             >
-              <BookingMap />
+              <BookingView />
               <div className="hidden lg:block">
                 <CartPanel onCheckout={() => setCheckoutOpen(true)} />
               </div>

@@ -37,7 +37,7 @@ function PreviewView() {
   return (
     <main className="min-h-screen px-4 sm:px-8 pt-24 pb-16 max-w-4xl mx-auto">
       <div className="text-center mb-6">
-        <p className="pixel-eyebrow text-[#A855F7] mb-2">Next Show &middot; Rooms 1&ndash;4</p>
+        <p className="pixel-eyebrow text-[#A855F7] mb-2">Next Show &middot; 87 Vendor Tables</p>
         <h1 className="text-3xl sm:text-4xl font-black text-white mb-3">Vendor Floor Plan</h1>
         <div className="inline-block rounded-xl bg-[#FACC15]/10 border border-[#FACC15]/40 text-[#FACC15] text-sm font-semibold px-4 py-2">
           Table booking opens soon — here&apos;s the floor plan for our next show.
