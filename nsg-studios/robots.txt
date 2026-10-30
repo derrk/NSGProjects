@@ -1,4 +1,5 @@
 User-agent: *
 Allow: /
+Disallow: /assets/og/
 
 Sitemap: https://wichitafallswebdesign.net/sitemap.xml
