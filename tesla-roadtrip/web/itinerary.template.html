@@ -1,0 +1,410 @@
+<title>Gulf to Hudson</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: a run sheet. Summary band, then one card per day holding the ordered
+   stop table. Highway-sign condensed type; teal carries Option B through. */
+:root {
+  --bg: #F3F5F6;
+  --surface: #FFFFFF;
+  --surface-2: #E9EDEF;
+  --fg: #141A1D;
+  --muted: #5B666D;
+  --line: #D8DFE3;
+  --b: #0F6B78;
+  --b-fill: #E3F0F2;
+  --warn: #9E2117;
+  --warn-fill: #FAEAE8;
+  --good: #1F6B3C;
+  --good-fill: #E4F1E8;
+  --display: "Barlow Condensed", "Arial Narrow", sans-serif;
+  --body: "Barlow", system-ui, -apple-system, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0D1215; --surface: #151C20; --surface-2: #1E272C;
+    --fg: #E8EEF0; --muted: #93A0A7; --line: #27323A;
+    --b: #45B4C2; --b-fill: #0E2A2E;
+    --warn: #E37367; --warn-fill: #2B1513;
+    --good: #67C48C; --good-fill: #112A1B;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0D1215; --surface: #151C20; --surface-2: #1E272C;
+  --fg: #E8EEF0; --muted: #93A0A7; --line: #27323A;
+  --b: #45B4C2; --b-fill: #0E2A2E;
+  --warn: #E37367; --warn-fill: #2B1513;
+  --good: #67C48C; --good-fill: #112A1B;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 15px; line-height: 1.55; margin: 0; }
+.wrap {
+  max-width: 980px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+h1, h2, h3 { font-family: var(--display); font-weight: 700; margin: 0; text-wrap: balance; }
+h1 { font-size: clamp(2.1rem, 6vw, 3.3rem); line-height: 1.02; text-transform: uppercase; }
+h2 { font-size: clamp(1.3rem, 3.2vw, 1.75rem); text-transform: uppercase; }
+h3 { font-size: 1.05rem; }
+p { margin: 0; }
+.eyebrow { font-family: var(--display); text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.82rem; font-weight: 600; color: var(--muted); }
+
+header.top { padding-block: 32px 22px; border-bottom: 1px solid var(--line); }
+header.top .lede { color: var(--muted); max-width: 64ch; margin-top: 10px; }
+
+.band { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; margin-top: 20px; }
+.band .cell { background: var(--surface); padding: 13px 15px; }
+.band .k { font-family: var(--display); text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.76rem; color: var(--muted); font-weight: 600; }
+.band .v { font-family: var(--mono); font-size: 1.25rem; font-variant-numeric: tabular-nums; margin-top: 2px; }
+.band .v small { font-size: 0.8rem; color: var(--muted); font-family: var(--body); }
+
+section { padding-block: 26px; border-bottom: 1px solid var(--line); }
+section:last-of-type { border-bottom: 0; }
+.sechead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px 16px; margin-bottom: 14px; }
+.sechead p { color: var(--muted); font-size: 0.94rem; max-width: 62ch; }
+
+.controls { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; }
+.ctl { display: flex; flex-direction: column; gap: 6px; }
+.ctl > span { font-family: var(--display); text-transform: uppercase; letter-spacing: 0.1em; font-size: 0.76rem; color: var(--muted); font-weight: 600; }
+.seg { display: flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; background: var(--surface); }
+.seg button { font: inherit; font-size: 0.88rem; border: 0; background: transparent; color: var(--muted); padding: 9px 14px; cursor: pointer; min-height: 42px; border-right: 1px solid var(--line); }
+.seg button:last-child { border-right: 0; }
+.seg button[aria-pressed="true"] { background: var(--b); color: #fff; font-weight: 600; }
+button:focus-visible, a:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+
+.day { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; margin-bottom: 14px; overflow: hidden; }
+.day > .head { padding: 15px 17px; border-bottom: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: baseline; }
+.day .dnum { font-family: var(--display); font-size: 1.5rem; font-weight: 700; color: var(--b); line-height: 1; }
+.day .date { font-family: var(--display); font-size: 1.22rem; font-weight: 600; text-transform: uppercase; }
+.day .facts { margin-left: auto; display: flex; flex-wrap: wrap; gap: 6px 16px; font-family: var(--mono); font-size: 0.87rem; font-variant-numeric: tabular-nums; color: var(--muted); }
+.day .facts b { color: var(--fg); font-weight: 500; }
+.day .sub { padding: 11px 17px; background: var(--surface-2); font-size: 0.9rem; display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: center; }
+.day .sub .to { font-weight: 600; }
+.badge { display: inline-block; border-radius: 4px; padding: 1px 8px; font-size: 0.78rem; font-weight: 600; font-family: var(--body); }
+.badge.push { background: var(--warn-fill); color: var(--warn); }
+.badge.tz { background: var(--b-fill); color: var(--b); }
+.badge.see { background: var(--good-fill); color: var(--good); }
+
+.scroller { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 0.89rem; }
+th, td { padding: 7px 12px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th:nth-child(2), td:nth-child(2) { text-align: left; white-space: normal; min-width: 180px; }
+thead th { font-family: var(--display); text-transform: uppercase; letter-spacing: 0.07em; font-size: 0.78rem; color: var(--muted); font-weight: 600; background: var(--surface-2); }
+tbody tr:last-child td { border-bottom: 0; }
+td.n, th.n { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+td .meta, .meta { color: var(--muted); font-size: 0.82rem; }
+tr.tp td:nth-child(2) { font-style: italic; }
+
+.navrow { padding: 12px 17px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; border-top: 1px solid var(--line); }
+.navrow a { font-family: var(--display); text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.84rem; font-weight: 600; color: var(--b); text-decoration: none; border: 1px solid var(--b); border-radius: 6px; padding: 7px 12px; min-height: 40px; display: inline-flex; align-items: center; }
+.navrow span { color: var(--muted); font-size: 0.85rem; }
+
+.note { background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--muted); border-radius: 8px; padding: 14px 16px; font-size: 0.93rem; color: var(--muted); }
+.note b { color: var(--fg); }
+.note.good { border-left-color: var(--good); background: var(--good-fill); color: var(--fg); }
+.note.warn { border-left-color: var(--warn); background: var(--warn-fill); color: var(--fg); }
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 14px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 17px; min-width: 0; }
+ul.plain { margin: 8px 0 0; padding-left: 18px; color: var(--muted); }
+ul.plain li { margin-bottom: 6px; }
+ul.plain b { color: var(--fg); font-weight: 600; }
+dl.kv { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; font-size: 0.88rem; }
+dl.kv dt { color: var(--muted); }
+dl.kv dd { margin: 0; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+footer { padding-block: 24px 40px; color: var(--muted); font-size: 0.86rem; }
+a { color: inherit; }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="eyebrow">Fri 20 Nov &ndash; Sun 29 Nov 2026 &middot; Option B locked</div>
+    <h1>Gulf to Hudson</h1>
+    <p class="lede">Out of the driveway Friday at 5pm, down the Gulf to Jacksonville, up the Atlantic coast to the Statue of Liberty, home through the Midwest by Sunday evening so the kids make school. Every stop below is a real open Supercharger site you have never charged at, ordered and timed to fit the day.</p>
+    <div class="band" id="band"></div>
+  </header>
+
+  <section>
+    <div class="sechead">
+      <h2>Dates</h2>
+      <p>Leaving Friday after school instead of Saturday morning, for the same Sunday return.</p>
+    </div>
+    <div class="controls">
+      <label class="ctl">
+        <span>Depart</span>
+        <div class="seg" id="seg-win" role="group" aria-label="Date window"></div>
+      </label>
+    </div>
+    <p class="note" id="date-note" style="margin-top:16px"></p>
+  </section>
+
+  <section>
+    <div class="sechead"><h2>Streak check</h2><p>Conservative start-to-start reading, measured between consecutive new sites across the whole trip.</p></div>
+    <p class="note good" id="streak-note"></p>
+  </section>
+
+  <section>
+    <div class="sechead"><h2>The run sheet</h2><p>Friday rolls at 17:00; every other day starts at 07:00, except the Sunday run home at 06:00. Times include charging, detours and breaks.</p></div>
+    <div id="days"></div>
+  </section>
+
+  <section id="sec-lodging">
+    <div class="sechead">
+      <h2>Where to sleep</h2>
+      <p>Real properties at each overnight point. None is booked and none was checked for price or availability on these dates &mdash; book them yourself, in the order flagged below.</p>
+    </div>
+    <div id="lodging"></div>
+    <p class="note" style="margin-top:14px" id="lodging-sources"></p>
+  </section>
+
+  <section>
+    <div class="sechead"><h2>Cost</h2></div>
+    <div class="cols">
+      <div class="card">
+        <h3>Estimate</h3>
+        <div class="scroller"><table id="cost-tbl"><thead><tr><th>Item</th><th class="n">Low</th><th class="n">High</th></tr></thead><tbody></tbody></table></div>
+      </div>
+      <div class="card">
+        <h3>Assumptions</h3>
+        <dl class="kv" id="kv-assume"></dl>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sechead"><h2>Before you go</h2></div>
+    <div class="cols">
+      <div class="card">
+        <h3>Confirm these</h3>
+        <ul class="plain">
+          <li><b>Model Y trim.</b> Long Range AWD assumed, 180 mi between stops in cold weather. RWD would need more stops.</li>
+          <li><b>Liberty Island tickets.</b> Four hours is budgeted on day 5. Ferry tickets sell out at holidays and are not booked.</li>
+          <li><b>Hotels.</b> Nine nights listed, nothing reserved. Thanksgiving week fills up, and the Friday night stop at Terrell is the one you want locked first.</li>
+          <li><b>Re-run the catalog</b> close to departure. New sites open constantly and each one is free score.</li>
+          <li><b>Recheck the contest rules page.</b> The start-versus-end timer wording was still contradictory on Nov 2.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>What this is not</h3>
+        <ul class="plain">
+          <li>Not a booking, a quote, or a Tesla-confirmed result.</li>
+          <li>Not an EV energy model. Road distance is real; range, weather and elevation are not simulated. Check legs in the Tesla planner or ABRP.</li>
+          <li>Not live availability. Stall counts come from the catalog, not a live feed.</li>
+          <li>Sites operated by other companies on Tesla hardware are excluded from the count. <span id="tp-note"></span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <footer><p>Built <span id="gen"></span> from the supercharge.info catalog and OSRM road routing &middot; unofficial estimate.</p></footer>
+</div>
+
+<script id="itin-data" type="application/json">__ITIN_DATA__</script>
+<script>
+(function () {
+  var D = JSON.parse(document.getElementById('itin-data').textContent);
+  var state = { win: 'nov20_29' };
+  var W = function () { return D.windows[state.win]; };
+
+  var f0 = function (n) { return Math.round(n).toLocaleString('en-US'); };
+  var money = function (n) { return '$' + Math.round(n).toLocaleString('en-US'); };
+  var esc = function (s) { return String(s).replace(/[&<>"]/g, function (c) {
+    return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]; }); };
+
+  function cell(k, v, sub) {
+    return '<div class="cell"><div class="k">' + k + '</div><div class="v">' + v +
+      (sub ? ' <small>' + sub + '</small>' : '') + '</div></div>';
+  }
+
+  function renderBand() {
+    var w = W();
+    var longest = Math.max.apply(null, w.days.map(function (d) { return d.dayLengthH; }));
+    document.getElementById('band').innerHTML =
+      cell('New sites', '+' + w.newSites) +
+      cell('Road miles', f0(w.routeMi)) +
+      cell('Driving', w.driveH.toFixed(0), 'h') +
+      cell('Charging', w.chargeH.toFixed(0), 'h') +
+      cell('Longest day', longest.toFixed(1), 'h') +
+      cell('Nights', String(w.hotelNights)) +
+      cell('Cost', money(w.cost.totalLow) + '-' + money(w.cost.totalHigh));
+  }
+
+  function renderDateNote() {
+    var a = D.windows.nov21_29, b = D.windows.nov20_29;
+    var diff = b.newSites - a.newSites;
+    var cost = Math.round(b.cost.totalLow - a.cost.totalLow);
+    document.getElementById('date-note').innerHTML =
+      '<b>Pulling out Friday at 5pm adds ' + diff + ' sites</b> — ' + a.newSites + ' becomes ' + b.newSites +
+      ' — for one more hotel night, about ' + money(cost) + '. You only drive ' +
+      Math.round(b.days[0].miles) + ' miles that evening, as far as Terrell just past Dallas, ' +
+      'but you collect ' + b.days[0].newSites + ' Metroplex sites on the way out and every day after ' +
+      'that gets shorter. Saturday still starts at 07:00, not 06:00, because you will not reach the hotel until ' +
+      b.days[0].arrive + '.';
+  }
+
+  function renderStreak() {
+    var s = W().streak;
+    var el = document.getElementById('streak-note');
+    el.className = 'note ' + (s.withinBuffer ? 'good' : 'warn');
+    el.innerHTML = '<b>The streak holds.</b> The longest gap between two new sites anywhere in the trip is <b>' +
+      s.maxGapH + ' hours</b>' + (s.maxGapWhere ? ', arriving at ' + esc(s.maxGapWhere) : '') +
+      '. That is inside the 24-hour rule and inside the 20-hour buffer we plan to, with ' +
+      (24 - s.maxGapH).toFixed(1) + ' hours of margin. Every gap is an overnight — the driving days themselves ' +
+      'never come close. ' +
+      '<b>The risk is not the schedule, it is a single missed session:</b> if a site is down or blocked, charge at the next one the same evening rather than waiting for morning.';
+  }
+
+  function dayHTML(d) {
+    var rows = d.stops.map(function (s) {
+      return '<tr' + (s.isThirdParty ? ' class="tp"' : '') + '>' +
+        '<td class="n">' + s.arrive + '</td>' +
+        '<td>' + esc(s.name) + '<div class="meta">' +
+          (s.stalls ? s.stalls + ' stalls' : 'stalls unknown') +
+          (s.kw ? ' &middot; ' + s.kw + ' kW' : '') +
+          (s.offRouteMi >= 1 ? ' &middot; ' + s.offRouteMi + ' mi off route' : '') +
+          (s.isThirdParty ? ' &middot; third-party operator, not counted' : '') +
+        '</div></td>' +
+        '<td class="n">' + s.dwellMin + '</td>' +
+        '<td class="n">' + s.depart + '</td></tr>';
+    }).join('');
+
+    var badges = (d.isPush ? '<span class="badge push">Push day</span>' : '') +
+      (d.zoneShiftH ? '<span class="badge tz">' + d.zoneFrom + ' &rarr; ' + d.zoneTo +
+        ', clock ' + (d.zoneShiftH > 0 ? '+' : '') + d.zoneShiftH + ' h</span>' : '') +
+      (d.mustSee && d.mustSee.length ? '<span class="badge see">' + esc(d.mustSee.join(', ')) +
+        ' &middot; ' + d.seeH + ' h</span>' : '');
+
+    var nav = d.nav.map(function (n) {
+      return '<a href="' + n.url + '" target="_blank" rel="noopener">' + esc(n.label) + '</a>';
+    }).join('') + '<span>' + d.stops.length + ' stops' +
+      (d.nav.length > 1 ? ', split across ' + d.nav.length + ' links for the waypoint limit' : '') + '</span>';
+
+    return '<div class="day">' +
+      '<div class="head">' +
+        '<span class="dnum">' + d.n + '</span>' +
+        '<span class="date">' + esc(d.date) + '</span>' +
+        '<span class="facts">' +
+          '<span><b>' + d.depart + '</b>&ndash;<b>' + d.arrive + '</b></span>' +
+          '<span><b>' + d.dayLengthH + '</b> h</span>' +
+          '<span><b>' + f0(d.miles) + '</b> mi</span>' +
+          '<span><b>' + d.driveH + '</b> h driving</span>' +
+          '<span><b>+' + d.newSites + '</b> sites</span>' +
+        '</span>' +
+      '</div>' +
+      '<div class="sub"><span class="to">' + (d.isFinalDay ? 'Finish: ' : 'Overnight: ') +
+        esc(d.overnight) + '</span>' + badges + '</div>' +
+      '<div class="scroller"><table><thead><tr><th class="n">Arrive</th><th>Supercharger</th>' +
+      '<th class="n">Min</th><th class="n">Leave</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
+      '<div class="navrow">' + nav + '</div>' +
+    '</div>';
+  }
+
+  function renderLodging() {
+    var L = D.lodging;
+    if (!L) { document.getElementById('sec-lodging').hidden = true; return; }
+    var order = { high: 0, medium: 1, low: 2 };
+    var label = { high: 'Book first', medium: 'Book early', low: 'Easy' };
+
+    document.getElementById('lodging').innerHTML = L.nights.map(function (nt) {
+      var alts = nt.alternates.map(function (a) {
+        return '<li><b>' + esc(a.name) + '</b>' + (a.where ? ' &mdash; ' + esc(a.where) : '') +
+          (a.note ? '<br><span class="meta">' + esc(a.note) + '</span>' : '') + '</li>';
+      }).join('');
+      return '<div class="day"><div class="head">' +
+          '<span class="dnum">' + nt.n + '</span>' +
+          '<span class="date">' + esc(nt.date) + ' &middot; ' + esc(nt.town) + '</span>' +
+          '<span class="facts"><span>arrive <b>' + nt.arrive + '</b></span>' +
+          '<span class="badge ' + (nt.risk === 'low' ? 'see' : nt.risk === 'medium' ? 'tz' : 'push') + '">' +
+          label[nt.risk] + '</span></span>' +
+        '</div>' +
+        '<div class="sub"><span class="to">' + esc(nt.primary.name) + '</span>' +
+          (nt.primary.where ? '<span class="meta">' + esc(nt.primary.where) + '</span>' : '') +
+          (nt.primary.note ? '<span class="meta">' + esc(nt.primary.note) + '</span>' : '') +
+        '</div>' +
+        '<div style="padding:14px 17px">' +
+          '<p style="margin-bottom:8px"><b>' + esc(nt.riskNote) + '</b></p>' +
+          '<p style="color:var(--muted)">' + esc(nt.action) + '</p>' +
+          (nt.charging ? '<p class="note" style="margin-top:10px">' + esc(nt.charging) + '</p>' : '') +
+          (alts ? '<div style="margin-top:12px"><div class="meta" style="margin-bottom:4px">Alternatives</div>' +
+            '<ul class="plain" style="margin-top:0">' + alts + '</ul></div>' : '') +
+        '</div></div>';
+    }).join('');
+
+    // Nights stay in travel order; the two that need booking first are called out above.
+    var urgent = L.nights.filter(function (n) { return n.risk === 'high'; })
+      .map(function (n) { return n.date + ' ' + n.town; });
+    document.getElementById('lodging-sources').innerHTML =
+      '<b>Book these two first:</b> ' + urgent.join(' and ') + '. ' + esc(L.method) +
+      ' Researched ' + L.researchedAt + '. Sources: ' +
+      L.sources.map(function (s) {
+        return '<a href="' + s.url + '" target="_blank" rel="noopener">' + esc(s.label) + '</a>';
+      }).join(', ') + '.';
+  }
+
+  function renderCost() {
+    var w = W(), c = w.cost, a = D.assumptions;
+    var row = function (k, lo, hi, sub) {
+      return '<tr><td style="text-align:left">' + k + (sub ? '<div class="meta">' + sub + '</div>' : '') +
+        '</td><td class="n">' + money(lo) + '</td><td class="n">' + money(hi) + '</td></tr>';
+    };
+    document.querySelector('#cost-tbl tbody').innerHTML =
+      row('Charging', c.chargingLow, c.chargingHigh, f0(w.billedKwh) + ' billed kWh at $' +
+        a.pricePerKwhLow.toFixed(2) + '-' + a.pricePerKwhHigh.toFixed(2)) +
+      row('Hotels', c.hotelLow, c.hotelHigh, w.hotelNights + ' nights, all-in') +
+      row('Food', c.foodLow, c.foodHigh, w.travelDays + ' days for three') +
+      row('Miscellaneous', c.miscLow, c.miscHigh, 'ferry tickets, parking, tolls') +
+      '<tr style="font-weight:600"><td style="text-align:left">Total with ' +
+        Math.round(a.contingency * 100) + '% contingency</td><td class="n">' + money(c.totalLow) +
+        '</td><td class="n">' + money(c.totalHigh) + '</td></tr>';
+  }
+
+  function renderAssume() {
+    var a = D.assumptions;
+    document.getElementById('kv-assume').innerHTML = [
+      ['Vehicle', '2023 Model Y LR'],
+      ['Efficiency', a.battKwhPerMi + ' kWh/mi'],
+      ['Range per hop', a.usableRangeMi + ' mi'],
+      ['Avg speed', a.avgMph + ' mph'],
+      ['Normal day', a.maxDriveH + ' h driving, ' + a.dayBudgetH + ' h total'],
+      ['Push day', a.pushDriveH + ' h driving, ' + a.pushBudgetH + ' h total'],
+      ['Per stop', a.stopOverheadMin + ' min + charge'],
+      ['Charge rate', a.avgChargeKw + ' kW average'],
+      ['Drivers', 'one'],
+    ].map(function (p) { return '<dt>' + p[0] + '</dt><dd>' + p[1] + '</dd>'; }).join('');
+  }
+
+  function buildControls() {
+    var el = document.getElementById('seg-win');
+    el.innerHTML = '';
+    [['nov20_29', 'Fri 20 start'], ['nov21_29', 'Sat 21 start']].forEach(function (p) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = p[1];
+      b.setAttribute('aria-pressed', String(p[0] === state.win));
+      b.addEventListener('click', function () { state.win = p[0]; render(); });
+      el.appendChild(b);
+    });
+  }
+
+  function render() {
+    renderBand();
+    renderStreak();
+    renderCost();
+    document.getElementById('days').innerHTML = W().days.map(dayHTML).join('');
+    buildControls();
+  }
+
+  document.getElementById('gen').textContent =
+    new Date(D.builtAt).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
+  document.getElementById('tp-note').textContent =
+    W().thirdPartyPassed + ' such sites sit on this route; counting them would add about 3.';
+  renderDateNote();
+  renderLodging();
+  renderAssume();
+  render();
+})();
+</script>

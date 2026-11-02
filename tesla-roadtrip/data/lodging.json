@@ -1,0 +1,146 @@
+{
+  "researchedAt": "2026-11-02",
+  "method": "Web search for properties at each overnight point. Property names, addresses and highway exits come from the sources listed. NOTHING here was checked for availability or price on these dates, and nothing is booked.",
+  "nights": [
+    {
+      "n": 1,
+      "date": "Fri Nov 20",
+      "town": "Terrell, TX",
+      "arrive": "22:29",
+      "risk": "low",
+      "riskNote": "Good interstate cluster at I-20 exit 501 by the Tanger Outlets. The only real issue is the hour you arrive.",
+      "action": "Book ahead and tell them you are arriving after 22:00, so the room is held.",
+      "primary": { "name": "Holiday Inn Express & Suites Terrell", "where": "300 Tanger Drive, I-20", "note": "68 rooms, indoor pool, free breakfast" },
+      "alternates": [
+        { "name": "La Quinta Inn & Suites Terrell", "where": "off I-20", "note": "indoor saltwater pool, free breakfast" },
+        { "name": "Quality Inn & Suites", "where": "I-20 exit 501", "note": "by the Tanger outlet mall" }
+      ]
+    },
+    {
+      "n": 2,
+      "date": "Sat Nov 21",
+      "town": "Hattiesburg, MS",
+      "arrive": "19:47",
+      "risk": "low",
+      "riskNote": "Large cluster where US-49 meets I-59, exits 67A and 67B. No shortage of rooms.",
+      "action": "Nothing special. Pick on price.",
+      "primary": { "name": "DoubleTree by Hilton Hattiesburg", "where": "I-59 / US-49, exit 67B", "note": "upscale, heated indoor pool" },
+      "alternates": [
+        { "name": "Holiday Inn Hattiesburg North", "where": "6553 US-49", "note": "opposite the convention center" },
+        { "name": "Candlewood Suites", "where": "exit 67B", "note": "suites, kitchenettes" },
+        { "name": "Sleep Inn & Suites", "where": "6603 US-49 N", "note": "budget end of the cluster" }
+      ]
+    },
+    {
+      "n": 3,
+      "date": "Sun Nov 22",
+      "town": "Madison, FL",
+      "arrive": "19:29",
+      "risk": "medium",
+      "riskNote": "Only three properties at I-10 exit 258, all modest. If they are full there is nothing else close.",
+      "action": "Book this one early. If it falls through, Live Oak or Lake City are further east on I-10 and much better supplied.",
+      "primary": { "name": "Best Western Plus Madison Inn", "where": "167 SE Bandit St, I-10 exit 258", "note": "58 rooms, outdoor pool, the best of the three" },
+      "alternates": [
+        { "name": "Super 8 by Wyndham Madison", "where": "6246 SR-53 S, exit 258", "note": "budget, free breakfast, no pool" },
+        { "name": "Days Inn by Wyndham Madison", "where": "6160 S SR-53, exit 258", "note": "reviews are mixed" }
+      ]
+    },
+    {
+      "n": 4,
+      "date": "Mon Nov 23",
+      "town": "Summerton, SC",
+      "arrive": "19:00",
+      "risk": "high",
+      "riskNote": "Summerton has essentially one motel. Do not plan the night here.",
+      "action": "Sleep at Manning instead, I-95 exit 119. It is 11 miles further north, so it is forward progress, and it has several properties. Santee at exit 98 has the most choice but is 10 miles backwards.",
+      "primary": { "name": "Manning, SC - exit 119", "where": "11 mi north of the planned stop", "note": "Super 8, Days Inn and others; adds 11 mi to this day and takes 11 off the next" },
+      "alternates": [
+        { "name": "Santee, SC - exit 98", "where": "10 mi south, backwards", "note": "Hampton Inn, Tru by Hilton, Econo Lodge, Super 8, Travelodge - the biggest choice on this stretch" },
+        { "name": "Days Inn by Wyndham Summerton", "where": "400 Buff Blvd, exit 108", "note": "the only option actually in Summerton" }
+      ]
+    },
+    {
+      "n": 5,
+      "date": "Tue Nov 24",
+      "town": "Stafford, VA",
+      "arrive": "18:54",
+      "risk": "low",
+      "riskNote": "Big Quantico-driven cluster at I-95 exit 143, right where the route stops.",
+      "action": "Book early anyway: this is the night before the night before Thanksgiving on the I-95 corridor.",
+      "primary": { "name": "Hampton Inn Stafford/Quantico & Conference Center", "where": "I-95 exit 143A", "note": "5 mi from Quantico" },
+      "alternates": [
+        { "name": "Holiday Inn Express Stafford-Quantico", "where": "15 Salisbury Dr, exit 143B", "note": "" },
+        { "name": "Staybridge Suites Quantico-Stafford", "where": "exit 143A", "note": "suites, kitchenettes" },
+        { "name": "Fairfield Inn & Suites Quantico Stafford", "where": "exit 143", "note": "" }
+      ]
+    },
+    {
+      "n": 6,
+      "date": "Wed Nov 25",
+      "town": "Jersey City, NJ",
+      "arrive": "18:50",
+      "risk": "high",
+      "riskNote": "The most expensive night by a wide margin, on the busiest travel day of the American year, in a city where parking is charged separately. Expect well above the $130-170 the budget assumes.",
+      "action": "Book this first, before anything else on the list. Check the overnight parking fee separately - it is usually $30-50 and is not in the room rate.",
+      "primary": { "name": "Courtyard Jersey City Newport", "where": "~1,250 ft from Newport Centre", "note": "closest mid-price option to the Supercharger and the PATH to Manhattan" },
+      "alternates": [
+        { "name": "Holiday Inn Express & Suites Holland Tunnel", "where": "0.3 mi from Newport Centre", "note": "" },
+        { "name": "The Westin Jersey City Newport", "where": "0.2 mi from Newport Centre", "note": "upscale, priciest of the three" }
+      ],
+      "charging": "The Newport Centre Supercharger (30 Mall Drive West, 19 stalls) is only 72 kW and the garage charges for parking. Arrive with enough range that you are not depending on a fast fill here."
+    },
+    {
+      "n": 7,
+      "date": "Thu Nov 26",
+      "town": "Pittsburgh, PA",
+      "arrive": "18:52",
+      "risk": "medium",
+      "riskNote": "Thanksgiving Day. Rooms are usually easy, but most restaurants are shut.",
+      "action": "Sort dinner before you arrive. Book a hotel with a restaurant, or buy food earlier in the day.",
+      "primary": { "name": "SpringHill Suites Pittsburgh SouthSide Works", "where": "SouthSide Works, by the planned charger", "note": "walkable district, though much of it will be closed on the day" },
+      "alternates": [
+        { "name": "Hyatt House Pittsburgh South Side", "where": "2795 S Water St", "note": "kitchens in the rooms, useful on a holiday" },
+        { "name": "Holiday Inn Express Pittsburgh South Side", "where": "South Side", "note": "" }
+      ]
+    },
+    {
+      "n": 8,
+      "date": "Fri Nov 27",
+      "town": "Indianapolis, IN",
+      "arrive": "18:44",
+      "risk": "low",
+      "riskNote": "Large metro, wide choice. The planned last stop is on the west side near I-465 and Rockville Road.",
+      "action": "Pick a chain near I-70 west or the airport. Nothing here needs booking far ahead.",
+      "primary": { "name": "Any I-70 west / airport chain", "where": "near I-465 exit 13", "note": "keeps the Saturday start simple" },
+      "alternates": [
+        { "name": "Downtown Indianapolis", "where": "~10 mi east", "note": "better for dinner, slightly off the line" }
+      ]
+    },
+    {
+      "n": 9,
+      "date": "Sat Nov 28",
+      "town": "Saint Robert, MO",
+      "arrive": "16:48",
+      "risk": "low",
+      "riskNote": "Fort Leonard Wood keeps a large hotel cluster here, all within a few miles of I-44.",
+      "action": "Easiest night of the trip. You also arrive before 17:00, so there is slack here if an earlier day runs long.",
+      "primary": { "name": "Hampton Inn St Robert", "where": "off I-44", "note": "" },
+      "alternates": [
+        { "name": "Comfort Inn St Robert / Fort Leonard Wood", "where": "directly off I-44", "note": "pool, free parking" },
+        { "name": "Fairfield Inn St Robert", "where": "just off I-44", "note": "hot breakfast" },
+        { "name": "Holiday Inn Express St Robert", "where": "I-44", "note": "" }
+      ]
+    }
+  ],
+  "sources": [
+    { "label": "Terrell lodging directory", "url": "https://www.discoverterrell.com/places_categories/lodging-stay/" },
+    { "label": "Madison FL hotels", "url": "https://hotelguides.com/florida/madison-fl-hotels.html" },
+    { "label": "Summerton SC hotels", "url": "https://hotelguides.com/south-carolina/summerton-sc-hotels.html" },
+    { "label": "Hattiesburg accommodations", "url": "https://www.visithburg.org/stay/accommodations/" },
+    { "label": "Stafford VA lodging", "url": "https://tourstaffordva.com/lodging-amenity/hotels-motels/" },
+    { "label": "Jersey City hotels with parking", "url": "https://hotelguides.com/new-jersey/newport-centre-mall-nj-hotels.html" },
+    { "label": "Newport Centre Supercharger", "url": "https://www.tesla.com/findus/location/supercharger/jerseycitymalldrsupercharger" },
+    { "label": "St Robert MO hotels", "url": "https://hotelguides.com/missouri/st-robert-mo-hotels.html" },
+    { "label": "Pittsburgh restaurants open Thanksgiving", "url": "https://www.pittsburghmagazine.com/which-pittsburgh-restaurants-are-open-on-thanksgiving/" }
+  ]
+}

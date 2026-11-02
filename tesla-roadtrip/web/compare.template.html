@@ -1,0 +1,616 @@
+<title>Lodi or New York</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: a full-bleed route map as the hero, then paired A/B columns that
+   stack to one column at phone width. Highway-sign condensed type for headings. */
+:root {
+  --bg: #F3F5F6;
+  --surface: #FFFFFF;
+  --surface-2: #E9EDEF;
+  --fg: #141A1D;
+  --muted: #5B666D;
+  --line: #D8DFE3;
+  --a: #B44F18;
+  --a-fill: #FBEDE4;
+  --b: #0F6B78;
+  --b-fill: #E3F0F2;
+  --warn: #9E2117;
+  --warn-fill: #FAEAE8;
+  --land: #E4E9EC;
+  --land-line: #CBD4D9;
+  --display: "Barlow Condensed", "Arial Narrow", sans-serif;
+  --body: "Barlow", system-ui, -apple-system, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0D1215;
+    --surface: #151C20;
+    --surface-2: #1E272C;
+    --fg: #E8EEF0;
+    --muted: #93A0A7;
+    --line: #27323A;
+    --a: #E68A4C;
+    --a-fill: #2A1B12;
+    --b: #45B4C2;
+    --b-fill: #0E2A2E;
+    --warn: #E37367;
+    --warn-fill: #2B1513;
+    --land: #1B2429;
+    --land-line: #2C3940;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0D1215;
+  --surface: #151C20;
+  --surface-2: #1E272C;
+  --fg: #E8EEF0;
+  --muted: #93A0A7;
+  --line: #27323A;
+  --a: #E68A4C;
+  --a-fill: #2A1B12;
+  --b: #45B4C2;
+  --b-fill: #0E2A2E;
+  --warn: #E37367;
+  --warn-fill: #2B1513;
+  --land: #1B2429;
+  --land-line: #2C3940;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--body);
+  font-size: 15px;
+  line-height: 1.55;
+  margin: 0;
+}
+.wrap {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0;
+}
+h1, h2, h3 { font-family: var(--display); font-weight: 700; letter-spacing: 0.01em; text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(2.1rem, 6vw, 3.4rem); line-height: 1.02; text-transform: uppercase; }
+h2 { font-size: clamp(1.4rem, 3.4vw, 1.9rem); text-transform: uppercase; }
+h3 { font-size: 1.12rem; }
+p { margin: 0; }
+.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.eyebrow {
+  font-family: var(--display); text-transform: uppercase; letter-spacing: 0.12em;
+  font-size: 0.82rem; font-weight: 600; color: var(--muted);
+}
+
+header.top { padding-block: 32px 20px; border-bottom: 1px solid var(--line); }
+header.top .lede { color: var(--muted); max-width: 62ch; margin-top: 10px; font-size: 1.02rem; }
+.datestrip { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 14px; font-size: 0.9rem; color: var(--muted); }
+.datestrip b { color: var(--fg); font-weight: 600; }
+
+section { padding-block: 30px; border-bottom: 1px solid var(--line); }
+section:last-of-type { border-bottom: 0; }
+.sechead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px 16px; margin-bottom: 6px; }
+.sechead p { color: var(--muted); font-size: 0.95rem; max-width: 60ch; }
+
+/* controls */
+.controls { display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-end; margin-bottom: 20px; }
+.ctl { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.ctl > span { font-family: var(--display); text-transform: uppercase; letter-spacing: 0.1em; font-size: 0.76rem; color: var(--muted); font-weight: 600; }
+.seg { display: flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; background: var(--surface); flex-wrap: wrap; }
+.seg button {
+  font: inherit; font-size: 0.88rem; border: 0; background: transparent; color: var(--muted);
+  padding: 8px 13px; cursor: pointer; min-height: 40px; border-right: 1px solid var(--line);
+}
+.seg button:last-child { border-right: 0; }
+.seg button[aria-pressed="true"] { background: var(--fg); color: var(--bg); font-weight: 600; }
+.seg.a button[aria-pressed="true"] { background: var(--a); color: #fff; }
+.seg.b button[aria-pressed="true"] { background: var(--b); color: #fff; }
+button:focus-visible, a:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+
+/* map */
+.mapbox { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.mapbox svg { display: block; width: 100%; height: auto; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 20px; padding: 12px 14px; border-top: 1px solid var(--line); font-size: 0.87rem; color: var(--muted); }
+.legend i { display: inline-block; width: 22px; height: 3px; vertical-align: middle; margin-right: 7px; border-radius: 2px; }
+.legend .dot { width: 9px; height: 9px; border-radius: 50%; }
+
+/* compare cards */
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 760px) { .pair { grid-template-columns: 1fr; } }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px; min-width: 0; }
+.card.a { border-top: 4px solid var(--a); }
+.card.b { border-top: 4px solid var(--b); }
+.card .tag { font-family: var(--display); text-transform: uppercase; letter-spacing: 0.1em; font-size: 0.78rem; font-weight: 700; }
+.card.a .tag { color: var(--a); }
+.card.b .tag { color: var(--b); }
+.card h3 { margin: 4px 0 2px; }
+.card .sub { color: var(--muted); font-size: 0.9rem; }
+.hero-num { font-family: var(--display); font-size: 3.5rem; line-height: 1; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 14px; }
+.card.a .hero-num { color: var(--a); }
+.card.b .hero-num { color: var(--b); }
+.hero-lab { font-size: 0.9rem; color: var(--muted); margin-top: 2px; }
+.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+.stat .k { font-size: 0.78rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; font-family: var(--display); font-weight: 600; }
+.stat .v { font-family: var(--mono); font-size: 1.02rem; font-variant-numeric: tabular-nums; }
+
+/* tables */
+.scroller { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
+th, td { padding: 9px 12px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+thead th {
+  font-family: var(--display); text-transform: uppercase; letter-spacing: 0.07em;
+  font-size: 0.8rem; color: var(--muted); font-weight: 600; background: var(--surface-2);
+  position: sticky; top: 0;
+}
+tbody tr:last-child td { border-bottom: 0; }
+td.n, th.n { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+tr.sel td { background: var(--surface-2); font-weight: 600; }
+tr.grpA td:first-child { border-left: 3px solid var(--a); }
+tr.grpB td:first-child { border-left: 3px solid var(--b); }
+.flag { display: inline-block; background: var(--warn-fill); color: var(--warn); border-radius: 4px; padding: 1px 7px; font-size: 0.78rem; font-weight: 600; }
+.ok { color: var(--muted); }
+
+.note { background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--muted); border-radius: 8px; padding: 14px 16px; font-size: 0.93rem; color: var(--muted); }
+.note b { color: var(--fg); }
+.note.warn { border-left-color: var(--warn); background: var(--warn-fill); color: var(--fg); }
+
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+ul.plain { margin: 8px 0 0; padding-left: 18px; color: var(--muted); }
+ul.plain li { margin-bottom: 6px; }
+ul.plain b { color: var(--fg); font-weight: 600; }
+dl.kv { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; font-size: 0.88rem; }
+dl.kv dt { color: var(--muted); }
+dl.kv dd { margin: 0; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+a { color: inherit; }
+footer { padding-block: 26px 40px; color: var(--muted); font-size: 0.87rem; }
+.statechips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.chip { font-family: var(--mono); font-size: 0.8rem; border: 1px solid var(--line); border-radius: 20px; padding: 2px 10px; background: var(--surface); }
+.seelist { margin-top: 14px; display: flex; flex-direction: column; gap: 8px; }
+.see { font-size: 0.88rem; border-left: 3px solid currentColor; padding-left: 10px; }
+.card.a .see { color: var(--a); }
+.card.b .see { color: var(--b); }
+.see b { color: var(--fg); }
+.see span { color: var(--muted); font-size: 0.83rem; }
+.seetag { font-size: 0.8rem; color: var(--muted); font-style: italic; }
+.push { display: inline-block; background: var(--surface-2); color: var(--muted); border-radius: 4px; padding: 1px 7px; font-size: 0.78rem; font-weight: 600; }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="eyebrow">Thanksgiving 2026 &middot; Supercharger run</div>
+    <h1>Lodi or New York</h1>
+    <p class="lede">Two complete road trips out of Wichita Falls, scored on how many <b>Supercharger sites you have never charged at</b> each one adds. Routes are real road distances; counts come from the open-site catalog minus your 2026 charging history, fitted to a day schedule that has to hold actual driving, charging and rest.</p>
+    <div class="datestrip">
+      <span>Depart <b id="d-depart">Fri Nov 20, 5pm</b></span>
+      <span>Home <b id="d-return">Sun Nov 29</b></span>
+      <span><b id="d-days">9</b> travel days</span>
+      <span>2023 Model Y &middot; <b>one driver</b></span>
+      <span id="d-hist"></span>
+    </div>
+  </header>
+
+  <section id="sec-history">
+    <div class="sechead">
+      <h2>Where you stand today</h2>
+      <p>From your charging export, Jan 3 to Nov 2 2026.</p>
+    </div>
+    <div class="cols" id="hist-cards"></div>
+  </section>
+
+  <section>
+    <div class="sechead">
+      <h2>The choice</h2>
+      <p>Pick a variant for each side. Everything below updates together.</p>
+    </div>
+    <div class="controls">
+      <label class="ctl">
+        <span>Dates</span>
+        <div class="seg" id="seg-win" role="group" aria-label="Date window"></div>
+      </label>
+      <label class="ctl">
+        <span>Option A route</span>
+        <div class="seg a" id="seg-a" role="group" aria-label="Option A variant"></div>
+      </label>
+      <label class="ctl">
+        <span>Option B route</span>
+        <div class="seg b" id="seg-b" role="group" aria-label="Option B variant"></div>
+      </label>
+    </div>
+    <div class="pair" id="cards"></div>
+  </section>
+
+  <section>
+    <div class="sechead">
+      <h2>Both routes on one map</h2>
+      <p>Dots are the Supercharger sites each plan actually stops at, not every site in the corridor.</p>
+    </div>
+    <div class="mapbox">
+      <svg id="map" role="img" aria-labelledby="map-title"><title id="map-title">Route map comparing Option A and Option B</title></svg>
+      <div class="legend">
+        <span><i style="background:var(--a)"></i>Option A route</span>
+        <span><i style="background:var(--b)"></i>Option B route</span>
+        <span><i class="dot" style="background:var(--a)"></i>A charging stop</span>
+        <span><i class="dot" style="background:var(--b)"></i>B charging stop</span>
+        <span><i class="dot" style="border:2px solid var(--fg);background:none;width:11px;height:11px"></i>Must-see stop</span>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sechead">
+      <h2>Every variant, scored</h2>
+      <p>Same assumptions across all eight. The selected pair is highlighted.</p>
+    </div>
+    <div class="scroller">
+      <table id="tbl-all">
+        <thead><tr>
+          <th>Route</th><th class="n">Road mi</th><th class="n">New sites</th><th class="n">Drive h</th>
+          <th class="n">New / drive h</th><th class="n">Est. cost</th><th class="n">Per site</th><th>Feasible</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <p class="note" style="margin-top:14px" id="supply-note"></p>
+  </section>
+
+  <section>
+    <div class="sechead"><h2>Day by day</h2><p>Full elapsed day, not just driving. Overnight is the nearest town on the corridor at that point.</p></div>
+    <div class="pair" id="days"></div>
+  </section>
+
+  <section>
+    <div class="sechead"><h2>What it costs</h2><p>Ranges, not quotes. Lodging assumes a paid hotel every night except the last day.</p></div>
+    <div class="pair" id="costs"></div>
+  </section>
+
+  <section>
+    <div class="sechead"><h2>Assumptions and what is still missing</h2></div>
+    <div class="cols">
+      <div class="card">
+        <h3>Vehicle and pace</h3>
+        <dl class="kv" id="kv-assume"></dl>
+        <p class="note" style="margin-top:12px;border:0;padding:0;background:none">Every one of these is a guess until you confirm the car and your real driving limit. They drive the site counts directly.</p>
+      </div>
+      <div class="card">
+        <h3>Still open</h3>
+        <ul class="plain">
+          <li><b>Model Y trim.</b> Long Range AWD assumed. If it is RWD or Performance the range and efficiency figures shift and so do the stop counts.</li>
+          <li><b>Florida target.</b> Jacksonville, Orlando and Miami are all costed &mdash; B1, B2 and B3. You said the beach matters but not much, which points at B1 or B4.</li>
+          <li><b>New York.</b> Priced as a 4-hour Liberty Island ferry and island visit. A drive-past of the skyline instead would hand roughly 10 more sites back to that day.</li>
+          <li><b>Hotel budget.</b> $130&ndash;170 a night assumed, every night.</li>
+          <li><b>More sightseeing.</b> Say the word and I will reroute around it &mdash; each stop costs its visit time out of that day's collecting.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Where the data came from</h3>
+        <dl class="kv" id="kv-src"></dl>
+        <ul class="plain" style="margin-top:10px">
+          <li>Site catalog is <b>community-maintained</b>, not an official Tesla feed. Tesla's own site list is authoritative for the contest.</li>
+          <li>Routing is real road distance from OpenStreetMap data, not straight lines. It is not an EV energy model &mdash; verify legs in the Tesla planner or ABRP.</li>
+          <li>No live pricing or stall availability is included.</li>
+        </ul>
+      </div>
+    </div>
+    <p class="note warn" style="margin-top:16px">
+      <b>This is an unofficial estimator.</b> Site counts are what the schedule can fit, not confirmed qualifying sessions. Tesla's rules page has conflicting wording on whether the streak clock runs from the previous session's start or its end, and sets no documented minimum session size &mdash; so no count here should be treated as a contest result. The streak engine is not built yet.
+    </p>
+  </section>
+
+  <footer>
+    <p>Generated <span id="gen"></span> &middot; unofficial planning estimate &middot; no bookings made.</p>
+  </footer>
+</div>
+
+<script id="trip-data" type="application/json">__TRIP_DATA__</script>
+<script>
+(function () {
+  var DATA = JSON.parse(document.getElementById('trip-data').textContent);
+  var state = { win: 'nov20_29', a: 'A4', b: 'B1' };
+
+  var byId = {};
+  DATA.scenarios.forEach(function (s) { byId[s.id] = s; });
+  var A = DATA.scenarios.filter(function (s) { return s.group === 'A'; });
+  var B = DATA.scenarios.filter(function (s) { return s.group === 'B'; });
+
+  var f0 = function (n) { return Math.round(n).toLocaleString('en-US'); };
+  var f1 = function (n) { return n.toFixed(1); };
+  var money = function (n) { return '$' + Math.round(n).toLocaleString('en-US'); };
+  var esc = function (s) { return String(s).replace(/[&<>"]/g, function (c) {
+    return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]; }); };
+
+  function w(sc) { return sc.windows[state.win]; }
+
+  // ---- controls ----
+  function seg(el, items, current, onPick) {
+    el.innerHTML = '';
+    items.forEach(function (it) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = it.label;
+      b.title = it.title || it.label;
+      b.setAttribute('aria-pressed', String(it.value === current));
+      b.addEventListener('click', function () { onPick(it.value); });
+      el.appendChild(b);
+    });
+  }
+
+  function buildControls() {
+    seg(document.getElementById('seg-win'), DATA.windows.map(function (x) {
+      return { value: x.key, label: x.short || x.key, title: x.label };
+    }), state.win, function (v) { state.win = v; render(); });
+
+    seg(document.getElementById('seg-a'), A.map(function (s) {
+      return { value: s.id, label: s.id, title: s.label };
+    }), state.a, function (v) { state.a = v; render(); });
+
+    seg(document.getElementById('seg-b'), B.map(function (s) {
+      return { value: s.id, label: s.id, title: s.label };
+    }), state.b, function (v) { state.b = v; render(); });
+  }
+
+  // ---- map ----
+  function drawMap() {
+    var svg = document.getElementById('map');
+    var e = DATA.extent, pad = 1.2;
+    var vb = [e.minX - pad, e.minY - pad, (e.maxX - e.minX) + pad * 2, (e.maxY - e.minY) + pad * 2];
+    svg.setAttribute('viewBox', vb.join(' '));
+    svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+
+    var sa = byId[state.a], sb = byId[state.b];
+    var parts = ['<title id="map-title">Route map comparing ' + esc(sa.label) + ' and ' + esc(sb.label) + '</title>'];
+
+    parts.push('<g fill="var(--land)" stroke="var(--land-line)" stroke-width="0.06" stroke-linejoin="round">');
+    DATA.basemap.forEach(function (d) { parts.push('<path d="' + d + '"/>'); });
+    parts.push('</g>');
+
+    parts.push('<path d="' + sb.path + '" fill="none" stroke="var(--b)" stroke-width="0.34" stroke-linecap="round" stroke-linejoin="round" opacity="0.92"/>');
+    parts.push('<path d="' + sa.path + '" fill="none" stroke="var(--a)" stroke-width="0.34" stroke-linecap="round" stroke-linejoin="round" opacity="0.92"/>');
+
+    w(sb).sites.forEach(function (s) {
+      parts.push('<circle cx="' + s.xy[0] + '" cy="' + s.xy[1] + '" r="0.19" fill="var(--b)" stroke="var(--surface)" stroke-width="0.05"><title>' + esc(s.n) + '</title></circle>');
+    });
+    w(sa).sites.forEach(function (s) {
+      parts.push('<circle cx="' + s.xy[0] + '" cy="' + s.xy[1] + '" r="0.19" fill="var(--a)" stroke="var(--surface)" stroke-width="0.05"><title>' + esc(s.n) + '</title></circle>');
+    });
+
+    // Must-see stops: a ring, so they read differently from a charging dot.
+    [[sb, 'var(--b)'], [sa, 'var(--a)']].forEach(function (pair) {
+      (pair[0].mustSee || []).forEach(function (m) {
+        parts.push('<circle cx="' + m.xy[0] + '" cy="' + m.xy[1] + '" r="0.46" fill="none" stroke="' +
+          pair[1] + '" stroke-width="0.17"><title>' + esc(m.name) + '</title></circle>');
+        parts.push('<circle cx="' + m.xy[0] + '" cy="' + m.xy[1] + '" r="0.14" fill="var(--fg)"/>');
+      });
+    });
+
+    svg.innerHTML = parts.join('');
+  }
+
+  // ---- headline cards ----
+  function cardHTML(sc, cls, tag) {
+    var d = w(sc);
+    var base = DATA.history ? DATA.history.qualifying.uniqueSites2026 : 0;
+    var warn = d.infeasibleDays > 0
+      ? '<p class="note warn" style="margin-top:14px">' + d.infeasibleDays + ' of ' + d.travelDays +
+        ' days do not fit an 11-hour day at this mileage. Treat this variant as not workable without changing the dates or the driving cap.</p>'
+      : '';
+    var chips = Object.keys(d.stateCounts).sort(function (x, y) { return d.stateCounts[y] - d.stateCounts[x]; })
+      .map(function (k) { return '<span class="chip">' + k + ' ' + d.stateCounts[k] + '</span>'; }).join('');
+    return '<div class="card ' + cls + '">' +
+      '<div class="tag">Option ' + tag + ' &middot; ' + sc.id + '</div>' +
+      '<h3>' + esc(sc.label) + '</h3>' +
+      '<p class="sub">' + esc(sc.note) + '</p>' +
+      '<div class="hero-num">+' + d.sitesCollected + '</div>' +
+      '<div class="hero-lab">new Supercharger sites, taking your 2026 total from ' +
+        base + ' to <b>' + (base + d.sitesCollected) + '</b></div>' +
+      (sc.mustSee && sc.mustSee.length
+        ? '<div class="seelist">' + sc.mustSee.map(function (m) {
+            return '<div class="see"><b>' + esc(m.name) + '</b> &middot; ' + m.hours +
+              ' h<br><span>' + esc(m.charger) + '</span></div>';
+          }).join('') + '</div>'
+        : '') +
+      '<div class="stats">' +
+        stat('Road miles', f0(sc.routeMi)) +
+        stat('Plus detours', f0(d.totalMiWithDetours)) +
+        stat('Driving', f1(d.driveH) + ' h') +
+        stat('Charging', f1(d.chargeH) + ' h') +
+        stat('Longest day', f1(Math.max.apply(null, d.days.map(function (x) { return x.totalDayH; }))) + ' h') +
+        stat('Hotel nights', String(d.hotelNights)) +
+        stat('Est. cost', money(d.cost.totalLow) + '-' + money(d.cost.totalHigh)) +
+        stat('Per site', money(d.costPerSiteLow) + '-' + money(d.costPerSiteHigh)) +
+      '</div>' +
+      '<div class="statechips">' + chips + '</div>' + warn +
+    '</div>';
+  }
+  function stat(k, v) { return '<div class="stat"><div class="k">' + k + '</div><div class="v">' + v + '</div></div>'; }
+
+  // ---- all-variant table ----
+  function renderTable() {
+    var tb = document.querySelector('#tbl-all tbody');
+    tb.innerHTML = DATA.scenarios.map(function (sc) {
+      var d = w(sc);
+      var sel = (sc.id === state.a || sc.id === state.b);
+      var feas = d.infeasibleDays > 0
+        ? '<span class="flag">' + d.infeasibleDays + ' day' + (d.infeasibleDays > 1 ? 's' : '') + ' over</span>'
+        : '<span class="ok">fits</span>';
+      return '<tr class="' + (sel ? 'sel ' : '') + 'grp' + sc.group + '">' +
+        '<td>' + sc.id + ' &middot; ' + esc(sc.label) + '</td>' +
+        '<td class="n">' + f0(sc.routeMi) + '</td>' +
+        '<td class="n">' + d.sitesCollected + '</td>' +
+        '<td class="n">' + f1(d.driveH) + '</td>' +
+        '<td class="n">' + d.sitesPerDriveHour.toFixed(2) + '</td>' +
+        '<td class="n">' + money(d.cost.totalLow) + '-' + money(d.cost.totalHigh) + '</td>' +
+        '<td class="n">' + money(d.costPerSiteLow) + '</td>' +
+        '<td>' + feas + '</td></tr>';
+    }).join('');
+  }
+
+  // ---- day tables ----
+  function daysHTML(sc, cls, tag) {
+    var d = w(sc);
+    var rows = d.days.map(function (x) {
+      var flags = x.flags.length ? '<span class="flag">' + x.flags.join(', ') + '</span>'
+        : (x.isPush ? '<span class="push">push day</span>' : '<span class="ok">ok</span>');
+      var on = x.overnight ? esc(x.overnight.label) : '&mdash;';
+      if (x.mustSee && x.mustSee.length) {
+        on += '<br><span class="seetag">' + x.mustSee.map(esc).join(', ') + ' &middot; ' + f1(x.seeH) + ' h</span>';
+      }
+      return '<tr><td class="n">' + x.n + '</td><td>' + on + '</td>' +
+        '<td class="n">' + f0(x.miles) + '</td><td class="n">' + f1(x.driveH) + '</td>' +
+        '<td class="n">' + x.newSites + (x.repeatStops ? ' <span class="ok">+' + x.repeatStops + 'r</span>' : '') +
+        '</td><td class="n">' + f1(x.totalDayH) + '</td><td>' + flags + '</td></tr>';
+    }).join('');
+    return '<div class="card ' + cls + '"><div class="tag">Option ' + tag + ' &middot; ' + sc.id + '</div>' +
+      '<h3 style="margin-bottom:10px">' + esc(sc.label) + '</h3>' +
+      '<div class="scroller"><table><thead><tr><th class="n">Day</th><th>Overnight near</th>' +
+      '<th class="n">Mi</th><th class="n">Drive h</th><th class="n">New</th><th class="n">Day h</th><th>Status</th>' +
+      '</tr></thead><tbody>' + rows + '</tbody></table></div>' +
+      '<p class="sub" style="margin-top:10px">“+Nr” is a stop at a site you have already used, taken because the leg needs the charge. It adds no new site.</p></div>';
+  }
+
+  // ---- cost tables ----
+  function costHTML(sc, cls, tag) {
+    var d = w(sc), c = d.cost;
+    var row = function (k, lo, hi, sub) {
+      return '<tr><td>' + k + (sub ? '<br><span style="color:var(--muted);font-size:0.82rem">' + sub + '</span>' : '') +
+        '</td><td class="n">' + money(lo) + '</td><td class="n">' + money(hi) + '</td></tr>';
+    };
+    return '<div class="card ' + cls + '"><div class="tag">Option ' + tag + ' &middot; ' + sc.id + '</div>' +
+      '<h3 style="margin-bottom:10px">' + esc(sc.label) + '</h3>' +
+      '<div class="scroller"><table><thead><tr><th>Item</th><th class="n">Low</th><th class="n">High</th></tr></thead><tbody>' +
+      row('Charging', c.chargingLow, c.chargingHigh, f0(d.billedKwh) + ' billed kWh at $' +
+          DATA.assumptions.pricePerKwhLow.toFixed(2) + '-' + DATA.assumptions.pricePerKwhHigh.toFixed(2)) +
+      row('Hotels', c.hotelLow, c.hotelHigh, d.hotelNights + ' nights, all-in') +
+      row('Food', c.foodLow, c.foodHigh, d.travelDays + ' days for three') +
+      row('Miscellaneous', c.miscLow, c.miscHigh, 'tolls, parking, attractions') +
+      '<tr style="font-weight:600"><td>Total with ' + Math.round(DATA.assumptions.contingency * 100) +
+      '% contingency</td><td class="n">' + money(c.totalLow) + '</td><td class="n">' + money(c.totalHigh) + '</td></tr>' +
+      '</tbody></table></div></div>';
+  }
+
+  // ---- static panels ----
+  function renderHistory() {
+    var h = DATA.history;
+    var el = document.getElementById('hist-cards');
+    if (!h) { document.getElementById('sec-history').hidden = true; return; }
+    var q = h.qualifying, rs = h.recordStreak;
+    var rq = h.reviewQueue;
+    var reviewItems = []
+      .concat(rq.fuzzy.map(function (f) {
+        return '<b>' + esc(f.from) + '</b> matched to <b>' + esc(f.to) + '</b> at ' +
+          Math.round(f.confidence * 100) + '% confidence (' + f.sessions + ' sessions). Confirm it is the same site.';
+      }))
+      .concat(rq.thirdPartyNetwork.map(function (t) {
+        return '<b>' + esc(t.site) + '</b> is listed under the <b>' + esc(t.network) +
+          '</b> network, not Tesla (' + t.sessions + ' sessions). It is excluded from your Supercharger count - tell me if Tesla billed it as a Supercharger.';
+      }))
+      .concat(rq.noCatalogMatch.map(function (u) {
+        return '<b>' + esc(u.name) + '</b> has no Supercharger match (' + u.sessions +
+          ' sessions). This looks like a hotel Destination Charger, which does not count.';
+      }));
+
+    el.innerHTML =
+      '<div class="card">' +
+        '<div class="tag">2026 so far</div>' +
+        '<div class="hero-num" style="color:var(--fg)">' + q.uniqueSites2026 + '</div>' +
+        '<div class="hero-lab">unique Supercharger sites this year</div>' +
+        '<div class="stats">' +
+          stat('Sessions', f0(q.sessions)) +
+          stat('Energy', f0(q.totalKwh) + ' kWh') +
+          stat('Spent', money(q.totalSpend)) +
+          stat('States', String(h.statesVisited.length) + ' (' + h.statesVisited.join(', ') + ')') +
+        '</div>' +
+        '<p class="sub" style="margin-top:12px">Every site you have charged at in 2026 is in Texas, so essentially the whole of both routes counts as new.</p>' +
+      '</div>' +
+      '<div class="card">' +
+        '<div class="tag">Record streak</div>' +
+        '<div class="hero-num" style="color:var(--fg)">' + rs.sites + '</div>' +
+        '<div class="hero-lab">sites in one run, over ' + rs.durationH + ' h</div>' +
+        '<div class="stats">' +
+          stat('From', rs.firstSite) +
+          stat('To', rs.lastSite) +
+        '</div>' +
+        '<p class="sub" style="margin-top:12px">Conservative start-to-start reading, 24 h window. Your export has no session end times, so the looser end-to-end reading cannot be checked.</p>' +
+      '</div>' +
+      '<div class="card">' +
+        '<div class="tag">Needs your eyes</div>' +
+        '<p class="sub" style="margin-top:6px">' + h.sessionCount + ' sessions imported, ' +
+          h.duplicatesSkipped + ' duplicate rows skipped. ' +
+          (reviewItems.length ? reviewItems.length + ' entries could not be settled automatically:' : 'Everything matched cleanly.') + '</p>' +
+        (reviewItems.length ? '<ul class="plain">' + reviewItems.map(function (t) { return '<li>' + t + '</li>'; }).join('') + '</ul>' : '') +
+        '<p class="sub" style="margin-top:10px">Coverage is 2026 only, so "never visited" means never in 2026.</p>' +
+      '</div>';
+  }
+
+  function renderAssumptions() {
+    var o = DATA.assumptions;
+    document.getElementById('kv-assume').innerHTML = [
+      ['Vehicle', '2023 Model Y LR (assumed)'],
+      ['Efficiency', o.battKwhPerMi + ' kWh/mi at the wheels'],
+      ['Charging loss', '&times;' + o.chargeMultiplier + ' to billed kWh'],
+      ['Usable range', o.usableRangeMi + ' mi between stops'],
+      ['Average speed', o.avgMph + ' mph moving'],
+      ['Max driving', o.maxDriveH + ' h/day, ' + o.pushDriveH + ' h on push days'],
+      ['Day budget', o.dayBudgetH + ' h, ' + o.pushBudgetH + ' h on push days'],
+      ['Per-stop overhead', o.stopOverheadMin + ' min + detour'],
+      ['Corridor width', o.corridorMi + ' mi from route'],
+      ['Min stop spacing', o.minSpacingMi + ' mi'],
+      ['Avg charge rate', o.avgChargeKw + ' kW']
+    ].map(function (p) { return '<dt>' + p[0] + '</dt><dd>' + p[1] + '</dd>'; }).join('');
+
+    var c = DATA.catalog;
+    document.getElementById('kv-src').innerHTML = [
+      ['Catalog', 'supercharge.info'],
+      ['Records', f0(c.recordCount) + ' global'],
+      ['Retrieved', new Date(c.retrievedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })],
+      ['Filter', 'US, status OPEN'],
+      ['Routing', DATA.provider.name],
+      ['Profile', DATA.provider.profile],
+      ['Base data', DATA.provider.data]
+    ].map(function (p) { return '<dt>' + p[0] + '</dt><dd>' + p[1] + '</dd>'; }).join('');
+  }
+
+  function renderSupplyNote() {
+    var sa = byId[state.a], sb = byId[state.b];
+    var da = w(sa), db = w(sb);
+    var txt = '<b>Why more miles does not mean more sites.</b> ' +
+      esc(sa.id) + ' passes ' + sa.poolAll + ' open sites within ' + DATA.assumptions.corridorMi +
+      ' miles of its route and stops at ' + da.sitesCollected + ' new ones. ' +
+      esc(sb.id) + ' passes ' + sb.poolAll + ' and stops at ' + db.sitesCollected + '. ' +
+      'The two run into different walls: <b>Option A runs out of chargers</b> &mdash; on the desert days it already takes nearly every new site on the road &mdash; while ' +
+      '<b>Option B runs out of hours</b>, leaving most of its corridor untouched. ' +
+      'That is why the extra day helps Option B far more than Option A, and why adding miles to Option A buys almost nothing.';
+    document.getElementById('supply-note').innerHTML = txt;
+  }
+
+  function render() {
+    var sa = byId[state.a], sb = byId[state.b];
+    document.getElementById('cards').innerHTML = cardHTML(sa, 'a', 'A') + cardHTML(sb, 'b', 'B');
+    document.getElementById('days').innerHTML = daysHTML(sa, 'a', 'A') + daysHTML(sb, 'b', 'B');
+    document.getElementById('costs').innerHTML = costHTML(sa, 'a', 'A') + costHTML(sb, 'b', 'B');
+    document.getElementById('d-days').textContent = String(w(sa).travelDays);
+    var win = DATA.windows.filter(function (x) { return x.key === state.win; })[0];
+    document.getElementById('d-return').textContent = 'Sun Nov 29';
+    document.getElementById('d-depart').textContent = state.win === 'nov20_29' ? 'Fri Nov 20, 5pm' : 'Sat Nov 21';
+    renderTable();
+    renderSupplyNote();
+    drawMap();
+    buildControls();
+  }
+
+  document.getElementById('gen').textContent =
+    new Date(DATA.generatedAt).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
+  document.getElementById('d-hist').innerHTML = DATA.history
+    ? '<b>' + DATA.visitedCount + '</b> sites already charged at, not counted as new'
+    : 'Charging history not yet imported';
+
+  renderHistory();
+  renderAssumptions();
+  render();
+})();
+</script>

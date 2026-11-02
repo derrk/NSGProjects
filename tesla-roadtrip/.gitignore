@@ -1,0 +1,21 @@
+# This lives in a PUBLIC repository. Nothing personal goes in.
+
+# Charging history and anything derived from it: VIN, session times, site
+# locations, invoice numbers, amounts paid.
+data/untrusted/
+data/visited.json
+results/
+
+# Built pages embed the history and the visited set, so they stay local too.
+# Regenerate with build-page.js / build-itinerary-page.js / build-map.js.
+web/compare.html
+web/itinerary.html
+web/map.html
+
+# Downloaded third-party data and routing responses: large and reproducible.
+# See the README for how to fetch them again.
+data/allSites.json
+data/allSites.meta.json
+data/route-cache/
+
+node_modules/
