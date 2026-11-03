@@ -98,6 +98,25 @@ Storage access is wrapped in try/catch: on an origin where it is blocked (a
 Verified end to end on a real HTTP origin: mark → counts update and persist →
 reload restores → unmark reverts.
 
+## Sweeping dense clusters
+
+The Lodi plan is built around sweep days: a whole day inside one metro rather than
+grazing a corridor. `src/clusters.js` finds the groups, `src/sweep.js` models a day
+in one, and `src/plan-lodi.js` mixes sweep days with drive days.
+
+The limit in a cluster is NOT time. Sites sit a few miles apart, so you burn almost
+nothing between them and the pack fills up; once full you cannot take a real charge.
+The cap is roughly:
+
+    sessions <= (battery headroom + energy burned driving) / minimum session size
+
+So `minSessionKwh` is the most load-bearing assumption in the project and Tesla has
+published no minimum. At 3 kWh the Bay Area yields ~30 sites a day; at 5 kWh, ~20.
+
+Because of this the sweep router is energy-aware: when the pack is filling it picks a
+deliberately longer next hop to burn charge, rather than the nearest site. That is
+worth about six sites a day over plain nearest-neighbour.
+
 ## Known limitations
 
 - **History covers 2026 only**, so "never visited" means never in 2026. Earlier visits

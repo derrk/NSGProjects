@@ -1,0 +1,256 @@
+<title>The Lodi Run</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: summary band, then one card per day. Sweep days are green and dense;
+   driving days are clay and sparse. That contrast is the whole plan in one glance. */
+:root {
+  --bg: #F3F5F6; --surface: #FFFFFF; --surface-2: #E9EDEF;
+  --fg: #141A1D; --muted: #5B666D; --line: #D8DFE3;
+  --drive: #B44F18; --sweep: #1F6B3C; --sweep-fill: #E4F1E8;
+  --warn: #9E2117; --warn-fill: #FAEAE8;
+  --display: "Barlow Condensed", "Arial Narrow", sans-serif;
+  --body: "Barlow", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0D1215; --surface: #151C20; --surface-2: #1E272C;
+    --fg: #E8EEF0; --muted: #93A0A7; --line: #27323A;
+    --drive: #E68A4C; --sweep: #67C48C; --sweep-fill: #112A1B;
+    --warn: #E37367; --warn-fill: #2B1513; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0D1215; --surface: #151C20; --surface-2: #1E272C;
+  --fg: #E8EEF0; --muted: #93A0A7; --line: #27323A;
+  --drive: #E68A4C; --sweep: #67C48C; --sweep-fill: #112A1B;
+  --warn: #E37367; --warn-fill: #2B1513; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 15px; line-height: 1.55; margin: 0; }
+.wrap { max-width: 1000px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+h1, h2, h3 { font-family: var(--display); font-weight: 700; margin: 0; text-wrap: balance; }
+h1 { font-size: clamp(2.1rem, 6vw, 3.3rem); line-height: 1.02; text-transform: uppercase; }
+h2 { font-size: clamp(1.3rem, 3.2vw, 1.75rem); text-transform: uppercase; }
+h3 { font-size: 1.05rem; }
+p { margin: 0; }
+.eyebrow { font-family: var(--display); text-transform: uppercase; letter-spacing: .12em; font-size: .82rem; font-weight: 600; color: var(--muted); }
+header.top { padding-block: 32px 22px; border-bottom: 1px solid var(--line); }
+header.top .lede { color: var(--muted); max-width: 64ch; margin-top: 10px; }
+.band { display: grid; grid-template-columns: repeat(auto-fit, minmax(125px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; margin-top: 20px; }
+.band .cell { background: var(--surface); padding: 13px 15px; }
+.band .k { font-family: var(--display); text-transform: uppercase; letter-spacing: .08em; font-size: .75rem; color: var(--muted); font-weight: 600; }
+.band .v { font-family: var(--mono); font-size: 1.2rem; font-variant-numeric: tabular-nums; margin-top: 2px; }
+.band .v small { font-size: .78rem; color: var(--muted); font-family: var(--body); }
+section { padding-block: 26px; border-bottom: 1px solid var(--line); }
+section:last-of-type { border-bottom: 0; }
+.sechead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px 16px; margin-bottom: 14px; }
+.sechead p { color: var(--muted); font-size: .94rem; max-width: 62ch; }
+.day { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; margin-bottom: 14px; overflow: hidden; }
+.day.sweep { border-color: var(--sweep); }
+.day > .head { padding: 15px 17px; border-bottom: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: baseline; }
+.day.sweep > .head { background: var(--sweep-fill); }
+.day .dnum { font-family: var(--display); font-size: 1.5rem; font-weight: 700; line-height: 1; color: var(--drive); }
+.day.sweep .dnum { color: var(--sweep); }
+.day .date { font-family: var(--display); font-size: 1.2rem; font-weight: 600; text-transform: uppercase; }
+.day .facts { margin-left: auto; display: flex; flex-wrap: wrap; gap: 6px 16px; font-family: var(--mono); font-size: .86rem; font-variant-numeric: tabular-nums; color: var(--muted); }
+.day .facts b { color: var(--fg); font-weight: 500; }
+.day .sub { padding: 11px 17px; background: var(--surface-2); font-size: .9rem; display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: center; }
+.day.sweep .sub { background: transparent; border-bottom: 1px solid var(--line); }
+.badge { display: inline-block; border-radius: 4px; padding: 1px 8px; font-size: .78rem; font-weight: 600; }
+.badge.long { background: var(--warn-fill); color: var(--warn); }
+.badge.tz { background: var(--surface-2); color: var(--muted); }
+.badge.see { background: var(--sweep-fill); color: var(--sweep); }
+.scroller { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: .88rem; }
+th, td { padding: 6px 12px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th:nth-child(2), td:nth-child(2) { text-align: left; white-space: normal; min-width: 170px; }
+thead th { font-family: var(--display); text-transform: uppercase; letter-spacing: .07em; font-size: .76rem; color: var(--muted); font-weight: 600; background: var(--surface-2); }
+tbody tr:last-child td { border-bottom: 0; }
+td.n, th.n { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.meta { color: var(--muted); font-size: .8rem; }
+.navrow { padding: 12px 17px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; border-top: 1px solid var(--line); }
+.navrow a { font-family: var(--display); text-transform: uppercase; letter-spacing: .06em; font-size: .83rem; font-weight: 600; color: var(--drive); text-decoration: none; border: 1px solid currentColor; border-radius: 6px; padding: 7px 12px; min-height: 40px; display: inline-flex; align-items: center; }
+.day.sweep .navrow a { color: var(--sweep); }
+.navrow span { color: var(--muted); font-size: .84rem; }
+.note { background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--muted); border-radius: 8px; padding: 14px 16px; font-size: .93rem; color: var(--muted); }
+.note b { color: var(--fg); }
+.note.good { border-left-color: var(--sweep); background: var(--sweep-fill); color: var(--fg); }
+.note.warn { border-left-color: var(--warn); background: var(--warn-fill); color: var(--fg); }
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 14px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; min-width: 0; }
+ul.plain { margin: 8px 0 0; padding-left: 18px; color: var(--muted); }
+ul.plain li { margin-bottom: 6px; } ul.plain b { color: var(--fg); font-weight: 600; }
+a { color: inherit; }
+footer { padding-block: 24px 40px; color: var(--muted); font-size: .85rem; }
+.toggle { font: inherit; font-size: .84rem; background: var(--surface-2); color: var(--fg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 11px; cursor: pointer; min-height: 38px; }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="eyebrow">Fri 20 Nov &ndash; Sun 29 Nov 2026 &middot; Lodi, with the Grand Canyon kept</div>
+    <h1>The Lodi Run</h1>
+    <p class="lede">Out after school Friday, across to see your mother in Lodi, two full days working the Bay Area and Los Angeles for everything they have, home Sunday evening. Every stop is a Supercharger you have never charged at.</p>
+    <div class="band" id="band"></div>
+  </header>
+
+  <section>
+    <div class="sechead"><h2>Streak check</h2></div>
+    <p class="note good" id="streak"></p>
+  </section>
+
+  <section>
+    <div class="sechead">
+      <h2>The run sheet</h2>
+      <p>Driving days in clay, sweep days in green. Sweep stops are short by design &mdash; a few kWh each, then on to the next.</p>
+      <button class="toggle" id="tog" type="button">Show every stop</button>
+    </div>
+    <div id="days"></div>
+  </section>
+
+  <section>
+    <div class="sechead"><h2>Where to sleep</h2><p>Nothing booked, nothing price-checked. Two of these are two-night stays, which saves you repacking.</p></div>
+    <div id="lodging"></div>
+    <p class="note" style="margin-top:14px" id="lodging-src"></p>
+  </section>
+
+  <section>
+    <div class="sechead"><h2>What could still move this</h2></div>
+    <div class="cols">
+      <div class="card">
+        <h3>The soft number</h3>
+        <p class="meta" style="margin-top:6px">Sweep days assume a 3 kWh top-up counts as a qualifying session. Tesla has published no minimum. At 5 kWh the two sweep days would drop from 63 sites to roughly 40, and the trip total from 107 to about 84.</p>
+        <p class="note warn" style="margin-top:10px">If Tesla clarifies this before you go, tell me and I will rerun the whole plan against the real number.</p>
+      </div>
+      <div class="card">
+        <h3>Before you leave</h3>
+        <ul class="plain">
+          <li><b>Re-pull the catalog.</b> New sites open constantly and each is free score.</li>
+          <li><b>Recheck the contest rules.</b> The start-versus-end timer wording was still contradictory on 2 November.</li>
+          <li><b>Arrive in the Bay low.</b> Monday night, roll in with a near-empty pack. Tuesday's whole yield depends on having room to keep charging.</li>
+          <li><b>I-40 in late November</b> crosses Flagstaff at 7,000 ft. Check the forecast; the southern return is your bail-out.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <footer><p>Built <span id="gen"></span> &middot; unofficial estimate &middot; nothing booked &middot; Tesla decides what counts.</p></footer>
+</div>
+
+<script id="run-data" type="application/json">__RUN_DATA__</script>
+<script>
+(function () {
+  var D = JSON.parse(document.getElementById('run-data').textContent);
+  var showAll = false;
+  var f0 = function (n) { return Math.round(n).toLocaleString('en-US'); };
+  var money = function (n) { return '$' + Math.round(n).toLocaleString('en-US'); };
+  var esc = function (s) { return String(s).replace(/[&<>"]/g, function (c) {
+    return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]; }); };
+
+  function cell(k, v, sub) {
+    return '<div class="cell"><div class="k">' + k + '</div><div class="v">' + v +
+      (sub ? ' <small>' + sub + '</small>' : '') + '</div></div>';
+  }
+  var longest = Math.max.apply(null, D.days.map(function (d) { return d.dayLengthH; }));
+  document.getElementById('band').innerHTML =
+    cell('New sites', '+' + D.newSites) +
+    cell('Sweep days', String(D.sweepDays)) +
+    cell('Road miles', f0(D.routeMi)) +
+    cell('With sweeps', f0(D.totalMi)) +
+    cell('Longest day', longest.toFixed(1), 'h') +
+    cell('Nights', '9') +
+    cell('Cost', money(D.cost.totalLow) + '-' + money(D.cost.totalHigh));
+
+  var s = D.streak;
+  var el = document.getElementById('streak');
+  el.className = 'note ' + (s.withinBuffer ? 'good' : 'warn');
+  el.innerHTML = '<b>The streak holds, with room.</b> The longest gap between two new sites anywhere in the trip is <b>' +
+    s.maxGapH + ' hours</b>' + (s.maxGapWhere ? ', arriving at ' + esc(s.maxGapWhere) : '') +
+    ' — inside the 24-hour rule and inside the 20-hour buffer, with ' + (24 - s.maxGapH).toFixed(1) +
+    ' hours of margin. Every gap is an overnight; the sweep days hit a new site every twenty minutes. ' +
+    'The risk is a single dead site late in the day, so if one is down, take the next one that evening rather than leaving it for morning.';
+
+  function dayHTML(d) {
+    var isSweep = d.type === 'sweep';
+    var limit = showAll ? d.stops.length : (isSweep ? 6 : d.stops.length);
+    var rows = d.stops.slice(0, limit).map(function (st) {
+      return '<tr><td class="n">' + st.arrive + '</td><td>' + esc(st.name) +
+        '<div class="meta">' + (st.stalls ? st.stalls + ' stalls' : 'stalls unknown') +
+        (st.kw ? ' &middot; ' + st.kw + ' kW' : '') +
+        (st.addKwh ? ' &middot; +' + st.addKwh + ' kWh' : '') +
+        (st.offRouteMi >= 1 ? ' &middot; ' + st.offRouteMi + ' mi off route' : '') +
+        '</div></td><td class="n">' + st.dwellMin + '</td><td class="n">' + st.depart + '</td></tr>';
+    }).join('');
+    var hidden = d.stops.length - limit;
+    if (hidden > 0) {
+      rows += '<tr><td></td><td class="meta">and ' + hidden + ' more stops this day</td><td></td><td></td></tr>';
+    }
+
+    var badges = (d.shape === 'push' || d.shape === 'pushLate' ? '<span class="badge long">Long day</span>' : '') +
+      (d.shape === 'evening' ? '<span class="badge tz">Out after school</span>' : '') +
+      (d.zoneShiftH ? '<span class="badge tz">' + d.zoneFrom + ' &rarr; ' + d.zoneTo + '</span>' : '') +
+      (d.visits && d.visits.length ? '<span class="badge see">' + esc(d.visits.join(', ')) + ' &middot; ' + d.visitH + ' h</span>' : '');
+
+    var nav = (d.nav || []).map(function (n) {
+      return '<a href="' + n.url + '" target="_blank" rel="noopener">' + esc(n.label) + '</a>';
+    }).join('') + '<span>' + d.stops.length + ' stops' +
+      ((d.nav || []).length > 1 ? ', split across ' + d.nav.length + ' links for the waypoint limit' : '') + '</span>';
+
+    return '<div class="day' + (isSweep ? ' sweep' : '') + '">' +
+      '<div class="head"><span class="dnum">' + d.n + '</span><span class="date">' + esc(d.date) + '</span>' +
+        '<span class="facts">' +
+          '<span><b>' + d.depart + '</b>&ndash;<b>' + d.arrive + '</b></span>' +
+          '<span><b>' + d.dayLengthH + '</b> h</span>' +
+          '<span><b>' + f0(d.miles) + '</b> mi</span>' +
+          '<span><b>+' + d.newSites + '</b> sites</span>' +
+        '</span></div>' +
+      '<div class="sub"><span><b>' + (isSweep ? 'Sweep ' + esc(d.metro) : 'Drive') + '</b></span>' +
+        '<span>' + (d.n === D.days.length ? 'Finish: ' : 'Overnight: ') + esc(d.overnight) + '</span>' +
+        badges + '</div>' +
+      '<div class="scroller"><table><thead><tr><th class="n">Arrive</th><th>Supercharger</th><th class="n">Min</th><th class="n">Leave</th></tr></thead><tbody>' +
+      rows + '</tbody></table></div>' +
+      '<div class="navrow">' + nav + '</div></div>';
+  }
+
+  function renderDays() {
+    document.getElementById('days').innerHTML = D.days.map(dayHTML).join('');
+    document.getElementById('tog').textContent = showAll ? 'Collapse sweep days' : 'Show every stop';
+  }
+  document.getElementById('tog').addEventListener('click', function () { showAll = !showAll; renderDays(); });
+
+  var L = D.lodging;
+  if (L) {
+    document.getElementById('lodging').innerHTML = L.nights.map(function (nt) {
+      var alts = (nt.alternates || []).map(function (a) {
+        return '<li><b>' + esc(a.name) + '</b>' + (a.where ? ' &mdash; ' + esc(a.where) : '') +
+          (a.note ? '<br><span class="meta">' + esc(a.note) + '</span>' : '') + '</li>';
+      }).join('');
+      var lab = { high: 'Book first', medium: 'Book early', low: 'Easy' }[nt.risk];
+      return '<div class="day"><div class="head"><span class="dnum">' + nt.n + '</span>' +
+        '<span class="date">' + esc(nt.date) + ' &middot; ' + esc(nt.town) + '</span>' +
+        '<span class="facts"><span>arrive <b>' + nt.arrive + '</b></span>' +
+        '<span class="badge ' + (nt.risk === 'low' ? 'see' : nt.risk === 'medium' ? 'tz' : 'long') + '">' + lab + '</span></span></div>' +
+        '<div class="sub"><b>' + esc(nt.primary.name) + '</b>' +
+          (nt.primary.where ? '<span class="meta">' + esc(nt.primary.where) + '</span>' : '') +
+          (nt.primary.note ? '<span class="meta">' + esc(nt.primary.note) + '</span>' : '') + '</div>' +
+        '<div style="padding:14px 17px"><p style="margin-bottom:8px"><b>' + esc(nt.riskNote) + '</b></p>' +
+        '<p class="meta">' + esc(nt.action) + '</p>' +
+        (nt.charging ? '<p class="note" style="margin-top:10px">' + esc(nt.charging) + '</p>' : '') +
+        (alts ? '<div style="margin-top:10px"><div class="meta">Alternatives</div><ul class="plain" style="margin-top:2px">' + alts + '</ul></div>' : '') +
+        '</div></div>';
+    }).join('');
+    var urgent = L.nights.filter(function (n) { return n.risk === 'high'; }).map(function (n) { return n.date + ' ' + n.town; });
+    document.getElementById('lodging-src').innerHTML =
+      '<b>Book these first:</b> ' + urgent.join(' and ') + ', both as two-night stays. ' + esc(L.method) +
+      ' Researched ' + L.researchedAt + '. Sources: ' +
+      L.sources.map(function (x) { return '<a href="' + x.url + '" target="_blank" rel="noopener">' + esc(x.label) + '</a>'; }).join(', ') + '.';
+  }
+
+  document.getElementById('gen').textContent =
+    new Date(D.builtAt || Date.now()).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
+  renderDays();
+})();
+</script>

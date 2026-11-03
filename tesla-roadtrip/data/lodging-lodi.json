@@ -1,0 +1,92 @@
+{
+  "researchedAt": "2026-11-03",
+  "method": "Web search for properties at each overnight point on the Lodi route. Names, addresses and exits come from the listed sources. Nothing was checked for price or availability on these dates, and nothing is booked.",
+  "nights": [
+    {
+      "n": 1, "date": "Fri Nov 20", "town": "Amarillo, TX", "arrive": "22:32", "risk": "low",
+      "riskNote": "Large I-40 hotel cluster. The only issue is the hour you roll in.",
+      "action": "Book ahead and flag the late arrival so the room is held past 22:00.",
+      "primary": { "name": "Any I-40 exit 64-72 chain", "where": "I-40 east side", "note": "Hampton, Holiday Inn Express, La Quinta all sit here" },
+      "alternates": []
+    },
+    {
+      "n": 2, "date": "Sat Nov 21", "town": "Gallup, NM", "arrive": "18:52", "risk": "low",
+      "riskNote": "Gallup is a Route 66 town where nearly every hotel sits on the old highway beside an I-40 exit.",
+      "action": "Exit 26 on the east side has the most chains and you are heading west, so it is on your way in.",
+      "primary": { "name": "Comfort Suites Gallup East", "where": "3940 E Historic Hwy 66, I-40 exit 26", "note": "" },
+      "alternates": [
+        { "name": "La Quinta Inn & Suites Gallup", "where": "exit 26", "note": "5 mi from downtown" },
+        { "name": "Holiday Inn Express / Fairfield Inn / Sleep Inn", "where": "exit 26", "note": "same cluster" },
+        { "name": "Best Western Plus Gallup Inn", "where": "exit 22", "note": "0.8 mi off Route 66" }
+      ]
+    },
+    {
+      "n": 3, "date": "Sun Nov 22", "town": "Yermo, CA", "arrive": "19:17", "risk": "medium",
+      "riskNote": "Yermo is a wide spot on I-15 with two motels. Fine if they have room, nothing nearby if they do not.",
+      "action": "Sleep in Barstow instead, 11 miles south on I-15 and still on your line. Far more choice and better rated.",
+      "primary": { "name": "Comfort Suites Barstow", "where": "I-15, Barstow", "note": "best reviewed of the Barstow cluster" },
+      "alternates": [
+        { "name": "Best Western Desert Villa Inn", "where": "Barstow, I-15", "note": "" },
+        { "name": "Travelodge by Wyndham Yermo", "where": "Yermo, off I-15", "note": "closest to the planned stop, 5 mi from Calico Ghost Town" },
+        { "name": "Oak Tree Inn Yermo", "where": "11 mi north of Barstow", "note": "" }
+      ]
+    },
+    {
+      "n": 4, "date": "Mon Nov 23", "town": "Burlingame, CA", "arrive": "20:19", "risk": "high",
+      "riskNote": "SFO peninsula: the most expensive night of the trip, and parking is charged on top of the room, typically $30-35.",
+      "action": "Book TWO nights here, Monday and Tuesday. You sweep the Bay Area on Tuesday and come back to the same bed, so there is no reason to move hotels.",
+      "primary": { "name": "Hampton Inn & Suites Burlingame Airport South", "where": "~1 mi from SFO", "note": "self-parking listed at $35/day" },
+      "alternates": [
+        { "name": "DoubleTree by Hilton SFO Burlingame", "where": "Airport Blvd", "note": "parking around $30/night" },
+        { "name": "Courtyard San Francisco Airport Burlingame", "where": "765 Airport Blvd", "note": "~3 mi from SFO, refundable rates listed" },
+        { "name": "Red Roof PLUS+ San Francisco Airport", "where": "Airport Blvd", "note": "cheaper end of the strip" }
+      ],
+      "charging": "Start Tuesday's sweep with a low battery on purpose. The whole day depends on having room in the pack to keep taking charge."
+    },
+    {
+      "n": 5, "date": "Tue Nov 24", "town": "Bay Area (same hotel)", "arrive": "18:29", "risk": "low",
+      "riskNote": "Second night of the Burlingame booking. Nothing to arrange.",
+      "action": "No move. Sweep day ends where it started.",
+      "primary": { "name": "Same as Monday", "where": "Burlingame", "note": "" },
+      "alternates": []
+    },
+    {
+      "n": 6, "date": "Wed Nov 25", "town": "Los Angeles, CA", "arrive": "16:46", "risk": "high",
+      "riskNote": "Huge choice, but it is the night before Thanksgiving and LA prices and traffic both spike.",
+      "action": "Book TWO nights, Wednesday and Thursday, somewhere central to the basin so Thursday's sweep does not start with an hour of freeway. Burbank, Glendale or the mid-city area all work.",
+      "primary": { "name": "Burbank / Glendale chain", "where": "central to the sweep area", "note": "close to the Tesla Diner leg of Thursday" },
+      "alternates": [
+        { "name": "Mid-Wilshire / Koreatown", "where": "central basin", "note": "dense, good food, more traffic" },
+        { "name": "El Segundo / LAX", "where": "south basin", "note": "cheaper, further from the north sites" }
+      ]
+    },
+    {
+      "n": 7, "date": "Thu Nov 26", "town": "Los Angeles (same hotel)", "arrive": "18:54", "risk": "medium",
+      "riskNote": "Thanksgiving Day, and the sweep runs until nearly 19:00. Most restaurants will be shut by the time you finish.",
+      "action": "Sort Thanksgiving dinner before you set off that morning. The Tesla Diner is on this day's route and is open late, which may solve it outright.",
+      "primary": { "name": "Same as Wednesday", "where": "Los Angeles", "note": "" },
+      "alternates": []
+    },
+    {
+      "n": 8, "date": "Fri Nov 27", "town": "Chandler, AZ", "arrive": "18:05", "risk": "low",
+      "riskNote": "East Phoenix metro, large chain cluster around the 101 and I-10.",
+      "action": "Nothing special. Pick on price.",
+      "primary": { "name": "Any Chandler / Tempe chain", "where": "near Loop 101 or I-10", "note": "" },
+      "alternates": []
+    },
+    {
+      "n": 9, "date": "Sat Nov 28", "town": "El Paso, TX", "arrive": "18:46", "risk": "low",
+      "riskNote": "Big I-10 city, plenty of rooms, and you are back in Central time.",
+      "action": "Easiest night. Sunday is a 578-mile run home, so get to bed early.",
+      "primary": { "name": "Any I-10 east-side chain", "where": "I-10 near Airway Blvd", "note": "sets up the Sunday run" },
+      "alternates": []
+    }
+  ],
+  "sources": [
+    { "label": "Barstow and Yermo hotels", "url": "https://www.expedia.com/Yermo-Hotels.d603204.Travel-Guide-Hotels" },
+    { "label": "Burlingame hotels and parking", "url": "https://hotelguides.com/place-maps/california/map-burlingame-ca-hotels.html" },
+    { "label": "Hampton Inn Burlingame parking", "url": "https://www.hilton.com/en/hotels/sfohshx-hampton-suites-san-francisco-burlingame-airport-south/hotel-location" },
+    { "label": "Gallup NM I-40 hotels", "url": "https://hotelguides.com/interstate-hotels/i-40-gallup-nm-hotels.html" },
+    { "label": "Gallup lodging overview", "url": "https://www.americansouthwest.net/new_mexico/hotels/gallup.html" }
+  ]
+}

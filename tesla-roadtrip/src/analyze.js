@@ -37,6 +37,8 @@ const DEFAULTS = {
   miscLow: 100,
   miscHigh: 200,
   contingency: 0.15,
+  minSessionKwh: 3,       // what counts as a real session in a metro sweep - UNCONFIRMED by Tesla
+  usableKwh: 75,          // 2023 Model Y LR usable pack
   countThirdParty: false,  // see analyzeScenario: non-Tesla-operated sites do not score by default
 };
 

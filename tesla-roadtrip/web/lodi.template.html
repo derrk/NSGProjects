@@ -1,0 +1,255 @@
+<title>Sweeping California</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: the finding first (sweeps beat corridors, and why), then the two plans
+   side by side, then the day tables. Clay for driving, green for sweep days. */
+:root {
+  --bg: #F3F5F6; --surface: #FFFFFF; --surface-2: #E9EDEF;
+  --fg: #141A1D; --muted: #5B666D; --line: #D8DFE3;
+  --drive: #B44F18; --sweep: #1F6B3C; --sweep-fill: #E4F1E8;
+  --warn: #9E2117; --warn-fill: #FAEAE8;
+  --display: "Barlow Condensed", "Arial Narrow", sans-serif;
+  --body: "Barlow", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0D1215; --surface: #151C20; --surface-2: #1E272C;
+    --fg: #E8EEF0; --muted: #93A0A7; --line: #27323A;
+    --drive: #E68A4C; --sweep: #67C48C; --sweep-fill: #112A1B;
+    --warn: #E37367; --warn-fill: #2B1513; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0D1215; --surface: #151C20; --surface-2: #1E272C;
+  --fg: #E8EEF0; --muted: #93A0A7; --line: #27323A;
+  --drive: #E68A4C; --sweep: #67C48C; --sweep-fill: #112A1B;
+  --warn: #E37367; --warn-fill: #2B1513; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 15px; line-height: 1.55; margin: 0; }
+.wrap { max-width: 1040px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+h1, h2, h3 { font-family: var(--display); font-weight: 700; margin: 0; text-wrap: balance; }
+h1 { font-size: clamp(2.1rem, 6vw, 3.3rem); line-height: 1.02; text-transform: uppercase; }
+h2 { font-size: clamp(1.3rem, 3.2vw, 1.8rem); text-transform: uppercase; }
+h3 { font-size: 1.05rem; }
+p { margin: 0; }
+.eyebrow { font-family: var(--display); text-transform: uppercase; letter-spacing: .12em; font-size: .82rem; font-weight: 600; color: var(--muted); }
+header.top { padding-block: 32px 22px; border-bottom: 1px solid var(--line); }
+header.top .lede { color: var(--muted); max-width: 64ch; margin-top: 10px; }
+section { padding-block: 26px; border-bottom: 1px solid var(--line); }
+section:last-of-type { border-bottom: 0; }
+.sechead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px 16px; margin-bottom: 14px; }
+.sechead p { color: var(--muted); font-size: .94rem; max-width: 62ch; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 760px) { .pair { grid-template-columns: 1fr; } }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px; min-width: 0; }
+.card.pick { border-top: 4px solid var(--sweep); }
+.card.alt { border-top: 4px solid var(--drive); }
+.tag { font-family: var(--display); text-transform: uppercase; letter-spacing: .1em; font-size: .78rem; font-weight: 700; }
+.card.pick .tag { color: var(--sweep); } .card.alt .tag { color: var(--drive); }
+.hero-num { font-family: var(--display); font-size: 3.4rem; line-height: 1; font-weight: 700; margin-top: 12px; font-variant-numeric: tabular-nums; }
+.card.pick .hero-num { color: var(--sweep); } .card.alt .hero-num { color: var(--drive); }
+.hero-lab { font-size: .9rem; color: var(--muted); }
+.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; margin-top: 14px; padding-top: 13px; border-top: 1px solid var(--line); }
+.stat .k { font-size: .76rem; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; font-family: var(--display); font-weight: 600; }
+.stat .v { font-family: var(--mono); font-size: 1rem; font-variant-numeric: tabular-nums; }
+.scroller { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: .89rem; }
+th, td { padding: 8px 12px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th:first-child, td:first-child, th:nth-child(2), td:nth-child(2) { text-align: left; }
+thead th { font-family: var(--display); text-transform: uppercase; letter-spacing: .07em; font-size: .78rem; color: var(--muted); font-weight: 600; background: var(--surface-2); }
+tbody tr:last-child td { border-bottom: 0; }
+td.n, th.n { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+tr.sweep td { background: var(--sweep-fill); }
+tr.sweep td:first-child { border-left: 3px solid var(--sweep); font-weight: 600; }
+.note { background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--muted); border-radius: 8px; padding: 14px 16px; font-size: .93rem; color: var(--muted); }
+.note b { color: var(--fg); }
+.note.warn { border-left-color: var(--warn); background: var(--warn-fill); color: var(--fg); }
+.note.good { border-left-color: var(--sweep); background: var(--sweep-fill); color: var(--fg); }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; background: var(--surface); }
+.seg button { font: inherit; font-size: .88rem; border: 0; background: transparent; color: var(--muted); padding: 9px 14px; cursor: pointer; min-height: 42px; border-right: 1px solid var(--line); }
+.seg button:last-child { border-right: 0; }
+.seg button[aria-pressed="true"] { background: var(--fg); color: var(--bg); font-weight: 600; }
+button:focus-visible { outline: 2px solid var(--sweep); outline-offset: 2px; }
+ul.plain { margin: 8px 0 0; padding-left: 18px; color: var(--muted); }
+ul.plain li { margin-bottom: 6px; } ul.plain b { color: var(--fg); font-weight: 600; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.chip { font-family: var(--mono); font-size: .8rem; border: 1px solid var(--line); border-radius: 20px; padding: 2px 10px; background: var(--surface); }
+footer { padding-block: 24px 40px; color: var(--muted); font-size: .86rem; }
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 14px; }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="eyebrow">Fri 20 Nov &ndash; Sun 29 Nov 2026 &middot; the kids picked Lodi</div>
+    <h1>Sweeping California</h1>
+    <p class="lede">Lodi to see your mother, and the rest of the trip built around the one thing that actually moves the Supercharger count: stopping in a dense metro and working it, instead of grazing a corridor at highway speed.</p>
+    <p class="note good" style="margin-top:16px" id="headline"></p>
+  </header>
+
+  <section>
+    <div class="sechead"><h2>Why a sweep day beats a driving day</h2></div>
+    <div class="cols">
+      <div class="card">
+        <h3>The clusters</h3>
+        <p class="hero-lab" style="margin-top:6px">Unvisited sites within reach of one day's driving, by metro.</p>
+        <div class="scroller" style="margin-top:10px"><table id="cluster-tbl">
+          <thead><tr><th>Metro</th><th class="n">Sites in range</th><th class="n">A day yields</th></tr></thead>
+          <tbody></tbody></table></div>
+      </div>
+      <div class="card">
+        <h3>What stops you is the battery, not the clock</h3>
+        <p class="hero-lab" style="margin-top:6px">In a cluster the sites are a few miles apart, so you burn almost nothing between them and the pack fills up. Once it is full you cannot take a real charge.</p>
+        <div class="scroller" style="margin-top:10px"><table id="session-tbl">
+          <thead><tr><th>If a real session is</th><th class="n">Bay Area sites in a day</th></tr></thead>
+          <tbody></tbody></table></div>
+        <p class="note warn" style="margin-top:12px"><b>This is the softest number in the whole plan.</b> Tesla has published no minimum session size. Everything here assumes 3 kWh counts. If it turns out to need 5 kWh, the sweep days lose a third of their yield; if a plug-in of any size counts, they gain.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sechead"><h2>The choice</h2><p>Same destination, same dates. The Grand Canyon is what separates them.</p></div>
+    <div class="pair" id="cards"></div>
+  </section>
+
+  <section>
+    <div class="sechead">
+      <h2>Day by day</h2>
+      <div class="seg" id="seg-opt" role="group" aria-label="Which plan"></div>
+    </div>
+    <div class="scroller"><table id="day-tbl">
+      <thead><tr><th class="n">Day</th><th>What happens</th><th class="n">Miles</th><th class="n">Driving</th><th class="n">New sites</th><th class="n">Day length</th></tr></thead>
+      <tbody></tbody></table></div>
+    <p class="note" style="margin-top:14px" id="day-note"></p>
+  </section>
+
+  <section>
+    <div class="sechead"><h2>About going further up the coast</h2></div>
+    <p class="note" id="coast-note"></p>
+  </section>
+
+  <section>
+    <div class="sechead"><h2>What this assumes</h2></div>
+    <div class="cols">
+      <div class="card"><h3>Still true from before</h3>
+        <ul class="plain">
+          <li><b>2023 Model Y Long Range</b> assumed. 75 kWh usable drives the sweep maths directly.</li>
+          <li><b>43 sites already visited in 2026</b>, all in Texas, excluded from every count here.</li>
+          <li><b>Third-party-operated sites don't score</b> &mdash; Francis Energy, Victron and similar.</li>
+          <li><b>Community catalog</b>, not an official Tesla feed. Re-run it close to departure.</li>
+        </ul>
+      </div>
+      <div class="card"><h3>New in this plan</h3>
+        <ul class="plain">
+          <li><b>Sweep days are routed energy-aware.</b> When the pack fills, the next hop is deliberately longer to burn charge. That alone is worth about six sites a day over nearest-neighbour.</li>
+          <li><b>8 minutes per stop</b> in a metro, plus the drive between. Works out around 20 minutes per site.</li>
+          <li><b>Nothing is booked</b>, and no hotels have been picked for this route yet.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <footer><p>Built <span id="gen"></span> &middot; unofficial estimate &middot; Tesla decides what counts.</p></footer>
+</div>
+
+<script id="lodi-data" type="application/json">__LODI_DATA__</script>
+<script>
+(function () {
+  var D = JSON.parse(document.getElementById('lodi-data').textContent);
+  var state = { opt: 'canyon' };
+  var f0 = function (n) { return Math.round(n).toLocaleString('en-US'); };
+  var money = function (n) { return '$' + Math.round(n).toLocaleString('en-US'); };
+  var esc = function (s) { return String(s).replace(/[&<>"]/g, function (c) {
+    return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]; }); };
+  var opt = function (id) { return D.options.filter(function (o) { return o.id === id; })[0]; };
+
+  var A = opt('canyon'), B = opt('maxsites');
+
+  document.getElementById('headline').innerHTML =
+    '<b>Two dedicated metro days take the trip from ' + D.baseline.corridorOnly + ' sites to ' + A.newSites + '.</b> ' +
+    'A day spent sweeping the Bay Area collects about ' + D.clusters[0].perDay +
+    ' sites; a day spent driving the corridor collects five or six. Three sweep days reach ' +
+    B.newSites + ', but cost the Grand Canyon and two more long days.';
+
+  document.querySelector('#cluster-tbl tbody').innerHTML = D.clusters.map(function (c) {
+    return '<tr><td>' + esc(c.name) + '</td><td class="n">' + c.pool + '</td><td class="n">' + c.perDay + '</td></tr>';
+  }).join('');
+
+  document.querySelector('#session-tbl tbody').innerHTML = D.sessionCurve.map(function (s) {
+    return '<tr><td>' + s.minSessionKwh + ' kWh' + (s.minSessionKwh === D.assumedMinSessionKwh ? ' <b>(assumed)</b>' : '') +
+      '</td><td class="n">' + s.count + '</td></tr>';
+  }).join('');
+
+  function cardHTML(o, cls, tag) {
+    return '<div class="card ' + cls + '"><div class="tag">' + tag + '</div>' +
+      '<h3 style="margin:4px 0 2px">' + esc(o.label) + '</h3>' +
+      '<p class="hero-lab">' + esc(o.note) + '</p>' +
+      '<div class="hero-num">+' + o.newSites + '</div>' +
+      '<div class="hero-lab">new sites, taking your 2026 total to <b>' + (D.baseline.unique2026 + o.newSites) + '</b></div>' +
+      '<div class="stats">' +
+        st('Sweep days', String(o.sweepDays)) + st('Long days', String(o.pushDays)) +
+        st('Road miles', f0(o.routeMi)) + st('With sweeps', f0(o.totalMi)) +
+        st('Longest day', Math.max.apply(null, o.days.map(function (d) { return d.totalDayH; })).toFixed(1) + ' h') +
+        st('Cost', money(o.cost.totalLow) + '-' + money(o.cost.totalHigh)) +
+      '</div>' +
+      '<div class="chips">' + Object.keys(o.stateCounts).sort(function (x, y) { return o.stateCounts[y] - o.stateCounts[x]; })
+        .map(function (k) { return '<span class="chip">' + k + ' ' + o.stateCounts[k] + '</span>'; }).join('') + '</div>' +
+      '</div>';
+  }
+  function st(k, v) { return '<div class="stat"><div class="k">' + k + '</div><div class="v">' + v + '</div></div>'; }
+
+  document.getElementById('cards').innerHTML =
+    cardHTML(A, 'pick', 'Recommended') + cardHTML(B, 'alt', 'Most sites');
+
+  function renderDays() {
+    var o = opt(state.opt);
+    document.querySelector('#day-tbl tbody').innerHTML = o.days.map(function (d) {
+      var what = d.type === 'sweep'
+        ? 'Sweep ' + esc(d.metro) + (d.visits.length ? ' &middot; ' + esc(d.visits.join(', ')) : '')
+        : 'Drive' + (d.visits.length ? ' &middot; ' + esc(d.visits.join(', ')) : '') +
+          (d.shape === 'evening' ? ' (out after school)' : d.shape === 'push' || d.shape === 'pushLate' ? ' (long day)' : '');
+      return '<tr class="' + (d.type === 'sweep' ? 'sweep' : '') + '">' +
+        '<td class="n">' + d.n + '</td><td>' + what + '</td>' +
+        '<td class="n">' + f0(d.miles) + '</td><td class="n">' + d.driveH + ' h</td>' +
+        '<td class="n">' + d.newSites + '</td><td class="n">' + d.totalDayH + ' / ' + d.budgetH + ' h</td></tr>';
+    }).join('');
+    var sw = o.days.filter(function (d) { return d.type === 'sweep'; });
+    var dr = o.days.filter(function (d) { return d.type === 'drive'; });
+    var swAvg = sw.reduce(function (a, d) { return a + d.newSites; }, 0) / (sw.length || 1);
+    var drAvg = dr.reduce(function (a, d) { return a + d.newSites; }, 0) / (dr.length || 1);
+    document.getElementById('day-note').innerHTML =
+      '<b>' + swAvg.toFixed(0) + ' sites on a sweep day against ' + drAvg.toFixed(1) + ' on a driving day.</b> ' +
+      'The driving days look thin because they are: between Amarillo and Kingman the sites are 50 to 70 miles apart, ' +
+      'and you are spending the day covering ground rather than collecting. That is the price of reaching California.';
+    Array.prototype.forEach.call(document.querySelectorAll('#seg-opt button'), function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.id === state.opt));
+    });
+  }
+
+  var seg = document.getElementById('seg-opt');
+  seg.innerHTML = '';
+  D.options.forEach(function (o) {
+    var b = document.createElement('button');
+    b.type = 'button'; b.textContent = o.label; b.dataset.id = o.id;
+    b.setAttribute('aria-pressed', String(o.id === state.opt));
+    b.addEventListener('click', function () { state.opt = o.id; renderDays(); });
+    seg.appendChild(b);
+  });
+
+  document.getElementById('coast-note').innerHTML =
+    '<b>The Bay Area is the coast prize; past it the map empties out.</b> ' +
+    D.northCoast.map(function (n) { return esc(n.name) + ' has ' + n.count; }).join(', ') +
+    '. Portland is the next real cluster at 24 sites, and it is roughly 600 road miles each way from Lodi ' +
+    '&mdash; two days of driving for fewer sites than one Bay Area day already gives you. ' +
+    'Going north of Sacramento costs more than it returns, so both plans turn south instead.';
+
+  document.getElementById('gen').textContent =
+    new Date(D.builtAt).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
+  renderDays();
+})();
+</script>

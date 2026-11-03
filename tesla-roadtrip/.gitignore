@@ -6,11 +6,11 @@ data/untrusted/
 data/visited.json
 results/
 
-# Built pages embed the history and the visited set, so they stay local too.
-# Regenerate with build-page.js / build-itinerary-page.js / build-map.js.
-web/compare.html
-web/itinerary.html
-web/map.html
+# Built pages embed the history, the visited set and the day-by-day plan, so they
+# stay local. Templates are source and are tracked; anything built from them is not.
+# Regenerate with the matching src/build-*.js.
+web/*.html
+!web/*.template.html
 
 # Downloaded third-party data and routing responses: large and reproducible.
 # See the README for how to fetch them again.
