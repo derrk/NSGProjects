@@ -707,6 +707,7 @@
         if (res.ok) {
           form.style.display = 'none';
           document.getElementById('formSuccess').style.display = 'block';
+          document.getElementById('formSuccess').scrollIntoView({ behavior: 'smooth', block: 'center' });
         } else {
           btn.textContent = 'Error — please try again';
           btn.disabled = false;
