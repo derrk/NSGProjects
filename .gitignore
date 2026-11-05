@@ -49,3 +49,6 @@ yarn-error.log*
 
 # ESU store has its own standalone repo (github.com/derrk/esu-store)
 esu-store/
+
+# Internal business planning — pricing strategy, standing notes. Public repo.
+nsg-business-plan/
