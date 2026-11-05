@@ -64,6 +64,12 @@
 
     .nav-phone:hover { color: var(--white); }
 
+
+    /* Brand mark. Explicit CSS height beats the img height attribute, which would
+       otherwise force the intrinsic 180px and blow out the nav. */
+    .nav-logo-img { display: block; height: 34px; width: auto; }
+    .footer-logo-img { display: block; width: 215px; height: auto; max-width: 100%; }
+    .footer-logo { display: inline-block; }
     .nav-links {
       display: flex;
       align-items: center;
@@ -976,6 +982,8 @@
 
     @media (max-width: 640px) {
       nav { padding: 0 4%; }
+      .nav-logo-img { height: 28px; }
+      .footer-logo-img { width: 190px; }
       .nav-links { display: none; }
       .hamburger { display: flex; }
       .nav-phone { display: none; }
