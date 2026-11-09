@@ -2,10 +2,6 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Analytics } from "@vercel/analytics/next";
-import Header from "@/components/layout/Header";
-import Footer from "@/components/layout/Footer";
-// CartDrawer removed for inventory-showcase version — preserved for future ecommerce build
-// import CartDrawer from "@/components/cart/CartDrawer";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -41,11 +37,10 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} antialiased`}
     >
+      {/* The storefront's header and footer live in (storefront)/layout.tsx,
+          so /admin renders without them. */}
       <body className="min-h-screen flex flex-col bg-[#0a0a0f] text-slate-100">
-        <Header />
-        <main className="flex-1">{children}</main>
-        <Footer />
-        {/* <CartDrawer /> — removed for inventory-showcase version */}
+        {children}
         <Analytics />
       </body>
     </html>

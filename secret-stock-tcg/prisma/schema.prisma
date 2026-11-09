@@ -1,0 +1,361 @@
+// Secret Stock TX — Prisma schema
+// Postgres (Neon). All monetary values are INTEGER cents.
+// A flexible Product model supports very different collectible types via a
+// discriminator + promoted typed columns + a JSON `attributes` bag.
+// Stock lives on Product.quantity; every change is recorded in InventoryTransaction.
+//
+// Ported from the ESU Store backend — see BACKEND.md for the decisions, and the
+// differences that matter for Secret Stock (ART product type, Collectr ids).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL") // pooled (Neon -pooler) for the app
+  directUrl = env("DIRECT_URL") // direct connection for migrations
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum ProductType {
+  RAW_CARD
+  GRADED_SLAB
+  SEALED
+  APPAREL
+  ART
+  COLLECTIBLE
+}
+
+enum ProductStatus {
+  ACTIVE
+  DRAFT
+  SOLD_OUT
+  ARCHIVED
+}
+
+// Why a stock level changed. Sales carry a SalesChannel too.
+enum InventoryTxnType {
+  INITIAL
+  PURCHASE
+  RESTOCK
+  ONLINE_SALE
+  IN_STORE_SALE
+  CARD_SHOW_SALE
+  MANUAL_ADJUSTMENT
+  RETURN
+  DAMAGE
+  LOSS
+  TRADE
+  COLLECTION_PURCHASE
+  ORDER_CANCELLATION
+}
+
+enum SalesChannel {
+  ONLINE
+  IN_STORE
+  CARD_SHOW
+  INSTAGRAM
+  WHATNOT
+  OTHER
+}
+
+// ─── Category ────────────────────────────────────────────────────────────────
+model Category {
+  id        String    @id @default(cuid())
+  name      String    @unique
+  slug      String    @unique
+  sortOrder Int       @default(0)
+  products  Product[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+// ─── Product ─────────────────────────────────────────────────────────────────
+// One row per SKU. `productType` selects which typed columns are meaningful;
+// anything not promoted to a column lives in `attributes` (JSON).
+model Product {
+  id String @id @default(cuid())
+
+  // Identity
+  sku         String        @unique
+  name        String
+  slug        String        @unique // storefront URL: /shop/<slug>
+  description String?       @db.Text
+  productType ProductType   @default(COLLECTIBLE)
+  status      ProductStatus @default(ACTIVE)
+
+  // Merchandising
+  categoryId  String?
+  category    Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  subcategory String?
+  brand       String? // Pokemon | One Piece | Sports | ...
+  tags        String[] @default([])
+  images      String[] @default([]) // Vercel Blob URLs; images[0] = primary
+
+  // Money — integer cents
+  costCents      Int  @default(0) // cost basis (per unit)
+  priceCents     Int  @default(0) // selling price
+  compareAtCents Int? // market / "was" price for a strike-through
+
+  // Inventory
+  quantity       Int     @default(0)
+  trackInventory Boolean @default(true)
+  isUnique       Boolean @default(false) // one-of-a-kind (slab, original art): qty pinned to 1
+  lowStockAt     Int     @default(2)
+
+  // Storefront
+  published Boolean @default(false) // instant on/off switch for the shop
+  featured  Boolean @default(false)
+
+  // Shipping
+  weightOz Int?
+  lengthIn Float?
+  widthIn  Float?
+  heightIn Float?
+
+  // ── Type-specific, promoted for search/filter (all nullable) ──
+  // Cards + slabs + sealed
+  game       String? // Pokemon | One Piece | MTG | Sports ...
+  setName    String? // set / series
+  setCode    String?
+  cardNumber String?
+  year       Int?
+  rarity     String?
+  language   String?
+  condition  String? // Near Mint | Lightly Played | ...
+  // Graded slabs
+  gradingCompany String? // PSA | CGC | BGS | SGC | Other
+  grade          String? // "10", "9.5 GEM MT"
+  certNumber     String?
+  // Sealed
+  sealedType  String? // Booster Box | Elite Trainer Box | Promo Box | ...
+  releaseDate String?
+  // Apparel
+  size  String?
+  color String?
+  // Original art + prints — Secret Stock carries these, ESU does not.
+  medium     String? // Original Canvas | Print | ...
+  dimensions String?
+  artist     String?
+
+  /// Collectr catalog id, for the inventory/price sync in a later phase.
+  collectrId String?
+
+  // Everything else / custom collectible attributes.
+  // Apparel size runs live here until the variant layer lands (see BACKEND.md D3).
+  attributes Json?
+
+  orderItems   OrderItem[]
+  transactions InventoryTransaction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([published])
+  @@index([featured])
+  @@index([status])
+  @@index([productType])
+  @@index([categoryId])
+  @@index([certNumber])
+  @@index([setName])
+  @@index([collectrId])
+}
+
+// ─── InventoryTransaction ────────────────────────────────────────────────────
+// Append-only ledger. Every stock change writes one row: prev → change → new,
+// with the reason (type), sales channel (for sales), order link, and who did it.
+model InventoryTransaction {
+  id             String           @id @default(cuid())
+  productId      String
+  product        Product          @relation(fields: [productId], references: [id], onDelete: Cascade)
+  previousQty    Int
+  quantityChange Int // +restock / -sale
+  newQty         Int
+  type           InventoryTxnType
+  channel        SalesChannel?
+  orderId        String?
+  userLabel      String? // who performed it (admin identity; "owner" for now)
+  note           String?
+  createdAt      DateTime         @default(now())
+
+  @@index([productId])
+  @@index([type])
+  @@index([createdAt])
+}
+
+// ─── Order ───────────────────────────────────────────────────────────────────
+// Not yet wired to a storefront checkout — that is a later phase. The table is
+// here so inventory sales have somewhere to point from the start.
+model Order {
+  id          String @id @default(cuid())
+  orderNumber String @unique
+
+  // Fulfillment lifecycle: pending | processing | ready | shipped | fulfilled | cancelled
+  status String @default("pending")
+  // Payment lifecycle: pending | authorized | paid | failed | refunded | partially_refunded
+  paymentStatus String       @default("pending")
+  channel       SalesChannel @default(ONLINE)
+
+  // Customer
+  customerId   String?
+  customer     Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  email        String
+  phone        String?
+  customerName String
+
+  // Shipping address
+  shipName    String
+  shipStreet1 String
+  shipStreet2 String?
+  shipCity    String
+  shipState   String
+  shipZip     String
+  shipCountry String @default("US")
+
+  // Money — cents
+  subtotalCents Int @default(0)
+  shippingCents Int @default(0)
+  taxCents      Int @default(0)
+  discountCents Int @default(0)
+  totalCents    Int @default(0)
+
+  // Payment (Stripe)
+  stripeSessionId       String?   @unique
+  stripePaymentIntentId String?
+  paidAt                DateTime?
+
+  // Fulfillment
+  carrier          String?
+  shippingService  String? // e.g. "USPS Ground Advantage"
+  trackingNumber   String?
+  labelUrl         String? // purchased label PDF
+  shippingProvider String? // shippo | easypost | manual
+  fulfilledAt      DateTime?
+  customerNote     String?
+  internalNote     String?
+
+  items OrderItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([paymentStatus])
+  @@index([customerId])
+  @@index([createdAt])
+}
+
+// ─── Customer — one record per email; orders link back for history/spend ─────
+model Customer {
+  id    String  @id @default(cuid())
+  email String  @unique
+  name  String
+  phone String?
+
+  // Most-recent shipping address (convenience; each order keeps its own copy).
+  shipStreet1 String?
+  shipStreet2 String?
+  shipCity    String?
+  shipState   String?
+  shipZip     String?
+  shipCountry String?
+
+  notes  String?
+  orders Order[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─── OrderItem — immutable snapshot at time of sale ──────────────────────────
+model OrderItem {
+  id      String @id @default(cuid())
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  productId  String?
+  product    Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  sku        String
+  name       String
+  priceCents Int
+  // Cost basis snapshotted at the moment of sale, so margin stays correct when
+  // the product's cost is later edited or the product is deleted.
+  // NULL means "not captured", which reporting must tell apart from a genuine
+  // zero cost, or the order reads as 100% margin.
+  costCents Int?
+  quantity  Int
+
+  @@index([orderId])
+}
+
+/// Operational settings the shop owner can change without a developer.
+/// Exactly one row, id "singleton" — a settings table with many rows invites
+/// the question of which one is live.
+model StoreSettings {
+  id String @id @default("singleton")
+
+  /// Flat shipping charged at checkout, in cents.
+  flatShippingCents     Int @default(500)
+  /// Free shipping once the subtotal reaches this; 0 disables it.
+  freeShippingOverCents Int @default(0)
+
+  /// Default box used to rate a parcel, in inches. Weight comes from the items.
+  parcelLengthIn Float @default(9)
+  parcelWidthIn  Float @default(6)
+  parcelHeightIn Float @default(3)
+
+  /// Fold shipping into the item price and charge nothing at checkout.
+  includeShippingInPrice Boolean @default(false)
+  /// Postage floor used when suggesting a shelf price, in cents.
+  shipBaseCents     Int     @default(400)
+  /// Added per ounce on top of the base.
+  shipPerOzCents    Int     @default(10)
+  /// Padding over estimated postage, so postage is never under-recovered.
+  shipMarkupPercent Int     @default(15)
+  /// Gross suggested prices up so the card fee is not taken from margin.
+  coverStripeFees   Boolean @default(true)
+
+  /// Quantity at or below which a tracked product counts as low stock.
+  lowStockAt Int @default(3)
+
+  updatedAt DateTime @updatedAt
+}
+
+/// Someone offering to sell Secret Stock their collection, via the public form.
+/// The shop's side of this is a conversation, not a transaction — the owner
+/// reads it, calls them, and books them in — so the workflow fields are about
+/// chasing a lead rather than processing an order.
+model CollectionOffer {
+  id String @id @default(cuid())
+
+  // Who they are
+  name             String
+  email            String
+  phone            String?
+  /// How they'd rather be reached: email | phone | text
+  preferredContact String  @default("email")
+
+  // What they have. Free text on purpose — a seller describing a shoebox of
+  // 1990s commons in their own words tells the owner more than a dropdown.
+  categories        String[]
+  description       String
+  itemCountEstimate String?
+  askingPrice       String?
+  /// Link to photos they've put somewhere, rather than an upload endpoint
+  /// open to the public internet.
+  photosUrl         String?
+
+  // The shop's side
+  /// new | contacted | scheduled | purchased | declined
+  status        String    @default("new")
+  appointmentAt DateTime?
+  internalNote  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
+}
