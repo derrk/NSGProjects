@@ -142,6 +142,23 @@ at a card shop sorts in memory fine.
 Booking an appointment moves the status to scheduled on its own, so a visit
 that is on the calendar cannot still be sitting in the "new" pile.
 
+### S10 — Contact messages are a table too, and the save comes first
+The contact form had the same problem the sell form did: it POSTed straight to
+Formspree from the browser, so messages lived in an inbox and the endpoint sat
+in the shipped JavaScript. An env var could not fix the second part — a
+NEXT_PUBLIC_ value is inlined into the bundle — so the request moved to a
+server action, and the Formspree id left the source entirely.
+
+ContactMessage is separate from CollectionOffer on purpose. Someone asking
+whether a card is still available is not someone selling a shoebox, and mixing
+them would make both queues worse.
+
+Order matters: save, then notify. Before the table existed an unset endpoint
+had to return an error, because a message with nowhere to live really was lost.
+Now the row is the record, so a dead endpoint is the owner's problem to notice
+(logged, and visible as an unanswered badge in the nav) rather than a reason to
+tell a customer their message did not go through.
+
 ## Phase map
 
 - **Phase 1 (done):** Prisma schema + admin passphrase auth + inventory CRUD with

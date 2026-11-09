@@ -8,6 +8,7 @@ import {
   HandCoins,
   LayoutDashboard,
   LogOut,
+  MessageSquare,
   ScanLine,
   Settings,
   Store,
@@ -16,12 +17,14 @@ import {
 } from "lucide-react";
 import { isAdminAuthed } from "@/lib/auth";
 import { countNewOffers } from "@/lib/collection-offers";
+import { countNewMessages } from "@/lib/contact-messages";
 import { logout } from "@/app/admin/login/actions";
 
 const NAV = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/inventory", label: "Inventory", icon: Boxes },
   { href: "/admin/sell-requests", label: "Sell Requests", icon: HandCoins },
+  { href: "/admin/messages", label: "Messages", icon: MessageSquare },
 ];
 
 // Later phases. Shown so the shape of the finished admin is visible, but not
@@ -41,9 +44,16 @@ export default async function AdminDashLayout({
   // Proxy already gates this, but re-check here as defense in depth.
   if (!(await isAdminAuthed())) redirect("/admin/login");
 
-  // Unanswered sell requests ride in the nav, so a lead can't sit unnoticed
-  // just because the owner didn't think to open that page.
-  const newOffers = await countNewOffers();
+  // Anything unanswered rides in the nav, so a lead or a question can't sit
+  // unnoticed just because the owner didn't think to open that page.
+  const [newOffers, newMessages] = await Promise.all([
+    countNewOffers(),
+    countNewMessages(),
+  ]);
+  const UNREAD: Record<string, number> = {
+    "/admin/sell-requests": newOffers,
+    "/admin/messages": newMessages,
+  };
 
   return (
     <div className="flex min-h-screen flex-col md:flex-row">
@@ -74,9 +84,9 @@ export default async function AdminDashLayout({
             >
               <Icon className="size-4" />
               {label}
-              {href === "/admin/sell-requests" && newOffers > 0 && (
+              {UNREAD[href] !== undefined && UNREAD[href]! > 0 && (
                 <span className="ml-auto rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-primary-foreground tnum">
-                  {newOffers}
+                  {UNREAD[href]}
                 </span>
               )}
             </Link>

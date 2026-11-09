@@ -2,6 +2,7 @@
 
 import { headers } from "next/headers";
 import { z } from "zod";
+import { prisma } from "@/lib/db";
 import { rateLimit } from "@/lib/rate-limit";
 
 export type ContactFormState = {
@@ -16,7 +17,8 @@ const SUBMIT_RULE = { limit: 5, windowMs: 10 * 60 * 1000 };
 
 // Server-side only, with no fallback. The point of moving this off the client
 // is that the endpoint stops being readable in the shipped JavaScript; a
-// default in the source would hand it straight back.
+// default in the source would hand it straight back. Unset means no email;
+// the message is still saved and still shows in the admin.
 const NOTIFY_URL = process.env.CONTACT_NOTIFY_URL ?? "";
 
 const contactSchema = z.object({
@@ -68,18 +70,42 @@ export async function submitContactMessage(
     return { error: "Please check the highlighted fields.", fieldErrors };
   }
 
-  // Unlike a sell request, a contact message has no row to fall back on — if
-  // the email doesn't go, it is gone. So say so plainly instead of showing a
-  // "Message Sent!" that isn't true.
-  if (!NOTIFY_URL) {
-    console.error("[contact] CONTACT_NOTIFY_URL is not set — message not delivered.");
+  const data = parsed.data;
+  const nn = (s: string) => (s.trim() ? s.trim() : null);
+
+  // Save first. The row is what makes the message recoverable, so a failure
+  // here — and only here — is worth telling the sender about.
+  let saved;
+  try {
+    saved = await prisma.contactMessage.create({
+      data: {
+        name: data.name,
+        email: data.email,
+        phone: nn(data.phone),
+        interestedItem: nn(data.interestedItem),
+        message: data.message,
+      },
+    });
+  } catch (err) {
+    console.error("[contact] save failed:", err);
     return {
       error:
-        "Our contact form isn't available right now. Please email info@secretstocktx.com or call (972) 482-5154.",
+        "Something went wrong sending that. Please try again, or email info@secretstocktx.com.",
     };
   }
 
-  const data = parsed.data;
+  // Notify second, best-effort. The message is already recorded and waiting in
+  // the admin, so a dead endpoint is the owner's problem to notice, not a
+  // reason to tell a customer their message didn't go through.
+  if (!NOTIFY_URL) {
+    if (process.env.NODE_ENV === "production") {
+      console.warn(
+        `[contact] CONTACT_NOTIFY_URL is not set — message ${saved.id} saved but no email sent.`,
+      );
+    }
+    return { ok: true };
+  }
+
   try {
     const body = new FormData();
     body.append("_subject", `Contact form — ${data.name}`);
@@ -88,6 +114,7 @@ export async function submitContactMessage(
     body.append("phone", data.phone);
     body.append("interestedItem", data.interestedItem);
     body.append("message", data.message);
+    body.append("adminLink", `/admin/messages#${saved.id}`);
 
     const res = await fetch(NOTIFY_URL, {
       method: "POST",
@@ -96,11 +123,7 @@ export async function submitContactMessage(
     });
     if (!res.ok) throw new Error(`notify responded ${res.status}`);
   } catch (err) {
-    console.error("[contact] delivery failed:", err);
-    return {
-      error:
-        "Something went wrong sending that. Please try again, or email info@secretstocktx.com.",
-    };
+    console.error(`[contact] notify failed for ${saved.id} (message is saved):`, err);
   }
 
   return { ok: true };

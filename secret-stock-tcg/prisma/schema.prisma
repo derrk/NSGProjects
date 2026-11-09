@@ -359,3 +359,28 @@ model CollectionOffer {
   @@index([status])
   @@index([createdAt])
 }
+
+// A message from the contact form. Separate from CollectionOffer: someone
+// asking whether a card is still available is not someone selling a shoebox,
+// and mixing the two would make both queues worse.
+model ContactMessage {
+  id String @id @default(cuid())
+
+  name  String
+  email String
+  phone String?
+
+  /// Pre-filled from the "ask about this" link on an inventory page.
+  interestedItem String?
+  message        String  @db.Text
+
+  /// new | replied | archived
+  status       String  @default("new")
+  internalNote String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
+}

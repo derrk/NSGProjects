@@ -142,3 +142,9 @@ export const OFFER_STATUSES = [
   "declined",
 ] as const;
 export type OfferStatus = (typeof OFFER_STATUSES)[number];
+
+// Contact messages. Free text in the database for the same reason offer status
+// is — adding a step needs no migration — but fixed here so the admin and any
+// later reporting agree on the vocabulary.
+export const MESSAGE_STATUSES = ["new", "replied", "archived"] as const;
+export type MessageStatus = (typeof MESSAGE_STATUSES)[number];
