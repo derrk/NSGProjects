@@ -20,7 +20,12 @@ const SUBMIT_RULE = { limit: 5, windowMs: 10 * 60 * 1000 };
 // The owner has been getting these as Formspree emails. The database is now the
 // record, but the email is how he actually finds out, so it still fires —
 // best-effort, after the row is safely written.
-const NOTIFY_URL = process.env.SELL_NOTIFY_URL ?? "https://formspree.io/f/xwvjdbro";
+//
+// No default on purpose. This repository is public, and a notification endpoint
+// baked into the source is one anyone can POST to directly, flooding the lead
+// inbox without ever touching the rate limit below. Unset simply means no
+// email; the request is still saved and still shows in the admin.
+const NOTIFY_URL = process.env.SELL_NOTIFY_URL ?? "";
 
 async function clientKey(): Promise<string> {
   const h = await headers();
@@ -38,7 +43,17 @@ async function notify(offer: {
   description: string;
   askingPrice: string | null;
 }): Promise<void> {
-  if (!NOTIFY_URL) return;
+  if (!NOTIFY_URL) {
+    // Empty is the intended state locally. In production it means a real lead
+    // just came in and nobody was told, which is worth saying out loud in the
+    // logs rather than discovering weeks later.
+    if (process.env.NODE_ENV === "production") {
+      console.warn(
+        `[sell] SELL_NOTIFY_URL is not set — offer ${offer.id} saved but no email sent.`,
+      );
+    }
+    return;
+  }
   try {
     const body = new FormData();
     body.append("_subject", `Sell request from ${offer.name}`);

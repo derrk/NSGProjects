@@ -119,8 +119,12 @@ lived in an inbox and nowhere else. It now writes a CollectionOffer and *then*
 fires the notification, best-effort, inside a try/catch. A failed email can no
 longer cost the shop a lead; the row is already saved and shows in the admin.
 
-SELL_NOTIFY_URL holds the endpoint. It is empty in local .env on purpose, so
-testing the form never emails a fake seller to the real inbox; set it in Vercel.
+SELL_NOTIFY_URL holds the endpoint, with no fallback in the code. This repo is
+public, so an endpoint baked into the source is one anyone can POST to directly,
+flooding the lead inbox without touching the rate limit. Unset means no email;
+the row is still saved and still shows in the admin, and production logs a
+warning so a silent lead is noticed. Empty in local .env on purpose, so testing
+the form never emails a fake seller to the real inbox; set it in Vercel.
 
 ### S8 — The sell form is the one public write, so it is the one that is capped
 Everything else that writes is behind the admin passphrase. /collections is not,
